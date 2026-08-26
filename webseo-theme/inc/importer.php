@@ -108,166 +108,231 @@ function webseo_import_form(string $type, string $placeholder = ''): void {
 function webseo_tab_services(): void {
     ?>
     <h2>Импорт услуг</h2>
-    <p>Каждая услуга — это CPT <code>service</code> с 11-секционным продающим шаблоном. Все секции опциональны — пустые не отображаются.</p>
+    <p>Каждая услуга — CPT <code>service</code> с продающим шаблоном. Поддерживается мультирегиональность: привяжите города через <code>cities</code> — автоматически создадутся страницы <code>/uslugi/slug/city/</code>.</p>
 
     <div class="webseo-cols">
         <div>
             <h3>Структура JSON</h3>
             <table class="field-table">
                 <tr><th colspan="3" style="background:#e8f5e9;">Основные поля</th></tr>
-                <tr><th><code>title</code></th><td>string</td><td>Название услуги (H1 на странице). Пример: «Разработка интернет-магазинов»</td></tr>
-                <tr><th><code>excerpt</code></th><td>string</td><td>Краткое описание для карточки на главной (1–2 предложения)</td></tr>
-                <tr><th><code>menu_order</code></th><td>number</td><td>Порядок сортировки (1, 2, 3...)</td></tr>
-                <tr><th><code>taxonomies.service_category</code></th><td>array</td><td>Категории: <code>["Разработка сайтов"]</code> или <code>["SEO-продвижение"]</code></td></tr>
+                <tr><th><code>title</code></th><td>string</td><td>Название услуги (H1). Продающий формат: «Разработка интернет-магазинов» (город добавится автоматически на городских страницах)</td></tr>
+                <tr><th><code>excerpt</code></th><td>string</td><td>Для карточки на главной (1 предложение, макс. выгода)</td></tr>
+                <tr><th><code>menu_order</code></th><td>number</td><td>Порядок сортировки</td></tr>
+                <tr><th><code>taxonomies.service_category</code></th><td>array</td><td>Категории: <code>["Разработка сайтов"]</code></td></tr>
 
-                <tr><th colspan="3" style="background:#e3f2fd;">fields → Hero</th></tr>
-                <tr><th><code>service_icon</code></th><td>string</td><td>CSS-класс иконки Phosphor. Пример: <code>ph ph-shopping-cart</code></td></tr>
-                <tr><th><code>service_subtitle</code></th><td>string</td><td>Лид-абзац под H1 (2–3 предложения, суть услуги)</td></tr>
-                <tr><th><code>service_cta_text</code></th><td>string</td><td>Текст кнопки. Пример: «Рассчитать стоимость»</td></tr>
-                <tr><th><code>service_cta_anchor</code></th><td>string</td><td>Якорь кнопки. Обычно: <code>#quiz</code></td></tr>
+                <tr><th colspan="3" style="background:#fce4ec;">Мультирегиональность</th></tr>
+                <tr><th><code>cities</code></th><td>array</td><td>Массив городов для создания региональных страниц. Каждый город:<br>
+                    <code>name</code> — именительный (Москва)<br>
+                    <code>slug</code> — slug для URL (moskva)<br>
+                    <code>prepositional</code> — предложный (Москве)<br>
+                    <code>genitive</code> — родительный (Москвы)<br>
+                    <code>accusative</code> — винительный, если отличается (Москву). Необязательно
+                </td></tr>
+
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Hero (первый экран)</th></tr>
+                <tr><th><code>service_icon</code></th><td>string</td><td>CSS-класс Phosphor: <code>ph ph-shopping-cart</code></td></tr>
+                <tr><th><code>service_subtitle</code></th><td>string</td><td><strong>Продающий подзаголовок (1–2 предложения, максимум конкретики).</strong><br>Формула: выгода + цифра + срок.<br>Пример: «Создаём магазины на 1С-Битрикс и WooCommerce с конверсией от 3%. Средний рост продаж клиентов — ×2.4 за первый квартал.»</td></tr>
+                <tr><th><code>service_cta_text</code></th><td>string</td><td>Текст CTA-кнопки. Формула: действие + результат.<br>Примеры: «Рассчитать стоимость», «Получить КП за 2 часа»</td></tr>
 
                 <tr><th colspan="3" style="background:#e8f5e9;">fields → Hero чипсы и trust</th></tr>
-                <tr><th><code>hero_chips</code></th><td>array</td><td><strong>3–4</strong> объекта с полем <code>text</code><br>Короткие обещания-выгоды: «Рост трафика ×3», «Без долгих контрактов»</td></tr>
-                <tr><th><code>hero_trust</code></th><td>array</td><td><strong>2–4</strong> объекта: <code>value</code> + <code>label</code><br>Цифры доверия: value=«10+» label=«лет опыта»</td></tr>
+                <tr><th><code>hero_chips</code></th><td>array</td><td><strong>3–4</strong> объекта: <code>{text}</code><br>Каждый чип = одна конкретная выгода с цифрой или фактом.<br>Плохо: «Качественно» / Хорошо: «Конверсия от 3%»<br>Плохо: «Быстро» / Хорошо: «Запуск от 2 недель»</td></tr>
+                <tr><th><code>hero_trust</code></th><td>array</td><td><strong>3</strong> объекта: <code>{value, label}</code><br>Только проверяемые цифры. Пример: value=«147» label=«магазинов запущено»</td></tr>
 
                 <tr><th colspan="3" style="background:#fff3e0;">fields → Боли клиента</th></tr>
-                <tr><th><code>pains_title</code></th><td>string</td><td>Заголовок секции. Пример: «Знакомые проблемы?»</td></tr>
-                <tr><th><code>pains</code></th><td>array</td><td><strong>4–6</strong> объектов: <code>icon</code>, <code>title</code>, <code>text</code><br>Отображаются как пилюли-теги (только title видно). Формулируйте коротко: «Сайт есть, а заявок нет»</td></tr>
+                <tr><th><code>pains_title</code></th><td>string</td><td>Заголовок. Пример: «Знакомая ситуация?»</td></tr>
+                <tr><th><code>pains</code></th><td>array</td><td><strong>4–6</strong> объектов: <code>{title}</code> (icon и text не отображаются).<br>Формулируйте как боль, не как проблему:<br>Плохо: «Нет SEO» / Хорошо: «Вложили 200к в рекламу — 3 заявки»</td></tr>
 
                 <tr><th colspan="3" style="background:#e8f5e9;">fields → Решение</th></tr>
                 <tr><th><code>solution_title</code></th><td>string</td><td>Заголовок. Пример: «Что вы получите»</td></tr>
-                <tr><th><code>solution_items</code></th><td>array</td><td><strong>6</strong> объектов (сетка 3 колонки × 2 ряда): <code>icon</code>, <code>title</code>, <code>text</code><br>Конкретные результаты: «Рост трафика в 3 раза за 6 месяцев»</td></tr>
+                <tr><th><code>solution_items</code></th><td>array</td><td><strong>4–6</strong> штук: <code>{title, text}</code><br>Каждый пункт = результат + доказательство через цифру</td></tr>
 
                 <tr><th colspan="3" style="background:#e3f2fd;">fields → Преимущества</th></tr>
-                <tr><th><code>benefits_title</code></th><td>string</td><td>Заголовок. Пример: «Почему выбирают нас»</td></tr>
-                <tr><th><code>benefits</code></th><td>array</td><td><strong>6</strong> объектов (сетка 3 колонки × 2 ряда): <code>icon</code>, <code>title</code>, <code>text</code></td></tr>
+                <tr><th><code>benefits_title</code></th><td>string</td><td>Заголовок. Пример: «Почему мы»</td></tr>
+                <tr><th><code>benefits</code></th><td>array</td><td><strong>5–6</strong> объектов: <code>{icon, title, text}</code><br>Bento-сетка: 1-й элемент крупный, 6-й на всю ширину</td></tr>
 
-                <tr><th colspan="3" style="background:#fff3e0;">fields → Этапы работы</th></tr>
-                <tr><th><code>steps_title</code></th><td>string</td><td>Заголовок. Пример: «Как мы работаем»</td></tr>
-                <tr><th><code>steps</code></th><td>array</td><td><strong>4–7</strong> объектов: <code>title</code>, <code>text</code><br>4 в ряд, остальные в слайдере. Номера автоматически</td></tr>
+                <tr><th colspan="3" style="background:#fff3e0;">fields → Этапы</th></tr>
+                <tr><th><code>steps</code></th><td>array</td><td><strong>4–6</strong> шагов: <code>{title, text}</code>. Номера автоматически</td></tr>
 
                 <tr><th colspan="3" style="background:#e8f5e9;">fields → Тарифы</th></tr>
-                <tr><th><code>pricing_title</code></th><td>string</td><td>Заголовок. Пример: «Стоимость»</td></tr>
-                <tr><th><code>pricing</code></th><td>array</td><td>1–3 объекта:<br><code>name</code> — название тарифа<br><code>price</code> — цена текстом («от 30 000 ₽»)<br><code>features</code> — что входит (каждый пункт с новой строки \n)<br><code>popular</code> — true/false<br><code>btn_text</code> — текст кнопки<br></td></tr>
+                <tr><th><code>pricing</code></th><td>array</td><td>2–3 тарифа: <code>{name, price, features, popular, btn_text}</code><br><code>features</code> — каждый пункт с новой строки <code>\n</code><br>Один тариф с <code>popular: true</code></td></tr>
 
                 <tr><th colspan="3" style="background:#e3f2fd;">fields → FAQ</th></tr>
-                <tr><th><code>faq_items</code></th><td>array</td><td><strong>6–10</strong> объектов: <code>question</code>, <code>answer</code><br>Ответы можно с HTML (<code>&lt;p&gt;</code>, <code>&lt;ul&gt;</code>). Schema FAQPage генерируется автоматически</td></tr>
+                <tr><th><code>faq_items</code></th><td>array</td><td><strong>6–8</strong> вопросов: <code>{question, answer}</code>. Ответы 2–3 предложения, можно HTML</td></tr>
 
                 <tr><th colspan="3" style="background:#fff3e0;">fields → CTA</th></tr>
-                <tr><th><code>cta_title</code></th><td>string</td><td>Заголовок финального блока</td></tr>
-                <tr><th><code>cta_desc</code></th><td>string</td><td>Описание (1 предложение)</td></tr>
+                <tr><th><code>cta_title</code></th><td>string</td><td>Финальный призыв. Подстановка <code>{city}</code> работает</td></tr>
+                <tr><th><code>cta_desc</code></th><td>string</td><td>1 предложение</td></tr>
                 <tr><th><code>cta_btn_text</code></th><td>string</td><td>Текст кнопки</td></tr>
 
+                <tr><th colspan="3" style="background:#fce4ec;">fields → Гео-контент (для городов)</th></tr>
+                <tr><th><code>geo_subtitle</code></th><td>string</td><td>Переопределяет подзаголовок на городской странице.<br>Используйте <code>{city}</code> (предложный), <code>{city_nom}</code> (именительный), <code>{city_rod}</code> (родительный).<br>Пример: «Разрабатываем интернет-магазины в {city} от 40 000 ₽. Запуск от 2 недель.»</td></tr>
+                <tr><th><code>geo_description</code></th><td>HTML</td><td>Уникальный текстовый блок для городской страницы. SEO-контент с подстановками <code>{city}</code>. 2–3 абзаца</td></tr>
             </table>
         </div>
         <div>
             <div class="prompt-box">
                 <h4>📎 Промт для ИИ</h4>
-                <pre>Сгенерируй JSON для импорта продающей страницы услуги.
+                <pre>Сгенерируй JSON для импорта продающей страницы услуги в WordPress.
 
 Услуга: [НАЗВАНИЕ УСЛУГИ]
-Целевая аудитория: владельцы бизнеса в Москве
-Тон: уверенный, экспертный, без воды и канцелярита.
-Каждый блок должен продавать: боли бьют в реальные проблемы,
-решение показывает конкретный результат, преимущества —
-почему выбрать именно нас.
+Компания: [НАЗВАНИЕ] — веб-студия / SEO-агентство
+Города для мультирегиональности: [Москва, Санкт-Петербург, ...]
+(если городов нет — удали блок cities и geo-поля)
 
-СТРОГИЕ ТРЕБОВАНИЯ ПО КОЛИЧЕСТВУ И ФОРМАТУ:
-- Боли клиента (pains): 4–6 штук, отображаются как ПИЛЮЛИ-ТЕГИ
-  (видно только title, пиши коротко: «Сайт есть, а заявок нет»)
-- Что вы получите (solution_items): 6 штук (чеклист 2 колонки,
-  заголовок + краткое описание 5–8 слов)
-- Преимущества (benefits): 6 штук (карточки с иконками, 3×2 сетка)
-- Этапы работы (steps): от 4 до 7 (4 в ряд, далее слайдер)
-- Тарифы (pricing): 2 или 3
-- FAQ (faq_items): от 6 до 10 вопросов
+ПРАВИЛА ДЛЯ ПЕРВОГО ЭКРАНА (это самое важное):
+1. title — чистое название услуги БЕЗ города (город
+   подставляется автоматически на гео-страницах).
+   Примеры: «Разработка интернет-магазинов»,
+   «SEO-продвижение сайтов»
+2. service_subtitle — ПРОДАЮЩИЙ подзаголовок, 1–2
+   предложения. Формула: [конкретная выгода] + [цифра/срок]
+   + [доказательство].
+   Пример: «Магазины на 1С-Битрикс и WooCommerce с
+   конверсией от 3%. Средний чек клиентов растёт в 2.4 раза
+   за первый квартал.»
+   ПЛОХО: «Мы создаём качественные интернет-магазины
+   с индивидуальным подходом к каждому клиенту и
+   современными технологиями...» — ЭТО ВОДА.
+3. hero_chips — 3–4 коротких факта с цифрами.
+   Хорошо: «Запуск от 14 дней», «Конверсия от 3%»,
+   «Гарантия 12 мес.»
+   Плохо: «Качественно», «Профессионально», «Быстро»
+4. hero_trust — 3 цифры доверия, реалистичные.
+5. geo_subtitle — подзаголовок для городских страниц.
+   Формула: [что делаем] + в {city} + [цена/срок].
+   Пример: «Создаём интернет-магазины в {city}
+   от 40 000 ₽ и 2 недель. Интеграция с 1С, CRM, доставкой.»
 
-Текст болей: формулируй от лица клиента, «У вас...», «Вы сталкиваетесь...».
-Текст решений: конкретные результаты с цифрами где возможно.
-Текст преимуществ: факты, не общие слова.
-FAQ: реальные вопросы которые задают клиенты, ответы 2-3 предложения.
+ОБЩИЕ ПРАВИЛА:
+- Тон: уверенный, экспертный, лаконичный. Ноль воды.
+- Каждое предложение должно содержать факт, цифру
+  или конкретную выгоду. Если убрать предложение и
+  смысл не теряется — оно лишнее.
+- Боли (pains): 4–6 штук. Отображаются как теги-пилюли,
+  видно только title. Пиши как боль клиента, коротко:
+  «Вложили 200к в рекламу — 3 заявки»,
+  «Сайт на 6-м месяце — до сих пор не готов»
+- Решение (solution_items): 4–6 штук. Каждый = результат
+  + цифра. «Рост трафика ×3 за 6 месяцев»
+- Преимущества (benefits): 5–6 штук. Bento-сетка:
+  1-й крупный, 6-й на всю ширину. Факты, не слоганы.
+- Тарифы (pricing): 2–3 штуки. Один с popular: true.
+  Цены реалистичные для РФ/СНГ.
+- FAQ: 6–8 вопросов, которые реально задают. Ответы —
+  2–3 предложения с конкретикой.
 
-JSON-формат (вставь контент в эту структуру):
+JSON-формат:
 
 {
   "services": [
     {
-      "title": "Название услуги (H1)",
-      "excerpt": "Краткое описание для карточки (1–2 предложения)",
+      "title": "Разработка интернет-магазинов",
+      "excerpt": "Магазины с конверсией от 3% — запуск от 14 дней",
       "menu_order": 1,
       "taxonomies": {
-        "service_category": ["Категория"]
+        "service_category": ["Разработка сайтов"]
       },
+      "cities": [
+        {
+          "name": "Москва",
+          "slug": "moskva",
+          "prepositional": "Москве",
+          "genitive": "Москвы",
+          "accusative": "Москву"
+        },
+        {
+          "name": "Санкт-Петербург",
+          "slug": "spb",
+          "prepositional": "Санкт-Петербурге",
+          "genitive": "Санкт-Петербурга"
+        }
+      ],
       "fields": {
-        "service_icon": "ph ph-icon-name",
-        "service_subtitle": "Лид-абзац 2–3 предложения",
-        "service_cta_text": "Получить бесплатный аудит",
+        "service_icon": "ph ph-shopping-cart",
+        "service_subtitle": "Магазины на Битрикс и WooCommerce с конверсией от 3%. Средний рост продаж — ×2.4 за первый квартал.",
+        "service_cta_text": "Рассчитать стоимость",
         "hero_chips": [
-          {"text": "Рост трафика ×3"},
-          {"text": "Прозрачная отчётность"},
-          {"text": "Без долгих контрактов"}
+          {"text": "Запуск от 14 дней"},
+          {"text": "Конверсия от 3%"},
+          {"text": "Гарантия 12 мес."},
+          {"text": "Интеграция с 1С и CRM"}
         ],
         "hero_trust": [
-          {"value": "10+", "label": "лет опыта"},
-          {"value": "200+", "label": "проектов"},
-          {"value": "50+", "label": "в ТОП-10"}
+          {"value": "147", "label": "магазинов запущено"},
+          {"value": "98%", "label": "клиентов продлевают"},
+          {"value": "×2.4", "label": "рост продаж в среднем"}
         ],
-        "pains_title": "Знакомые проблемы?",
+        "geo_subtitle": "Создаём интернет-магазины в {city} от 40 000 ₽ и 2 недель. Интеграция с 1С, CRM, службами доставки.",
+        "geo_description": "&lt;p&gt;Разрабатываем интернет-магазины для бизнеса в {city}. Работаем на 1С-Битрикс, WooCommerce, OpenCart — выбираем платформу под задачи и бюджет.&lt;/p&gt;&lt;p&gt;Каждый проект включает адаптивный дизайн, интеграцию с платёжными системами, настройку доставки и базовое SEO для старта продаж в {city_nom}.&lt;/p&gt;",
+        "pains_title": "Знакомая ситуация?",
         "pains": [
-          {"icon": "", "title": "Сайт есть, а заявок нет", "text": ""},
-          {"icon": "", "title": "Срыв сроков разработки", "text": ""},
-          {"icon": "", "title": "Сложно управлять контентом", "text": ""},
-          {"icon": "", "title": "Непонятно за что платите", "text": ""},
-          {"icon": "", "title": "Нет позиций в поиске", "text": ""},
-          {"icon": "", "title": "Сайт не адаптирован под мобильные", "text": ""}
+          {"icon": "", "title": "Вложили 200к в рекламу — 3 заявки", "text": ""},
+          {"icon": "", "title": "Сайт на 6-м месяце — до сих пор не готов", "text": ""},
+          {"icon": "", "title": "Корзина есть, а оплата не работает", "text": ""},
+          {"icon": "", "title": "Клиенты уходят с мобильной версии", "text": ""},
+          {"icon": "", "title": "Невозможно обновить каталог без разработчика", "text": ""}
         ],
         "solution_title": "Что вы получите",
         "solution_items": [
-          {"icon": "", "title": "Рост видимости в поиске", "text": "Продвигаем по коммерческим запросам"},
-          {"icon": "", "title": "Больше целевого трафика", "text": "Посетители готовые покупать"},
-          {"icon": "", "title": "Исправленный сайт", "text": "Устраняем технические проблемы"},
-          {"icon": "", "title": "Продуманная структура", "text": "SEO-логика в каждой странице"},
-          {"icon": "", "title": "Контент под запросы", "text": "Тексты помогающие ранжироваться"},
-          {"icon": "", "title": "Система для роста", "text": "План работ каждый месяц"}
+          {"icon": "", "title": "Магазин с конверсией от 3%", "text": "Проверенные шаблоны продающих страниц"},
+          {"icon": "", "title": "Интеграция с 1С и CRM", "text": "Автоматическая синхронизация остатков и цен"},
+          {"icon": "", "title": "Мобильная версия", "text": "60% покупок — с телефона, учитываем это"},
+          {"icon": "", "title": "Онлайн-оплата", "text": "ЮKassa, CloudPayments, СБП из коробки"},
+          {"icon": "", "title": "SEO-основа", "text": "Структура и скорость для попадания в ТОП"},
+          {"icon": "", "title": "Обучение + 3 мес. поддержки", "text": "Научим управлять — будете независимы"}
         ],
-        "benefits_title": "Почему доверяют нам",
+        "benefits_title": "Почему мы",
         "benefits": [
-          {"icon": "ph ph-star", "title": "Преимущество 1", "text": "Описание"},
-          {"icon": "ph ph-handshake", "title": "Преимущество 2", "text": "Описание"},
-          {"icon": "ph ph-user-focus", "title": "Преимущество 3", "text": "Описание"},
-          {"icon": "ph ph-target", "title": "Преимущество 4", "text": "Описание"},
-          {"icon": "ph ph-trophy", "title": "Преимущество 5", "text": "Описание"},
-          {"icon": "ph ph-graph", "title": "Преимущество 6", "text": "Описание"}
+          {"icon": "ph ph-rocket", "title": "147 магазинов за 8 лет", "text": "Знаем подводные камни каждой ниши"},
+          {"icon": "ph ph-clock", "title": "Запуск от 14 дней", "text": "Не растягиваем — работаем по спринтам"},
+          {"icon": "ph ph-shield-check", "title": "Гарантия 12 месяцев", "text": "Бесплатно исправляем баги после запуска"},
+          {"icon": "ph ph-chart-line-up", "title": "Конверсия от 3%", "text": "A/B тесты и аналитика до результата"},
+          {"icon": "ph ph-code", "title": "Чистый код", "text": "Легко масштабировать и передать другой команде"},
+          {"icon": "ph ph-headset", "title": "На связи 7 дней в неделю", "text": "Менеджер + разработчик в Telegram-чате проекта"}
         ],
         "steps_title": "Как мы работаем",
         "steps": [
-          {"title": "Шаг 1", "text": "Описание шага"},
-          {"title": "Шаг 2", "text": "Описание шага"},
-          {"title": "Шаг 3", "text": "Описание шага"},
-          {"title": "Шаг 4", "text": "Описание шага"}
+          {"title": "Бриф и аналитика", "text": "Разбираем нишу, конкурентов, целевую аудиторию"},
+          {"title": "Прототип и дизайн", "text": "Согласуем структуру и макеты до начала разработки"},
+          {"title": "Разработка", "text": "Вёрстка, интеграции, тестирование на всех устройствах"},
+          {"title": "Запуск и обучение", "text": "Переносим на хостинг, обучаем работе с админкой"},
+          {"title": "Поддержка", "text": "3 месяца бесплатной поддержки после запуска"}
         ],
         "pricing_title": "Стоимость",
         "pricing": [
           {
-            "name": "Базовый",
-            "price": "от 30 000 ₽",
-            "features": "Пункт 1\nПункт 2\nПункт 3",
+            "name": "Старт",
+            "price": "от 40 000 ₽",
+            "features": "До 500 товаров\nАдаптивный дизайн\nОнлайн-оплата\nОбучение работе",
             "popular": false,
-            "btn_text": "Заказать",
+            "btn_text": "Обсудить"
+          },
+          {
+            "name": "Бизнес",
+            "price": "от 120 000 ₽",
+            "features": "До 10 000 товаров\nИнтеграция с 1С\nCRM-система\nSEO-оптимизация\nПерсональный менеджер",
+            "popular": true,
+            "btn_text": "Рассчитать"
+          },
+          {
+            "name": "Масштаб",
+            "price": "от 300 000 ₽",
+            "features": "Безлимит товаров\nМаркетплейс-функции\nHighload-архитектура\nМультисклад\nAPI-интеграции\nSLA-поддержка",
+            "popular": false,
+            "btn_text": "Обсудить"
           }
         ],
         "faq_items": [
-          {"question": "Вопрос 1?", "answer": "Ответ на 2-3 предложения."},
-          {"question": "Вопрос 2?", "answer": "Ответ на 2-3 предложения."},
-          {"question": "Вопрос 3?", "answer": "Ответ."},
-          {"question": "Вопрос 4?", "answer": "Ответ."},
-          {"question": "Вопрос 5?", "answer": "Ответ."},
-          {"question": "Вопрос 6?", "answer": "Ответ."}
+          {"question": "Сколько стоит интернет-магазин?", "answer": "От 40 000 ₽ за базовый магазин до 500 товаров. Финальная цена зависит от интеграций и дизайна — рассчитаем за 2 часа после брифа."},
+          {"question": "Какие сроки разработки?", "answer": "Базовый магазин — от 14 рабочих дней. Проект с интеграцией 1С — от 6 недель. Точные сроки фиксируем в договоре."},
+          {"question": "На какой платформе лучше делать?", "answer": "Зависит от задач. WooCommerce — для старта и небольших каталогов. 1С-Битрикс — для серьёзной интеграции с 1С. Подбираем под ваш бюджет и планы."},
+          {"question": "Можно ли перенести товары со старого сайта?", "answer": "Да, мигрируем каталог из любой CMS или Excel-файлов. Сохраняем SEO-позиции через 301-редиректы."},
+          {"question": "Что входит в поддержку?", "answer": "3 месяца бесплатно: исправление багов, мелкие доработки до 2 часов/мес, консультации. Дальше — от 10 000 ₽/мес."},
+          {"question": "Вы делаете дизайн или только разработку?", "answer": "Полный цикл: прототип → дизайн → вёрстка → программирование → запуск. Можем работать и по вашему макету."}
         ],
-        "cta_title": "Готовы обсудить проект?",
-        "cta_desc": "Напишите — отвечу в течение часа",
-        "cta_btn_text": "Написать в Telegram",
-
+        "cta_title": "Обсудим ваш магазин?",
+        "cta_desc": "Расскажите о проекте — пришлём КП в течение 2 часов",
+        "cta_btn_text": "Получить КП"
       }
     }
   ]
@@ -275,10 +340,11 @@ JSON-формат (вставь контент в эту структуру):
 
 Иконки Phosphor: https://phosphoricons.com
 Используй: ph ph-shopping-cart, ph ph-magnifying-glass,
-ph ph-code, ph ph-chart-line-up, ph ph-clock, ph ph-x-circle,
-ph ph-check-circle, ph ph-shield-check, ph ph-rocket,
-ph ph-handshake, ph ph-user-focus, ph ph-gear, ph ph-database,
-ph ph-chat-text, ph ph-currency-dollar, ph ph-lightning</pre>
+ph ph-code, ph ph-chart-line-up, ph ph-clock, ph ph-rocket,
+ph ph-shield-check, ph ph-handshake, ph ph-user-focus,
+ph ph-target, ph ph-trophy, ph ph-gear, ph ph-database,
+ph ph-chat-text, ph ph-currency-dollar, ph ph-lightning,
+ph ph-headset, ph ph-browser, ph ph-globe, ph ph-paint-brush</pre>
             </div>
 
             <h3>Вставьте JSON и импортируйте</h3>
@@ -748,6 +814,31 @@ function webseo_import_post(array $item, string $post_type): array {
                 if (!is_wp_error($t)) $ids[] = (int)($t['term_id'] ?? $t);
             }
             wp_set_post_terms($post_id, $ids, $tax);
+        }
+    }
+
+    // Cities (multi-regional)
+    if (!empty($item['cities']) && $post_type === 'service' && function_exists('update_field')) {
+        $city_ids = [];
+        foreach ($item['cities'] as $city) {
+            $slug = sanitize_title($city['slug'] ?? $city['name']);
+            $t = term_exists($slug, 'city');
+            if (!$t) {
+                $t = wp_insert_term($city['name'], 'city', ['slug' => $slug]);
+            }
+            if (!is_wp_error($t)) {
+                $term_id = (int)($t['term_id'] ?? $t);
+                $city_ids[] = $term_id;
+
+                if (!empty($city['prepositional'])) update_field('city_prepositional', $city['prepositional'], "city_{$term_id}");
+                if (!empty($city['genitive']))      update_field('city_genitive', $city['genitive'], "city_{$term_id}");
+                if (!empty($city['accusative']))     update_field('city_accusative', $city['accusative'], "city_{$term_id}");
+
+                $log[] = "  → Город: {$city['name']} ({$slug})";
+            }
+        }
+        if ($city_ids) {
+            wp_set_post_terms($post_id, $city_ids, 'city');
         }
     }
 
