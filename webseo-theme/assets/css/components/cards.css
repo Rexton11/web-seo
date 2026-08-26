@@ -19,22 +19,6 @@
 .solution-check-item h3{font-size:1.05rem;margin-bottom:6px}
 .solution-check-item p{font-size:.95rem;color:var(--text-muted);line-height:1.6}
 @media(max-width:768px){.solution-checklist{grid-template-columns:1fr}}
-/* Chess pattern — alternating light/dark cards in grid-3 */
-.grid-3 > .card:nth-child(even) {
-    background: #0c0c0e !important;
-    border-color: rgba(255, 255, 255, .08) !important;
-    color: #fff;
-}
-.grid-3 > .card:nth-child(even) h3 { color: #fff !important; }
-.grid-3 > .card:nth-child(even) p  { color: rgba(255, 255, 255, .6) !important; }
-.grid-3 > .card:nth-child(even) .card-icon { color: var(--acid-green); }
-.grid-3 > .card:nth-child(even):hover {
-    border-color: rgba(204, 255, 0, .35) !important;
-    box-shadow: 0 12px 36px rgba(0, 0, 0, .3);
-}
-.grid-3 > .card:nth-child(even)::before {
-    background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 50%), var(--acid-green), transparent 65%);
-}
 
 /* Service card equal height */
 .card--service{display:flex;flex-direction:column;height:100%}

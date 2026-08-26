@@ -7,7 +7,7 @@
 
 defined('ABSPATH') || exit;
 
-define('WEBSEO_VERSION', '3.0.1');
+define('WEBSEO_VERSION', '3.1.0');
 define('WEBSEO_DIR', get_template_directory());
 define('WEBSEO_URI', get_template_directory_uri());
 

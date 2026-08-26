@@ -78,6 +78,21 @@ button { cursor: pointer; font-family: inherit; }
 
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+
+/* Chess pattern — alternating light/dark cards */
+.grid-3 > .card:nth-child(even) {
+    background: #0c0c0e !important;
+    border-color: rgba(255, 255, 255, .08) !important;
+    color: #fff;
+}
+.grid-3 > .card:nth-child(even) h3 { color: #fff !important; }
+.grid-3 > .card:nth-child(even) p  { color: rgba(255, 255, 255, .6) !important; }
+.grid-3 > .card:nth-child(even) .card-icon { color: var(--acid-green); }
+.grid-3 > .card:nth-child(even):hover {
+    border-color: rgba(204, 255, 0, .35) !important;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, .3);
+}
+
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
 
 @media (max-width: 1024px) {
