@@ -1,15 +1,12 @@
 /* ═══════════════════════════════════════════
    Bento grid — "Преимущества"
-   1 featured tile (dark) + numbered small tiles
-   + a full-width banner tile, driven purely by
-   position (nth-child) so any item count works.
+   2-column layout: featured tile left,
+   small tiles right, banner at bottom.
    ═══════════════════════════════════════════ */
 
 .bento-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-auto-rows: 132px;
-    grid-auto-flow: dense;
+    grid-template-columns: 1fr 1fr;
     gap: 20px;
     counter-reset: bento;
 }
@@ -18,10 +15,10 @@
     counter-increment: bento;
     position: relative;
     border-radius: var(--radius-main);
-    padding: 26px;
+    padding: 28px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    gap: 12px;
     overflow: hidden;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
@@ -31,62 +28,62 @@
 
 .bento-tile > * { position: relative; z-index: 1; }
 
-/* Decorative ghost index number, generated — no markup needed */
 .bento-tile::after {
     content: counter(bento, decimal-leading-zero);
     position: absolute;
-    bottom: -22px; right: -2px;
+    bottom: -18px; right: -2px;
     font-family: var(--font-heading);
     font-weight: 700;
     line-height: 1;
-    font-size: 5rem;
+    font-size: 4.5rem;
     color: transparent;
-    -webkit-text-stroke: 1.5px rgba(9, 9, 11, .07);
+    -webkit-text-stroke: 1.5px rgba(9, 9, 11, .06);
     pointer-events: none;
     z-index: 0;
 }
 
-.bento-tile h3 { font-size: 1rem; }
-.bento-tile p { font-size: .88rem; }
+.bento-tile .card-icon { font-size: 1.6rem; color: var(--acid-green); }
+.bento-tile h3 { font-size: 1rem; font-weight: 600; line-height: 1.3; }
+.bento-tile p { font-size: .88rem; color: var(--text-muted); line-height: 1.5; margin: 0; }
 
-/* ── Featured tile: first item, only when ≥4 more follow ── */
+/* ── Featured tile: first child when ≥5 total ── */
 .bento-tile:first-child:nth-last-child(n+5) {
-    grid-column: span 2;
     grid-row: span 2;
     background: #0c0c0e;
     border-color: transparent;
+    padding: 36px;
+    justify-content: flex-end;
+    min-height: 320px;
 }
 .bento-tile:first-child:nth-last-child(n+5)::after {
-    font-size: 10.5rem;
-    bottom: -36px; right: -8px;
-    -webkit-text-stroke: 1.5px rgba(255, 255, 255, .12);
+    font-size: 9rem;
+    bottom: -28px; right: -6px;
+    -webkit-text-stroke: 1.5px rgba(255, 255, 255, .1);
 }
-.bento-tile:first-child:nth-last-child(n+5) .card-icon { font-size: 2.4rem; }
-.bento-tile:first-child:nth-last-child(n+5) h3 { color: #fff; font-size: 1.3rem; letter-spacing: -.3px; }
-.bento-tile:first-child:nth-last-child(n+5) p { color: rgba(255, 255, 255, .62); max-width: 34ch; }
+.bento-tile:first-child:nth-last-child(n+5) .card-icon { font-size: 2.2rem; }
+.bento-tile:first-child:nth-last-child(n+5) h3 { color: #fff; font-size: 1.25rem; letter-spacing: -.3px; }
+.bento-tile:first-child:nth-last-child(n+5) p { color: rgba(255, 255, 255, .6); }
 
-/* ── Banner tile: exactly the 6th item, spans full width ── */
+/* ── Banner tile: 6th item, full width ── */
 .bento-tile:nth-child(6) {
     grid-column: 1 / -1;
-    grid-row: span 1;
     flex-direction: row;
     align-items: center;
     gap: 24px;
     background: var(--bg-secondary);
+    padding: 24px 32px;
 }
-.bento-tile:nth-child(6) .card-icon { margin-bottom: 0; flex-shrink: 0; }
-.bento-tile:nth-child(6)::after { font-size: 6rem; }
-.bento-tile:nth-child(6) p { max-width: 48ch; }
+.bento-tile:nth-child(6) .card-icon { flex-shrink: 0; }
+.bento-tile:nth-child(6)::after { font-size: 5rem; }
+.bento-tile:nth-child(6) p { max-width: 52ch; }
 
+/* ── Responsive ── */
 @media (max-width: 860px) {
-    .bento-grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: auto; }
-    .bento-tile:first-child:nth-last-child(n+5) { grid-column: span 2; grid-row: auto; min-height: 220px; }
-    .bento-tile:nth-child(6) { grid-column: span 2; flex-direction: column; align-items: flex-start; gap: 16px; text-align: left; }
+    .bento-tile:first-child:nth-last-child(n+5) { grid-row: auto; min-height: 200px; }
+    .bento-tile:nth-child(6) { flex-direction: column; align-items: flex-start; }
 }
 @media (max-width: 560px) {
     .bento-grid { grid-template-columns: 1fr; }
-    .bento-tile:first-child:nth-last-child(n+5),
-    .bento-tile:nth-child(6) { grid-column: 1 / 2; }
 }
 
 @media (prefers-reduced-motion: reduce) {
