@@ -610,50 +610,50 @@ function webseo_tab_cities(): void {
             </table>
         </div>
         <div>
+            <?php
+            $existing_cities = get_terms(['taxonomy' => 'city', 'hide_empty' => false, 'orderby' => 'name']);
+            if ($existing_cities && !is_wp_error($existing_cities) && count($existing_cities) > 0) :
+                $cities_json = [];
+                foreach ($existing_cities as $ct) {
+                    $city_data = ['name' => $ct->name, 'slug' => $ct->slug];
+                    if (function_exists('get_field')) {
+                        $prep = get_field('city_prepositional', "city_{$ct->term_id}");
+                        $gen  = get_field('city_genitive', "city_{$ct->term_id}");
+                        $acc  = get_field('city_accusative', "city_{$ct->term_id}");
+                        if ($prep) $city_data['prepositional'] = $prep;
+                        if ($gen)  $city_data['genitive'] = $gen;
+                        if ($acc)  $city_data['accusative'] = $acc;
+                    }
+                    $cities_json[] = $city_data;
+                }
+            ?>
+            <div class="prompt-box">
+                <h4>🏙 Существующие города (<?php echo count($existing_cities); ?>)</h4>
+                <p style="font-size:13px;color:#666;margin:0 0 8px;">Готовый JSON всех городов. Скопируйте, отредактируйте и импортируйте повторно для обновления склонений.</p>
+                <pre style="max-height:400px;"><?php echo esc_html(json_encode(['cities' => $cities_json], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></pre>
+            </div>
+            <?php else : ?>
+            <div class="prompt-box">
+                <h4>🏙 Городов пока нет</h4>
+                <p style="font-size:13px;color:#666;">Импортируйте первую партию через форму ниже.</p>
+            </div>
+            <?php endif; ?>
+
             <div class="prompt-box">
                 <h4>📎 Промт для ИИ</h4>
-                <pre>Сгенерируй JSON-массив городов-миллионников России
-для импорта в WordPress-тему.
+                <pre>Сгенерируй JSON-массив городов для импорта
+в WordPress-тему. Нужны города: [ПЕРЕЧИСЛИ ГОРОДА]
 
-Для каждого города нужно:
+Для каждого города укажи:
 - name — именительный падеж (Москва)
-- slug — транслитерация для URL (moskva). Для
-  Санкт-Петербурга используй "spb", для
-  Нижнего Новгорода — "nizhniy-novgorod"
-- prepositional — предложный падеж (Москве)
-- genitive — родительный падеж (Москвы)
-- accusative — винительный падеж, ТОЛЬКО если
-  отличается от именительного (Москву).
-  Если совпадает — не включай это поле.
+- slug — транслит для URL (moskva, spb,
+  nizhniy-novgorod)
+- prepositional — предложный (Москве)
+- genitive — родительный (Москвы)
+- accusative — винительный, ТОЛЬКО если
+  отличается от именительного (Москву)
 
-JSON-формат:
-
-{
-  "cities": [
-    {
-      "name": "Москва",
-      "slug": "moskva",
-      "prepositional": "Москве",
-      "genitive": "Москвы",
-      "accusative": "Москву"
-    },
-    {
-      "name": "Санкт-Петербург",
-      "slug": "spb",
-      "prepositional": "Санкт-Петербурге",
-      "genitive": "Санкт-Петербурга"
-    },
-    {
-      "name": "Новосибирск",
-      "slug": "novosibirsk",
-      "prepositional": "Новосибирске",
-      "genitive": "Новосибирска"
-    }
-  ]
-}
-
-Включи все города-миллионники РФ (16 городов).
-Склонения должны быть грамматически безупречны.</pre>
+Формат: {"cities": [...]}</pre>
             </div>
 
             <h3>Вставьте JSON и импортируйте</h3>
