@@ -119,7 +119,7 @@
 /* ── Icon micro-interactions ─────────────────── */
 
 .card-icon, .service-hero__icon, .service-cat-card__icon { transition: transform .5s var(--ease-spring); }
-.card:hover .card-icon { transform: scale(1.12) rotate(-6deg); }
+.card:hover .card-icon, .bento-tile:hover .card-icon { transform: scale(1.12) rotate(-6deg); }
 
 .cta-icon { animation: iconFloat 5s ease-in-out infinite; }
 .cta-icon:nth-child(2) { animation-delay: -1.6s; }

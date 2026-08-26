@@ -104,9 +104,9 @@ if ($srv_cats && !is_wp_error($srv_cats)) :
             get_field('benefits_subtitle')
         ); ?>
 
-        <div class="grid-3">
+        <div class="bento-grid">
             <?php foreach ($benefits as $item) : ?>
-                <div class="card" data-reveal>
+                <div class="bento-tile" data-reveal>
                     <div class="card-icon"><?php echo webseo_icon($item['icon']); ?></div>
                     <h3><?php echo esc_html($item['title']); ?></h3>
                     <p><?php echo esc_html($item['text']); ?></p>

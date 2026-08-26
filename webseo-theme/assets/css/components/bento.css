@@ -1,0 +1,94 @@
+/* ═══════════════════════════════════════════
+   Bento grid — "Преимущества"
+   1 featured tile (dark) + numbered small tiles
+   + a full-width banner tile, driven purely by
+   position (nth-child) so any item count works.
+   ═══════════════════════════════════════════ */
+
+.bento-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: 132px;
+    grid-auto-flow: dense;
+    gap: 20px;
+    counter-reset: bento;
+}
+
+.bento-tile {
+    counter-increment: bento;
+    position: relative;
+    border-radius: var(--radius-main);
+    padding: 26px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    transition: transform .45s var(--ease-out, ease), box-shadow .45s var(--ease-out, ease), border-color .3s ease;
+}
+.bento-tile:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+
+.bento-tile > * { position: relative; z-index: 1; }
+
+/* Decorative ghost index number, generated — no markup needed */
+.bento-tile::after {
+    content: counter(bento, decimal-leading-zero);
+    position: absolute;
+    bottom: -22px; right: -2px;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    line-height: 1;
+    font-size: 5rem;
+    color: transparent;
+    -webkit-text-stroke: 1.5px rgba(9, 9, 11, .07);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.bento-tile h3 { font-size: 1rem; }
+.bento-tile p { font-size: .88rem; }
+
+/* ── Featured tile: first item, only when ≥4 more follow ── */
+.bento-tile:first-child:nth-last-child(n+5) {
+    grid-column: span 2;
+    grid-row: span 2;
+    background: #0c0c0e;
+    border-color: transparent;
+}
+.bento-tile:first-child:nth-last-child(n+5)::after {
+    font-size: 10.5rem;
+    bottom: -36px; right: -8px;
+    -webkit-text-stroke: 1.5px rgba(255, 255, 255, .12);
+}
+.bento-tile:first-child:nth-last-child(n+5) .card-icon { font-size: 2.4rem; }
+.bento-tile:first-child:nth-last-child(n+5) h3 { color: #fff; font-size: 1.3rem; letter-spacing: -.3px; }
+.bento-tile:first-child:nth-last-child(n+5) p { color: rgba(255, 255, 255, .62); max-width: 34ch; }
+
+/* ── Banner tile: exactly the 6th item, spans full width ── */
+.bento-tile:nth-child(6) {
+    grid-column: 1 / -1;
+    grid-row: span 1;
+    flex-direction: row;
+    align-items: center;
+    gap: 24px;
+    background: var(--bg-secondary);
+}
+.bento-tile:nth-child(6) .card-icon { margin-bottom: 0; flex-shrink: 0; }
+.bento-tile:nth-child(6)::after { font-size: 6rem; }
+.bento-tile:nth-child(6) p { max-width: 48ch; }
+
+@media (max-width: 860px) {
+    .bento-grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: auto; }
+    .bento-tile:first-child:nth-last-child(n+5) { grid-column: span 2; grid-row: auto; min-height: 220px; }
+    .bento-tile:nth-child(6) { grid-column: span 2; flex-direction: column; align-items: flex-start; gap: 16px; text-align: left; }
+}
+@media (max-width: 560px) {
+    .bento-grid { grid-template-columns: 1fr; }
+    .bento-tile:first-child:nth-last-child(n+5),
+    .bento-tile:nth-child(6) { grid-column: 1 / 2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bento-tile { transition: none !important; }
+}

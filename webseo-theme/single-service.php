@@ -110,9 +110,9 @@ $post_id = get_the_ID();
 <section class="section-padding bg-gray" id="why-us">
     <div class="container">
         <?php webseo_section_header('', get_field('benefits_title') ?: 'Почему мы'); ?>
-        <div class="grid-3">
+        <div class="bento-grid">
             <?php foreach ($benefits as $b) : ?>
-                <div class="card" data-reveal>
+                <div class="bento-tile" data-reveal>
                     <div class="card-icon"><?php echo webseo_icon($b['icon']); ?></div>
                     <h3><?php echo esc_html($b['title']); ?></h3>
                     <p><?php echo esc_html($b['text']); ?></p>
