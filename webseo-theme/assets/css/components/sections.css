@@ -52,12 +52,7 @@ textarea.form-input{resize:vertical;min-height:100px}
 
 /* Geo content */
 .geo-content{max-width:820px}
+.geo-content--centered{margin:0 auto;text-align:center}
 .geo-content h2{font-size:clamp(1.4rem,3vw,1.8rem);margin-bottom:16px}
 .geo-content__text{color:var(--text-muted);line-height:1.8;font-size:1rem}
 .geo-content__text p{margin-bottom:12px}
-
-/* City links */
-.city-links{display:flex;flex-wrap:wrap;gap:10px}
-.city-link{display:inline-block;padding:8px 20px;border-radius:var(--radius-pill);font-size:.9rem;font-weight:500;border:1px solid var(--border-color);background:var(--bg-card);color:var(--ink);text-decoration:none;transition:var(--transition)}
-.city-link:hover{border-color:var(--acid-green);color:var(--acid-green)}
-.city-link--current{background:var(--acid-green);color:#000;border-color:var(--acid-green);cursor:default}

@@ -141,7 +141,7 @@ function webseo_tab_services(): void {
 
                 <tr><th colspan="3" style="background:#fff3e0;">fields → Боли клиента</th></tr>
                 <tr><th><code>pains_title</code></th><td>string</td><td>Заголовок. Пример: «Знакомая ситуация?»</td></tr>
-                <tr><th><code>pains</code></th><td>array</td><td><strong>4–6</strong> объектов: <code>{title}</code> (icon и text не отображаются).<br>Формулируйте как боль, не как проблему:<br>Плохо: «Нет SEO» / Хорошо: «Вложили 200к в рекламу — 3 заявки»</td></tr>
+                <tr><th><code>pains</code></th><td>array</td><td><strong>СТРОГО 6 или 8</strong> объектов (кратно 2): <code>{title}</code> (icon и text не отображаются).<br>Формулируйте как боль, не как проблему:<br>Плохо: «Нет SEO» / Хорошо: «Вложили 200к в рекламу — 3 заявки»</td></tr>
 
                 <tr><th colspan="3" style="background:#e8f5e9;">fields → Решение</th></tr>
                 <tr><th><code>solution_title</code></th><td>string</td><td>Заголовок. Пример: «Что вы получите»</td></tr>
@@ -149,7 +149,7 @@ function webseo_tab_services(): void {
 
                 <tr><th colspan="3" style="background:#e3f2fd;">fields → Преимущества</th></tr>
                 <tr><th><code>benefits_title</code></th><td>string</td><td>Заголовок. Пример: «Почему мы»</td></tr>
-                <tr><th><code>benefits</code></th><td>array</td><td><strong>5–6</strong> объектов: <code>{icon, title, text}</code><br>Bento-сетка: 1-й элемент крупный, 6-й на всю ширину</td></tr>
+                <tr><th><code>benefits</code></th><td>array</td><td><strong>СТРОГО 6</strong> объектов (кратно 3, сетка 3 в ряд): <code>{icon, title, text}</code></td></tr>
 
                 <tr><th colspan="3" style="background:#fff3e0;">fields → Этапы</th></tr>
                 <tr><th><code>steps</code></th><td>array</td><td><strong>4–6</strong> шагов: <code>{title, text}</code>. Номера автоматически</td></tr>
@@ -158,7 +158,7 @@ function webseo_tab_services(): void {
                 <tr><th><code>pricing</code></th><td>array</td><td>2–3 тарифа: <code>{name, price, features, popular, btn_text}</code><br><code>features</code> — каждый пункт с новой строки <code>\n</code><br>Один тариф с <code>popular: true</code></td></tr>
 
                 <tr><th colspan="3" style="background:#e3f2fd;">fields → FAQ</th></tr>
-                <tr><th><code>faq_items</code></th><td>array</td><td><strong>6–8</strong> вопросов: <code>{question, answer}</code>. Ответы 2–3 предложения, можно HTML</td></tr>
+                <tr><th><code>faq_items</code></th><td>array</td><td><strong>СТРОГО 6, 8 или 10</strong> вопросов (кратно 2): <code>{question, answer}</code>. Ответы 2–3 предложения, можно HTML</td></tr>
 
                 <tr><th colspan="3" style="background:#fff3e0;">fields → CTA</th></tr>
                 <tr><th><code>cta_title</code></th><td>string</td><td>Финальный призыв. Подстановка <code>{city}</code> работает</td></tr>
@@ -167,7 +167,7 @@ function webseo_tab_services(): void {
 
                 <tr><th colspan="3" style="background:#fce4ec;">fields → Гео-контент (для городов)</th></tr>
                 <tr><th><code>geo_subtitle</code></th><td>string</td><td>Переопределяет подзаголовок на городской странице.<br>Используйте <code>{city}</code> (предложный), <code>{city_nom}</code> (именительный), <code>{city_rod}</code> (родительный).<br>Пример: «Разрабатываем интернет-магазины в {city} от 40 000 ₽. Запуск от 2 недель.»</td></tr>
-                <tr><th><code>geo_description</code></th><td>HTML</td><td>Уникальный текстовый блок для городской страницы. SEO-контент с подстановками <code>{city}</code>. 2–3 абзаца</td></tr>
+                <tr><th><code>geo_description</code></th><td>HTML</td><td>SEO-текст для города, выводится в конце страницы с центровкой. Подстановки <code>{city}</code>, <code>{city_nom}</code>, <code>{city_rod}</code>. 2–3 абзаца</td></tr>
             </table>
         </div>
         <div>
@@ -260,17 +260,23 @@ function webseo_tab_services(): void {
 - Каждое предложение должно содержать факт, цифру
   или конкретную выгоду. Если убрать предложение и
   смысл не теряется — оно лишнее.
-- Боли (pains): 4–6 штук. Отображаются как теги-пилюли,
+- Боли (pains): СТРОГО 6 или 8 штук (кратно 2,
+  отображаются в 2 колонки). Отображаются как теги-пилюли,
   видно только title. Пиши как боль клиента, коротко:
   «Вложили 200к в рекламу — 3 заявки»,
   «Сайт на 6-м месяце — до сих пор не готов»
 - Решение (solution_items): 4–6 штук. Каждый = результат
   + цифра. «Рост трафика ×3 за 6 месяцев»
-- Преимущества (benefits): 5–6 штук. Факты, не слоганы.
+- Преимущества (benefits): СТРОГО 6 штук (кратно 3,
+  сетка 3 в ряд). Факты, не слоганы.
 - Тарифы (pricing): 2–3 штуки. Один с popular: true.
   Цены реалистичные для РФ/СНГ.
-- FAQ: 6–8 вопросов, которые реально задают. Ответы —
-  2–3 предложения с конкретикой.
+- FAQ (faq_items): СТРОГО 6, 8 или 10 штук (кратно 2,
+  отображаются в 2 колонки). Вопросы, которые реально
+  задают. Ответы — 2–3 предложения с конкретикой.
+- geo_description — SEO-текст для города, 2–3 абзаца HTML.
+  Выводится в конце страницы с центровкой. Подстановки:
+  {city}, {city_nom}, {city_rod}, {city_vin}.
 
 JSON-формат (СТРОГО соблюдай структуру):
 

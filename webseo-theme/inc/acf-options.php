@@ -42,4 +42,11 @@ add_action('acf/init', function () {
         'parent_slug' => 'webseo-settings',
         'menu_slug'   => 'webseo-analytics',
     ]);
+
+    acf_add_options_sub_page([
+        'page_title'  => 'Мультирегиональность',
+        'menu_title'  => 'Города',
+        'parent_slug' => 'webseo-settings',
+        'menu_slug'   => 'webseo-geo',
+    ]);
 });

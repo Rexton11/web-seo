@@ -78,6 +78,30 @@ function webseo_get_current_city(): ?WP_Term {
 }
 
 /**
+ * Get the primary (default) city from theme options.
+ * Used as fallback when no city slug is in the URL.
+ */
+function webseo_get_primary_city(): ?WP_Term {
+    if (!function_exists('get_field')) return null;
+    $primary_id = get_field('primary_city', 'option');
+    if (!$primary_id) return null;
+    $term = get_term((int) $primary_id, 'city');
+    if (!$term || is_wp_error($term)) return null;
+    return $term;
+}
+
+/**
+ * Get the effective city for content rendering:
+ * URL city first, then primary city fallback on service pages.
+ */
+function webseo_get_effective_city(): ?WP_Term {
+    $city = webseo_get_current_city();
+    if ($city) return $city;
+    if (is_singular('service')) return webseo_get_primary_city();
+    return null;
+}
+
+/**
  * Get city name in a specific grammatical case.
  *
  * Cases stored as ACF term meta:
@@ -85,8 +109,8 @@ function webseo_get_current_city(): ?WP_Term {
  *   city_genitive      — родительный (Москвы)
  *   city_accusative    — винительный (Москву) — optional, falls back to nominative
  */
-function webseo_city_name(string $case = 'prepositional'): string {
-    $city = webseo_get_current_city();
+function webseo_city_name(string $case = 'prepositional', ?WP_Term $city = null): string {
+    $city = $city ?: webseo_get_current_city();
     if (!$city) return '';
 
     if ($case === 'nominative') return $city->name;
@@ -98,15 +122,15 @@ function webseo_city_name(string $case = 'prepositional'): string {
 /**
  * Replace {city} and {city_rod} placeholders in text.
  */
-function webseo_city_replace(string $text): string {
-    $city = webseo_get_current_city();
+function webseo_city_replace(string $text, ?WP_Term $city = null): string {
+    $city = $city ?: webseo_get_current_city();
     if (!$city) return $text;
 
     $replacements = [
-        '{city}'     => webseo_city_name('prepositional'),
-        '{city_nom}' => webseo_city_name('nominative'),
-        '{city_rod}' => webseo_city_name('genitive'),
-        '{city_vin}' => webseo_city_name('accusative'),
+        '{city}'     => webseo_city_name('prepositional', $city),
+        '{city_nom}' => webseo_city_name('nominative', $city),
+        '{city_rod}' => webseo_city_name('genitive', $city),
+        '{city_vin}' => webseo_city_name('accusative', $city),
     ];
 
     return str_replace(array_keys($replacements), array_values($replacements), $text);
@@ -131,30 +155,30 @@ add_action('template_redirect', function () {
 
 add_filter('pre_get_document_title', function ($title) {
     if (!is_singular('service')) return $title;
-    $city = webseo_get_current_city();
+    $city = webseo_get_effective_city();
     if (!$city) return $title;
 
-    $city_prep = webseo_city_name('prepositional');
+    $city_prep = webseo_city_name('prepositional', $city);
     return get_the_title() . ' в ' . $city_prep . ' — ' . get_bloginfo('name');
 }, 20);
 
 add_filter('wpseo_title', function ($title) {
     if (!is_singular('service')) return $title;
-    $city = webseo_get_current_city();
+    $city = webseo_get_effective_city();
     if (!$city) return $title;
 
-    $city_prep = webseo_city_name('prepositional');
+    $city_prep = webseo_city_name('prepositional', $city);
     return get_the_title() . ' в ' . $city_prep . ' — ' . get_bloginfo('name');
 }, 20);
 
 add_filter('wpseo_metadesc', function ($desc) {
     if (!is_singular('service')) return $desc;
-    $city = webseo_get_current_city();
+    $city = webseo_get_effective_city();
     if (!$city) return $desc;
 
-    $city_prep = webseo_city_name('prepositional');
+    $city_prep = webseo_city_name('prepositional', $city);
     if ($desc) {
-        return webseo_city_replace($desc) . ' в ' . $city_prep . '.';
+        return webseo_city_replace($desc, $city) . ' в ' . $city_prep . '.';
     }
     return get_the_title() . ' в ' . $city_prep . '. ' . get_bloginfo('description');
 }, 20);

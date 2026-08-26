@@ -79,6 +79,30 @@ function webseo_register_acf_fields(): void {
     ]);
 
     /* ================================================================
+     * 3b. OPTIONS — Мультирегиональность
+     * ================================================================ */
+    acf_add_local_field_group([
+        'key'      => 'group_geo_settings',
+        'title'    => 'Мультирегиональность',
+        'location' => [[[
+            'param' => 'options_page', 'operator' => '==', 'value' => 'webseo-geo',
+        ]]],
+        'fields'   => [
+            [
+                'key'           => 'f_primary_city',
+                'name'          => 'primary_city',
+                'label'         => 'Основной город',
+                'type'          => 'taxonomy',
+                'taxonomy'      => 'city',
+                'field_type'    => 'select',
+                'allow_null'    => 1,
+                'return_format' => 'id',
+                'instructions'  => 'Город по умолчанию для основных страниц услуг (без /city/ в URL). Обычно — Москва.',
+            ],
+        ],
+    ]);
+
+    /* ================================================================
      * 4. FRONT PAGE — Главная
      * ================================================================ */
     acf_add_local_field_group([
