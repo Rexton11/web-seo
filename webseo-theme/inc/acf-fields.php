@@ -426,4 +426,51 @@ function webseo_register_acf_fields(): void {
             ['key' => 'f_blog_cta_btn_text', 'name' => 'blog_cta_btn_text', 'label' => 'Кнопка — текст','type' => 'text'],
         ],
     ]);
+
+    /* ================================================================
+     * 12. CITY TAXONOMY — Склонения города
+     * ================================================================ */
+    acf_add_local_field_group([
+        'key'      => 'group_city',
+        'title'    => 'Настройки города',
+        'location' => [[[
+            'param' => 'taxonomy', 'operator' => '==', 'value' => 'city',
+        ]]],
+        'fields' => [
+            ['key' => 'f_city_prep', 'name' => 'city_prepositional', 'label' => 'Предложный (в …)', 'type' => 'text',
+             'instructions' => 'Москве, Санкт-Петербурге, Минске', 'required' => 1],
+            ['key' => 'f_city_gen',  'name' => 'city_genitive',      'label' => 'Родительный (… ого)', 'type' => 'text',
+             'instructions' => 'Москвы, Санкт-Петербурга, Минска', 'required' => 1],
+            ['key' => 'f_city_acc',  'name' => 'city_accusative',    'label' => 'Винительный (в …)', 'type' => 'text',
+             'instructions' => 'Москву, Санкт-Петербург, Минск. Если совпадает с именительным — оставьте пустым'],
+        ],
+    ]);
+
+    /* ================================================================
+     * 13. SERVICE — Региональный контент (geo)
+     * ================================================================ */
+    acf_add_local_field_group([
+        'key'      => 'group_service_geo',
+        'title'    => 'Мультирегиональность',
+        'location' => [[[
+            'param' => 'post_type', 'operator' => '==', 'value' => 'service',
+        ]]],
+        'position' => 'normal',
+        'menu_order' => 20,
+        'fields' => [
+            [
+                'key' => 'f_srv_geo_msg', 'type' => 'message', 'label' => '',
+                'message' => 'Назначьте города через таксономию «Города» справа.<br>'
+                    . 'В текстовых полях услуги используйте подстановки:<br>'
+                    . '<code>{city}</code> — предложный падеж (в <em>Москве</em>)<br>'
+                    . '<code>{city_nom}</code> — именительный (Москва)<br>'
+                    . '<code>{city_rod}</code> — родительный (Москвы)<br>'
+                    . '<code>{city_vin}</code> — винительный (Москву)',
+            ],
+            ['key' => 'f_srv_geo_subtitle', 'name' => 'geo_subtitle', 'label' => 'Подзаголовок для города', 'type' => 'textarea', 'rows' => 3,
+             'instructions' => 'Переопределяет основной подзаголовок на городской странице. Используйте {city}.', 'placeholder' => 'Профессиональная разработка интернет-магазинов в {city}'],
+            ['key' => 'f_srv_geo_desc',     'name' => 'geo_description', 'label' => 'Дополнительный текст для города', 'type' => 'wysiwyg', 'media_upload' => 0, 'toolbar' => 'basic',
+             'instructions' => 'Выводится дополнительным блоком на городской странице. Уникальный контент для SEO.'],
+        ],
+    ]);
 }

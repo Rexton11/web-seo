@@ -26,16 +26,31 @@ function webseo_schema_output(): void {
 
     // Single service — Service + FAQPage
     if (is_singular('service')) {
+        $service_name = get_the_title();
+        $service_url  = get_permalink();
+        $city = webseo_get_current_city();
+        if ($city) {
+            $service_name .= ' в ' . webseo_city_name('prepositional');
+            $service_url   = webseo_city_service_url(get_the_ID(), $city);
+        }
+
         $schema = [
             '@context' => 'https://schema.org',
             '@type'    => 'Service',
-            'name'     => get_the_title(),
-            'url'      => get_permalink(),
+            'name'     => $service_name,
+            'url'      => $service_url,
             'provider' => [
                 '@type' => 'ProfessionalService',
                 'name'  => get_bloginfo('name'),
             ],
         ];
+
+        if ($city) {
+            $schema['areaServed'] = [
+                '@type' => 'City',
+                'name'  => $city->name,
+            ];
+        }
 
         // FAQ Schema
         $faq_items = get_field('faq_items');

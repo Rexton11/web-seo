@@ -43,6 +43,7 @@ $includes = [
     'inc/quiz-handler.php',
     'inc/contact-handler.php',
     'inc/helpers.php',
+    'inc/geo.php',
     'inc/mega-menu.php',
     'inc/importer.php',
 ];
@@ -104,5 +105,13 @@ add_filter('wpseo_breadcrumb_links', function ($links) {
     if (isset($links[0]['text'])) {
         $links[0]['text'] = 'Главная';
     }
+
+    if (is_singular('service') && function_exists('webseo_get_current_city')) {
+        $city = webseo_get_current_city();
+        if ($city) {
+            $links[] = ['text' => $city->name];
+        }
+    }
+
     return $links;
 });

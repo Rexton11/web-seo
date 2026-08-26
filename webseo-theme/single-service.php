@@ -6,7 +6,8 @@
  */
 
 get_header();
-$post_id = get_the_ID();
+$post_id  = get_the_ID();
+$geo_city = webseo_get_current_city();
 ?>
 
 <!-- 1. HERO -->
@@ -23,7 +24,7 @@ $post_id = get_the_ID();
             <?php if ($icon = get_field('service_icon')) : ?>
                 <div class="service-hero__icon"><?php echo webseo_icon($icon); ?></div>
             <?php endif; ?>
-            <h1 class="js-kinetic"><?php the_title(); ?></h1>
+            <h1 class="js-kinetic"><?php the_title(); ?><?php if ($geo_city) echo ' в ' . esc_html(webseo_city_name('prepositional')); ?></h1>
 
             <?php $chips = get_field('hero_chips'); if ($chips) : ?>
                 <div class="hero-chips">
@@ -33,7 +34,11 @@ $post_id = get_the_ID();
                 </div>
             <?php endif; ?>
 
-            <?php if ($sub = get_field('service_subtitle')) : ?>
+            <?php
+            $sub = ($geo_city && get_field('geo_subtitle'))
+                ? webseo_city_replace(get_field('geo_subtitle'))
+                : get_field('service_subtitle');
+            if ($sub) : ?>
                 <p class="service-hero__subtitle"><?php echo esc_html($sub); ?></p>
             <?php endif; ?>
 
@@ -100,6 +105,20 @@ $post_id = get_the_ID();
                     </div>
                 </div>
             <?php endforeach; ?>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
+
+<!-- GEO CONTENT -->
+<?php if ($geo_city && ($geo_desc = get_field('geo_description'))) : ?>
+<section class="section-padding" id="geo-content">
+    <div class="container">
+        <div class="geo-content" data-reveal>
+            <h2><?php the_title(); ?> в <?php echo esc_html(webseo_city_name('prepositional')); ?></h2>
+            <div class="geo-content__text">
+                <?php echo wp_kses_post(webseo_city_replace($geo_desc)); ?>
+            </div>
         </div>
     </div>
 </section>
@@ -270,11 +289,42 @@ if ($quiz_id) :
 </section>
 <?php endif; ?>
 
+<!-- CITY LINKS -->
+<?php
+$service_cities = wp_get_post_terms($post_id, 'city');
+if ($service_cities && !is_wp_error($service_cities) && count($service_cities) > 1) :
+?>
+<section class="section-padding bg-gray" id="city-links">
+    <div class="container">
+        <div class="section-header" data-reveal="scale">
+            <h2><?php the_title(); ?> в других городах</h2>
+        </div>
+        <div class="city-links" data-reveal>
+            <?php foreach ($service_cities as $ct) :
+                $is_current = $geo_city && $geo_city->term_id === $ct->term_id;
+            ?>
+                <?php if ($is_current) : ?>
+                    <span class="city-link city-link--current"><?php echo esc_html($ct->name); ?></span>
+                <?php else : ?>
+                    <a href="<?php echo esc_url(webseo_city_service_url($post_id, $ct)); ?>" class="city-link"><?php echo esc_html($ct->name); ?></a>
+                <?php endif; ?>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
+
 <!-- 11. CTA -->
 <?php
+$cta_title = get_field('cta_title') ?: 'Готовы обсудить проект?';
+$cta_text  = get_field('cta_desc');
+if ($geo_city) {
+    $cta_title = webseo_city_replace($cta_title);
+    if ($cta_text) $cta_text = webseo_city_replace($cta_text);
+}
 set_query_var('cta_data', [
-    'title'    => get_field('cta_title') ?: 'Готовы обсудить проект?',
-    'text'     => get_field('cta_desc'),
+    'title'    => $cta_title,
+    'text'     => $cta_text,
     'btn_text' => get_field('cta_btn_text') ?: 'Оставить заявку',
 ]);
 get_template_part('parts/section', 'cta');

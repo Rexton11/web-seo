@@ -22,7 +22,14 @@ function webseo_breadcrumbs(): void {
         if (is_singular('service')) {
             echo '<a href="' . esc_url(get_post_type_archive_link('service')) . '">Услуги</a>';
             echo '<span class="sep"> / </span>';
-            echo '<span>' . get_the_title() . '</span>';
+            $city = webseo_get_current_city();
+            if ($city) {
+                echo '<a href="' . esc_url(get_permalink()) . '">' . get_the_title() . '</a>';
+                echo '<span class="sep"> / </span>';
+                echo '<span>' . esc_html($city->name) . '</span>';
+            } else {
+                echo '<span>' . get_the_title() . '</span>';
+            }
         } elseif (is_singular('portfolio')) {
             echo '<a href="' . esc_url(get_post_type_archive_link('portfolio')) . '">Портфолио</a>';
             echo '<span class="sep"> / </span>';
