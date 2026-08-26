@@ -171,14 +171,64 @@ function webseo_tab_services(): void {
             </table>
         </div>
         <div>
+            <?php
+            // Fetch existing cities
+            $prompt_cities = get_terms(['taxonomy' => 'city', 'hide_empty' => false, 'orderby' => 'name']);
+            $cities_names = [];
+            $cities_json_arr = [];
+            if ($prompt_cities && !is_wp_error($prompt_cities)) {
+                foreach ($prompt_cities as $ct) {
+                    $cities_names[] = $ct->name;
+                    $cd = ['name' => $ct->name, 'slug' => $ct->slug];
+                    if (function_exists('get_field')) {
+                        $p = get_field('city_prepositional', "city_{$ct->term_id}");
+                        $g = get_field('city_genitive', "city_{$ct->term_id}");
+                        $a = get_field('city_accusative', "city_{$ct->term_id}");
+                        if ($p) $cd['prepositional'] = $p;
+                        if ($g) $cd['genitive'] = $g;
+                        if ($a) $cd['accusative'] = $a;
+                    }
+                    $cities_json_arr[] = $cd;
+                }
+            }
+            $cities_list_text = $cities_names ? implode(', ', $cities_names) : '[города не созданы]';
+            $cities_json_block = $cities_json_arr
+                ? json_encode($cities_json_arr, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
+                : "[\n        {\n          \"name\": \"Москва\",\n          \"slug\": \"moskva\",\n          \"prepositional\": \"Москве\",\n          \"genitive\": \"Москвы\",\n          \"accusative\": \"Москву\"\n        }\n      ]";
+            $has_cities = !empty($cities_json_arr);
+
+            // Fetch existing service categories
+            $srv_cats = get_terms(['taxonomy' => 'service_category', 'hide_empty' => false, 'orderby' => 'name']);
+            $cat_options = [];
+            if ($srv_cats && !is_wp_error($srv_cats)) {
+                foreach ($srv_cats as $sc) $cat_options[] = $sc->name;
+            }
+            $first_cat = $cat_options ? $cat_options[0] : 'Разработка сайтов';
+            ?>
+
+            <div style="margin-bottom:16px;padding:12px 16px;background:#f0f6ff;border:1px solid #c5d9f0;border-radius:6px;">
+                <label style="font-weight:600;font-size:13px;display:block;margin-bottom:6px;">Категория услуги для промта:</label>
+                <?php if ($cat_options) : ?>
+                    <select id="ws-prompt-cat" style="width:100%;padding:6px 10px;font-size:14px;">
+                        <?php foreach ($cat_options as $co) : ?>
+                            <option value="<?php echo esc_attr($co); ?>"><?php echo esc_html($co); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                <?php else : ?>
+                    <input type="text" id="ws-prompt-cat" value="Разработка сайтов" style="width:100%;padding:6px 10px;font-size:14px;" placeholder="Название категории">
+                <?php endif; ?>
+            </div>
+
             <div class="prompt-box">
-                <h4>📎 Промт для ИИ</h4>
-                <pre>Сгенерируй JSON для импорта продающей страницы услуги в WordPress.
+                <h4>📎 Промт для ИИ <button type="button" onclick="var t=document.getElementById('ws-prompt-text');navigator.clipboard.writeText(t.textContent);this.textContent='Скопировано!';setTimeout(()=>this.textContent='Копировать',1500);" style="float:right;font-size:12px;padding:4px 12px;cursor:pointer;border:1px solid #ccc;border-radius:4px;background:#fff;">Копировать</button></h4>
+                <pre id="ws-prompt-text" style="max-height:500px;">Сгенерируй JSON для импорта продающей страницы услуги в WordPress.
 
 Услуга: [НАЗВАНИЕ УСЛУГИ]
 Компания: [НАЗВАНИЕ] — веб-студия / SEO-агентство
-Города для мультирегиональности: [Москва, Санкт-Петербург, ...]
-(если городов нет — удали блок cities и geo-поля)
+Категория услуги: <span id="ws-cat-in-prompt"><?php echo esc_html($first_cat); ?></span>
+<?php if ($has_cities) : ?>Города для мультирегиональности: <?php echo esc_html($cities_list_text); ?>
+<?php else : ?>Города для мультирегиональности: [города не созданы — удали блок cities и geo-поля из JSON]
+<?php endif; ?>
 
 ПРАВИЛА ДЛЯ ПЕРВОГО ЭКРАНА (это самое важное):
 1. title — чистое название услуги БЕЗ города (город
@@ -199,10 +249,11 @@ function webseo_tab_services(): void {
    «Гарантия 12 мес.»
    Плохо: «Качественно», «Профессионально», «Быстро»
 4. hero_trust — 3 цифры доверия, реалистичные.
-5. geo_subtitle — подзаголовок для городских страниц.
+<?php if ($has_cities) : ?>5. geo_subtitle — подзаголовок для городских страниц.
    Формула: [что делаем] + в {city} + [цена/срок].
    Пример: «Создаём интернет-магазины в {city}
    от 40 000 ₽ и 2 недель. Интеграция с 1С, CRM, доставкой.»
+<?php endif; ?>
 
 ОБЩИЕ ПРАВИЛА:
 - Тон: уверенный, экспертный, лаконичный. Ноль воды.
@@ -215,125 +266,46 @@ function webseo_tab_services(): void {
   «Сайт на 6-м месяце — до сих пор не готов»
 - Решение (solution_items): 4–6 штук. Каждый = результат
   + цифра. «Рост трафика ×3 за 6 месяцев»
-- Преимущества (benefits): 5–6 штук. Bento-сетка:
-  1-й крупный, 6-й на всю ширину. Факты, не слоганы.
+- Преимущества (benefits): 5–6 штук. Факты, не слоганы.
 - Тарифы (pricing): 2–3 штуки. Один с popular: true.
   Цены реалистичные для РФ/СНГ.
 - FAQ: 6–8 вопросов, которые реально задают. Ответы —
   2–3 предложения с конкретикой.
 
-JSON-формат:
+JSON-формат (СТРОГО соблюдай структуру):
 
 {
   "services": [
     {
-      "title": "Разработка интернет-магазинов",
-      "excerpt": "Магазины с конверсией от 3% — запуск от 14 дней",
+      "title": "Название услуги",
+      "excerpt": "Краткое описание для карточки",
       "menu_order": 1,
       "taxonomies": {
-        "service_category": ["Разработка сайтов"]
+        "service_category": ["<span id="ws-cat-in-json"><?php echo esc_html($first_cat); ?></span>"]
       },
-      "cities": [
-        {
-          "name": "Москва",
-          "slug": "moskva",
-          "prepositional": "Москве",
-          "genitive": "Москвы",
-          "accusative": "Москву"
-        },
-        {
-          "name": "Санкт-Петербург",
-          "slug": "spb",
-          "prepositional": "Санкт-Петербурге",
-          "genitive": "Санкт-Петербурга"
-        }
-      ],
-      "fields": {
-        "service_icon": "ph ph-shopping-cart",
-        "service_subtitle": "Магазины на Битрикс и WooCommerce с конверсией от 3%. Средний рост продаж — ×2.4 за первый квартал.",
-        "service_cta_text": "Рассчитать стоимость",
-        "hero_chips": [
-          {"text": "Запуск от 14 дней"},
-          {"text": "Конверсия от 3%"},
-          {"text": "Гарантия 12 мес."},
-          {"text": "Интеграция с 1С и CRM"}
-        ],
-        "hero_trust": [
-          {"value": "147", "label": "магазинов запущено"},
-          {"value": "98%", "label": "клиентов продлевают"},
-          {"value": "×2.4", "label": "рост продаж в среднем"}
-        ],
-        "geo_subtitle": "Создаём интернет-магазины в {city} от 40 000 ₽ и 2 недель. Интеграция с 1С, CRM, службами доставки.",
-        "geo_description": "&lt;p&gt;Разрабатываем интернет-магазины для бизнеса в {city}. Работаем на 1С-Битрикс, WooCommerce, OpenCart — выбираем платформу под задачи и бюджет.&lt;/p&gt;&lt;p&gt;Каждый проект включает адаптивный дизайн, интеграцию с платёжными системами, настройку доставки и базовое SEO для старта продаж в {city_nom}.&lt;/p&gt;",
-        "pains_title": "Знакомая ситуация?",
-        "pains": [
-          {"icon": "", "title": "Вложили 200к в рекламу — 3 заявки", "text": ""},
-          {"icon": "", "title": "Сайт на 6-м месяце — до сих пор не готов", "text": ""},
-          {"icon": "", "title": "Корзина есть, а оплата не работает", "text": ""},
-          {"icon": "", "title": "Клиенты уходят с мобильной версии", "text": ""},
-          {"icon": "", "title": "Невозможно обновить каталог без разработчика", "text": ""}
-        ],
-        "solution_title": "Что вы получите",
-        "solution_items": [
-          {"icon": "", "title": "Магазин с конверсией от 3%", "text": "Проверенные шаблоны продающих страниц"},
-          {"icon": "", "title": "Интеграция с 1С и CRM", "text": "Автоматическая синхронизация остатков и цен"},
-          {"icon": "", "title": "Мобильная версия", "text": "60% покупок — с телефона, учитываем это"},
-          {"icon": "", "title": "Онлайн-оплата", "text": "ЮKassa, CloudPayments, СБП из коробки"},
-          {"icon": "", "title": "SEO-основа", "text": "Структура и скорость для попадания в ТОП"},
-          {"icon": "", "title": "Обучение + 3 мес. поддержки", "text": "Научим управлять — будете независимы"}
-        ],
-        "benefits_title": "Почему мы",
-        "benefits": [
-          {"icon": "ph ph-rocket", "title": "147 магазинов за 8 лет", "text": "Знаем подводные камни каждой ниши"},
-          {"icon": "ph ph-clock", "title": "Запуск от 14 дней", "text": "Не растягиваем — работаем по спринтам"},
-          {"icon": "ph ph-shield-check", "title": "Гарантия 12 месяцев", "text": "Бесплатно исправляем баги после запуска"},
-          {"icon": "ph ph-chart-line-up", "title": "Конверсия от 3%", "text": "A/B тесты и аналитика до результата"},
-          {"icon": "ph ph-code", "title": "Чистый код", "text": "Легко масштабировать и передать другой команде"},
-          {"icon": "ph ph-headset", "title": "На связи 7 дней в неделю", "text": "Менеджер + разработчик в Telegram-чате проекта"}
-        ],
-        "steps_title": "Как мы работаем",
-        "steps": [
-          {"title": "Бриф и аналитика", "text": "Разбираем нишу, конкурентов, целевую аудиторию"},
-          {"title": "Прототип и дизайн", "text": "Согласуем структуру и макеты до начала разработки"},
-          {"title": "Разработка", "text": "Вёрстка, интеграции, тестирование на всех устройствах"},
-          {"title": "Запуск и обучение", "text": "Переносим на хостинг, обучаем работе с админкой"},
-          {"title": "Поддержка", "text": "3 месяца бесплатной поддержки после запуска"}
-        ],
-        "pricing_title": "Стоимость",
-        "pricing": [
-          {
-            "name": "Старт",
-            "price": "от 40 000 ₽",
-            "features": "До 500 товаров\nАдаптивный дизайн\nОнлайн-оплата\nОбучение работе",
-            "popular": false,
-            "btn_text": "Обсудить"
-          },
-          {
-            "name": "Бизнес",
-            "price": "от 120 000 ₽",
-            "features": "До 10 000 товаров\nИнтеграция с 1С\nCRM-система\nSEO-оптимизация\nПерсональный менеджер",
-            "popular": true,
-            "btn_text": "Рассчитать"
-          },
-          {
-            "name": "Масштаб",
-            "price": "от 300 000 ₽",
-            "features": "Безлимит товаров\nМаркетплейс-функции\nHighload-архитектура\nМультисклад\nAPI-интеграции\nSLA-поддержка",
-            "popular": false,
-            "btn_text": "Обсудить"
-          }
-        ],
-        "faq_items": [
-          {"question": "Сколько стоит интернет-магазин?", "answer": "От 40 000 ₽ за базовый магазин до 500 товаров. Финальная цена зависит от интеграций и дизайна — рассчитаем за 2 часа после брифа."},
-          {"question": "Какие сроки разработки?", "answer": "Базовый магазин — от 14 рабочих дней. Проект с интеграцией 1С — от 6 недель. Точные сроки фиксируем в договоре."},
-          {"question": "На какой платформе лучше делать?", "answer": "Зависит от задач. WooCommerce — для старта и небольших каталогов. 1С-Битрикс — для серьёзной интеграции с 1С. Подбираем под ваш бюджет и планы."},
-          {"question": "Можно ли перенести товары со старого сайта?", "answer": "Да, мигрируем каталог из любой CMS или Excel-файлов. Сохраняем SEO-позиции через 301-редиректы."},
-          {"question": "Что входит в поддержку?", "answer": "3 месяца бесплатно: исправление багов, мелкие доработки до 2 часов/мес, консультации. Дальше — от 10 000 ₽/мес."},
-          {"question": "Вы делаете дизайн или только разработку?", "answer": "Полный цикл: прототип → дизайн → вёрстка → программирование → запуск. Можем работать и по вашему макету."}
-        ],
-        "cta_title": "Обсудим ваш магазин?",
-        "cta_desc": "Расскажите о проекте — пришлём КП в течение 2 часов",
-        "cta_btn_text": "Получить КП"
+<?php if ($has_cities) : ?>      "cities": <?php echo esc_html($cities_json_block); ?>,
+<?php endif; ?>      "fields": {
+        "service_icon": "ph ph-...",
+        "service_subtitle": "...",
+        "service_cta_text": "...",
+        "hero_chips": [{"text": "..."}, ...],
+        "hero_trust": [{"value": "...", "label": "..."}, ...],
+<?php if ($has_cities) : ?>        "geo_subtitle": "... в {city} ...",
+        "geo_description": "<p>... {city} ...</p>",
+<?php endif; ?>        "pains_title": "...",
+        "pains": [{"icon": "", "title": "...", "text": ""}, ...],
+        "solution_title": "...",
+        "solution_items": [{"icon": "", "title": "...", "text": "..."}, ...],
+        "benefits_title": "...",
+        "benefits": [{"icon": "ph ph-...", "title": "...", "text": "..."}, ...],
+        "steps_title": "...",
+        "steps": [{"title": "...", "text": "..."}, ...],
+        "pricing_title": "...",
+        "pricing": [{"name": "...", "price": "...", "features": "...\n...", "popular": false, "btn_text": "..."}, ...],
+        "faq_items": [{"question": "...", "answer": "..."}, ...],
+        "cta_title": "...",
+        "cta_desc": "...",
+        "cta_btn_text": "..."
       }
     }
   ]
@@ -347,6 +319,23 @@ ph ph-target, ph ph-trophy, ph ph-gear, ph ph-database,
 ph ph-chat-text, ph ph-currency-dollar, ph ph-lightning,
 ph ph-headset, ph ph-browser, ph ph-globe, ph ph-paint-brush</pre>
             </div>
+
+            <script>
+            (function(){
+                var sel = document.getElementById('ws-prompt-cat');
+                if (!sel) return;
+                sel.addEventListener('change', function(){
+                    var v = this.value || this.textContent;
+                    document.getElementById('ws-cat-in-prompt').textContent = v;
+                    document.getElementById('ws-cat-in-json').textContent = v;
+                });
+                sel.addEventListener('input', function(){
+                    var v = this.value;
+                    document.getElementById('ws-cat-in-prompt').textContent = v;
+                    document.getElementById('ws-cat-in-json').textContent = v;
+                });
+            })();
+            </script>
 
             <h3>Вставьте JSON и импортируйте</h3>
             <?php webseo_import_form('services', '{"services": [...]}'); ?>
