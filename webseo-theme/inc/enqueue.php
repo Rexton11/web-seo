@@ -25,7 +25,7 @@ add_action('wp_enqueue_scripts', function () {
     wp_enqueue_style('webseo-main', $uri . '/assets/css/main.css', ['webseo-fonts'], $v);
 
     // Component stylesheets
-    $components = ['header', 'hero', 'cards', 'bento', 'sections', 'buttons', 'faq', 'quiz', 'footer', 'portfolio', 'pricing', 'testimonials', 'blog', 'modal', 'mega-menu', 'animations'];
+    $components = ['header', 'hero', 'cards', 'sections', 'buttons', 'faq', 'quiz', 'footer', 'portfolio', 'pricing', 'testimonials', 'blog', 'modal', 'mega-menu', 'animations'];
     foreach ($components as $component) {
         $file = "/assets/css/components/{$component}.css";
         if (file_exists(WEBSEO_DIR . $file)) {
