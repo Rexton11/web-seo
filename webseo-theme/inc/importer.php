@@ -42,6 +42,7 @@ function webseo_import_page(): void {
         'portfolio'    => '📁 Портфолио',
         'quizzes'      => '📋 Квизы',
         'testimonials' => '💬 Отзывы',
+        'cities'       => '🏙 Города',
         'pages'        => '📄 Страницы',
         'settings'     => '⚙️ Настройки',
     ];
@@ -576,6 +577,93 @@ function webseo_tab_testimonials(): void {
 }
 
 /* ════════════════════════════════════════════════
+   TAB: CITIES
+   ════════════════════════════════════════════════ */
+
+function webseo_tab_cities(): void {
+    ?>
+    <h2>Импорт городов</h2>
+    <p>Города — таксономия <code>city</code>, привязывается к услугам для мультирегиональных страниц (<code>/uslugi/slug/city-slug/</code>). Каждый город хранит склонения для корректной подстановки в тексты.</p>
+
+    <div class="webseo-cols">
+        <div>
+            <h3>Структура JSON</h3>
+            <table class="field-table">
+                <tr><th colspan="3" style="background:#e8f5e9;">Поля города</th></tr>
+                <tr><th><code>name</code></th><td>string</td><td><strong>Обязательно.</strong> Название в именительном падеже: «Москва», «Санкт-Петербург»</td></tr>
+                <tr><th><code>slug</code></th><td>string</td><td>Slug для URL. Если не указан — генерируется из name. Примеры: <code>moskva</code>, <code>spb</code>, <code>novosibirsk</code></td></tr>
+                <tr><th><code>prepositional</code></th><td>string</td><td><strong>Обязательно.</strong> Предложный падеж (в ком? в чём?): «Москве», «Санкт-Петербурге», «Новосибирске».<br>Используется в <code>{city}</code> — «SEO-продвижение в <u>Москве</u>»</td></tr>
+                <tr><th><code>genitive</code></th><td>string</td><td><strong>Обязательно.</strong> Родительный падеж (кого? чего?): «Москвы», «Санкт-Петербурга», «Новосибирска».<br>Используется в <code>{city_rod}</code> — «Клиенты из <u>Москвы</u>»</td></tr>
+                <tr><th><code>accusative</code></th><td>string</td><td>Винительный падеж (кого? что?): «Москву», «Санкт-Петербург», «Новосибирск».<br>Используется в <code>{city_vin}</code>. Необязательно — если совпадает с именительным</td></tr>
+            </table>
+
+            <div style="margin-top:16px;padding:12px 16px;background:#fff3e0;border-radius:6px;font-size:13px;">
+                <strong>Важно:</strong> После импорта городов привяжите их к услугам — либо через импорт услуг (поле <code>cities</code>), либо вручную в редакторе услуги (таксономия «Город» в сайдбаре).
+            </div>
+
+            <h4 style="margin-top:16px;">Переменные подстановки</h4>
+            <table class="field-table">
+                <tr><th><code>{city}</code></th><td>Предложный — «в {city}» → «в Москве»</td></tr>
+                <tr><th><code>{city_nom}</code></th><td>Именительный — «{city_nom} — мой город» → «Москва — мой город»</td></tr>
+                <tr><th><code>{city_rod}</code></th><td>Родительный — «жители {city_rod}» → «жители Москвы»</td></tr>
+                <tr><th><code>{city_vin}</code></th><td>Винительный — «выбирайте {city_vin}» → «выбирайте Москву»</td></tr>
+            </table>
+        </div>
+        <div>
+            <div class="prompt-box">
+                <h4>📎 Промт для ИИ</h4>
+                <pre>Сгенерируй JSON-массив городов-миллионников России
+для импорта в WordPress-тему.
+
+Для каждого города нужно:
+- name — именительный падеж (Москва)
+- slug — транслитерация для URL (moskva). Для
+  Санкт-Петербурга используй "spb", для
+  Нижнего Новгорода — "nizhniy-novgorod"
+- prepositional — предложный падеж (Москве)
+- genitive — родительный падеж (Москвы)
+- accusative — винительный падеж, ТОЛЬКО если
+  отличается от именительного (Москву).
+  Если совпадает — не включай это поле.
+
+JSON-формат:
+
+{
+  "cities": [
+    {
+      "name": "Москва",
+      "slug": "moskva",
+      "prepositional": "Москве",
+      "genitive": "Москвы",
+      "accusative": "Москву"
+    },
+    {
+      "name": "Санкт-Петербург",
+      "slug": "spb",
+      "prepositional": "Санкт-Петербурге",
+      "genitive": "Санкт-Петербурга"
+    },
+    {
+      "name": "Новосибирск",
+      "slug": "novosibirsk",
+      "prepositional": "Новосибирске",
+      "genitive": "Новосибирска"
+    }
+  ]
+}
+
+Включи все города-миллионники РФ (16 городов).
+Склонения должны быть грамматически безупречны.</pre>
+            </div>
+
+            <h3>Вставьте JSON и импортируйте</h3>
+            <?php webseo_import_form('cities', '{"cities": [...]}'); ?>
+        </div>
+    </div>
+    <?php
+}
+
+/* ════════════════════════════════════════════════
    TAB: PAGES
    ════════════════════════════════════════════════ */
 
@@ -759,6 +847,7 @@ function webseo_run_import(array $data, string $type = ''): array {
 
     if (!empty($data['settings']))     $log = array_merge($log, webseo_import_settings($data['settings']));
     if (!empty($data['options']))      { foreach ($data['options'] as $k => $v) { update_field($k, $v, 'option'); $log[] = "✓ Опция: {$k}"; } }
+    if (!empty($data['cities']))       $log = array_merge($log, webseo_import_cities($data['cities']));
     if (!empty($data['pages']))        { foreach ($data['pages'] as $p)        $log = array_merge($log, webseo_import_post($p, 'page')); }
     if (!empty($data['services']))     { foreach ($data['services'] as $p)     $log = array_merge($log, webseo_import_post($p, 'service')); }
     if (!empty($data['portfolio']))    { foreach ($data['portfolio'] as $p)    $log = array_merge($log, webseo_import_post($p, 'portfolio')); }
@@ -895,6 +984,45 @@ function webseo_import_settings(array $s): array {
     if (isset($s['permalink_structure'])) { global $wp_rewrite; $wp_rewrite->set_permalink_structure($s['permalink_structure']); $wp_rewrite->flush_rules(); $log[] = "✓ Ссылки: {$s['permalink_structure']}"; }
     if (isset($s['blogname']))        { update_option('blogname', $s['blogname']); $log[] = "✓ Название: {$s['blogname']}"; }
     if (isset($s['blogdescription'])) { update_option('blogdescription', $s['blogdescription']); $log[] = "✓ Описание: {$s['blogdescription']}"; }
+    return $log;
+}
+
+/* ── Import cities ─────────────────────────── */
+
+function webseo_import_cities(array $cities): array {
+    $log = [];
+    if (!function_exists('update_field')) {
+        $log[] = '✗ ACF Pro не активен — склонения не будут сохранены';
+    }
+
+    foreach ($cities as $city) {
+        if (empty($city['name'])) continue;
+
+        $slug = sanitize_title($city['slug'] ?? $city['name']);
+        $t = term_exists($slug, 'city');
+
+        if ($t) {
+            $term_id = (int)($t['term_id'] ?? $t);
+            wp_update_term($term_id, 'city', ['name' => $city['name']]);
+            $log[] = "↻ Обновлён город: {$city['name']} ({$slug})";
+        } else {
+            $t = wp_insert_term($city['name'], 'city', ['slug' => $slug]);
+            if (is_wp_error($t)) {
+                $log[] = "✗ Ошибка: {$city['name']} — " . $t->get_error_message();
+                continue;
+            }
+            $term_id = (int)$t['term_id'];
+            $log[] = "✓ Создан город: {$city['name']} ({$slug})";
+        }
+
+        if (function_exists('update_field')) {
+            if (!empty($city['prepositional'])) update_field('city_prepositional', $city['prepositional'], "city_{$term_id}");
+            if (!empty($city['genitive']))      update_field('city_genitive', $city['genitive'], "city_{$term_id}");
+            if (!empty($city['accusative']))     update_field('city_accusative', $city['accusative'], "city_{$term_id}");
+        }
+    }
+
+    $log[] = "— Итого: " . count($cities) . " городов обработано";
     return $log;
 }
 
