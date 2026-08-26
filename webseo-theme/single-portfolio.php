@@ -50,7 +50,7 @@
                 <h2>Результаты</h2>
                 <div class="results-grid">
                     <?php foreach ($results as $r) : ?>
-                        <div class="result-card">
+                        <div class="result-card" data-reveal>
                             <div class="result-metric"><?php echo esc_html($r['metric']); ?></div>
                             <div class="result-values">
                                 <span class="result-before"><?php echo esc_html($r['before']); ?></span>

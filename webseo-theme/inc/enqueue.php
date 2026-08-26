@@ -25,7 +25,7 @@ add_action('wp_enqueue_scripts', function () {
     wp_enqueue_style('webseo-main', $uri . '/assets/css/main.css', ['webseo-fonts'], $v);
 
     // Component stylesheets
-    $components = ['header', 'hero', 'cards', 'sections', 'buttons', 'faq', 'quiz', 'footer', 'portfolio', 'pricing', 'testimonials', 'blog', 'modal', 'mega-menu'];
+    $components = ['header', 'hero', 'cards', 'sections', 'buttons', 'faq', 'quiz', 'footer', 'portfolio', 'pricing', 'testimonials', 'blog', 'modal', 'mega-menu', 'animations'];
     foreach ($components as $component) {
         $file = "/assets/css/components/{$component}.css";
         if (file_exists(WEBSEO_DIR . $file)) {
@@ -37,6 +37,7 @@ add_action('wp_enqueue_scripts', function () {
 
     wp_enqueue_script('webseo-header', $uri . '/assets/js/header.js', [], $v, true);
     wp_enqueue_script('webseo-main', $uri . '/assets/js/main.js', [], $v, true);
+    wp_enqueue_script('webseo-animations', $uri . '/assets/js/animations.js', [], $v, true);
 
     // Modal form — global (any page can have CTA buttons)
     wp_enqueue_script('webseo-modal', $uri . '/assets/js/modal.js', [], $v, true);
@@ -70,7 +71,7 @@ add_action('wp_head', function () {
 /* ── Defer non-critical JS ─────────────────────────────────── */
 
 add_filter('script_loader_tag', function ($tag, $handle) {
-    $defer_handles = ['webseo-main', 'webseo-faq', 'webseo-quiz'];
+    $defer_handles = ['webseo-main', 'webseo-faq', 'webseo-quiz', 'webseo-animations'];
     if (in_array($handle, $defer_handles, true)) {
         return str_replace(' src', ' defer src', $tag);
     }

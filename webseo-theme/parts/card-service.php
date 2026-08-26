@@ -3,7 +3,7 @@ $p = get_query_var('card_post');
 if (!$p) return;
 $icon = get_field('service_icon', $p->ID);
 ?>
-<div class="card card--service">
+<div class="card card--service" data-reveal>
     <a href="<?php echo get_permalink($p); ?>" class="card-link">
         <?php if ($icon) : ?>
             <div class="card-icon"><?php echo webseo_icon($icon); ?></div>

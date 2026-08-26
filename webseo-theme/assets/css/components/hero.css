@@ -1,4 +1,5 @@
-.hero{padding-top:140px;text-align:center;min-height:80vh;display:flex;align-items:center}
+.hero{padding-top:140px;text-align:center;min-height:80vh;display:flex;align-items:center;position:relative;overflow:hidden}
+.hero .container{position:relative;z-index:1}
 .hero h1{margin-bottom:16px}
 .hero p{font-size:1.2rem;color:var(--text-muted);max-width:560px;margin:0 auto 32px}
 .hero-actions{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}

@@ -6,7 +6,7 @@ $position = get_field('client_position', $p->ID);
 $text     = get_field('review_text', $p->ID);
 $avatar   = get_field('client_avatar', $p->ID);
 ?>
-<div class="testimonial-card">
+<div class="testimonial-card" data-reveal>
     <div class="testimonial-header">
         <?php if ($avatar) : ?>
             <img src="<?php echo esc_url($avatar['sizes']['thumbnail']); ?>" alt="<?php echo esc_attr($name); ?>" class="testimonial-avatar" width="48" height="48" loading="lazy">

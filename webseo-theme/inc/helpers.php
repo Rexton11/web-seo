@@ -52,7 +52,7 @@ function webseo_badge(string $text): string {
  * Render section header.
  */
 function webseo_section_header(string $badge, string $title, string $subtitle = ''): void {
-    echo '<div class="section-header">';
+    echo '<div class="section-header" data-reveal="scale">';
     echo webseo_badge($badge);
     echo '<h2>' . esc_html($title) . '</h2>';
     if ($subtitle) {

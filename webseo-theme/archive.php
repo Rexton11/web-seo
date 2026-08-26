@@ -7,7 +7,7 @@
         <?php if (have_posts()) : ?>
             <div class="blog-grid">
                 <?php while (have_posts()) : the_post(); ?>
-                    <article class="blog-card">
+                    <article class="blog-card" data-reveal>
                         <?php if (has_post_thumbnail()) : ?>
                             <a href="<?php the_permalink(); ?>" class="blog-card__img">
                                 <?php the_post_thumbnail('card-thumb', ['loading' => 'lazy']); ?>

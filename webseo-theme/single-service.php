@@ -13,12 +13,17 @@ $post_id = get_the_ID();
 <?php $hero_media = get_field('hero_media'); ?>
 <?php webseo_breadcrumbs(); ?>
 <section class="service-hero<?php echo $hero_media ? ' service-hero--with-media' : ''; ?>">
-    <div class="container">
+    <div class="hero-decor">
+        <div class="hero-grid"></div>
+        <div class="hero-blob hero-blob--1"></div>
+        <div class="hero-glow"></div>
+    </div>
+    <div class="container" data-reveal="scale">
         <div class="service-hero__content">
             <?php if ($icon = get_field('service_icon')) : ?>
                 <div class="service-hero__icon"><?php echo webseo_icon($icon); ?></div>
             <?php endif; ?>
-            <h1><?php the_title(); ?></h1>
+            <h1 class="js-kinetic"><?php the_title(); ?></h1>
 
             <?php $chips = get_field('hero_chips'); if ($chips) : ?>
                 <div class="hero-chips">
@@ -34,7 +39,7 @@ $post_id = get_the_ID();
 
             <div class="service-hero__actions">
                 <?php if ($cta = get_field('service_cta_text')) : ?>
-                    <a href="#callback" data-modal="callback" class="btn btn-primary">
+                    <a href="#callback" data-modal="callback" data-magnetic class="btn btn-primary">
                         <?php echo esc_html($cta); ?> <i class="ph-bold ph-arrow-right"></i>
                     </a>
                 <?php endif; ?>
@@ -70,7 +75,7 @@ $post_id = get_the_ID();
         </div>
         <div class="pains-pills">
             <?php foreach ($pains as $pain) : ?>
-                <span class="pain-pill">
+                <span class="pain-pill" data-reveal="scale">
                     <i class="ph-bold ph-x"></i>
                     <?php echo esc_html($pain['title']); ?>
                 </span>
@@ -87,7 +92,7 @@ $post_id = get_the_ID();
         <?php webseo_section_header('', get_field('solution_title') ?: 'Что вы получите'); ?>
         <div class="solution-checklist">
             <?php foreach ($solution as $item) : ?>
-                <div class="solution-check-item">
+                <div class="solution-check-item" data-reveal="left">
                     <div class="solution-check-icon"><i class="ph-bold ph-check"></i></div>
                     <div>
                         <h3><?php echo esc_html($item['title']); ?></h3>
@@ -107,7 +112,7 @@ $post_id = get_the_ID();
         <?php webseo_section_header('', get_field('benefits_title') ?: 'Почему мы'); ?>
         <div class="grid-3">
             <?php foreach ($benefits as $b) : ?>
-                <div class="card">
+                <div class="card" data-reveal>
                     <div class="card-icon"><?php echo webseo_icon($b['icon']); ?></div>
                     <h3><?php echo esc_html($b['title']); ?></h3>
                     <p><?php echo esc_html($b['text']); ?></p>
@@ -128,7 +133,7 @@ $post_id = get_the_ID();
         <div class="steps-wrapper">
             <div class="steps-slider">
                 <?php foreach ($steps as $i => $step) : ?>
-                    <div class="step-item">
+                    <div class="step-item" data-reveal="scale">
                         <div class="step-number"><?php echo $i + 1; ?></div>
                         <h3><?php echo esc_html($step['title']); ?></h3>
                         <p><?php echo esc_html($step['text']); ?></p>
@@ -175,7 +180,7 @@ if ($cases) :
         <?php webseo_section_header('', get_field('pricing_title') ?: 'Стоимость'); ?>
         <div class="pricing-grid">
             <?php foreach ($pricing as $plan) : ?>
-                <div class="pricing-card<?php echo $plan['popular'] ? ' pricing-card--popular' : ''; ?>">
+                <div class="pricing-card<?php echo $plan['popular'] ? ' pricing-card--popular' : ''; ?>" data-reveal>
                     <?php if ($plan['popular']) : ?>
                         <span class="pricing-badge">Популярный</span>
                     <?php endif; ?>
@@ -189,7 +194,7 @@ if ($cases) :
                             <li><i class="ph ph-check"></i> <?php echo esc_html($feature); ?></li>
                         <?php endif; endforeach; ?>
                     </ul>
-                    <a href="#callback" data-modal="callback" data-plan="<?php echo esc_attr($plan['name']); ?>" class="btn btn-primary pricing-btn">
+                    <a href="#callback" data-modal="callback" data-plan="<?php echo esc_attr($plan['name']); ?>" data-magnetic class="btn btn-primary pricing-btn">
                         <?php echo esc_html($plan['btn_text'] ?: 'Заказать'); ?>
                     </a>
                 </div>
