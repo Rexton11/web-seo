@@ -1,0 +1,43 @@
+.card{padding:32px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-main);transition:var(--transition)}
+.card:hover{transform:translateY(-4px);box-shadow:var(--shadow-md);border-color:var(--border-hover)}
+.card-icon{font-size:2rem;color:var(--acid-green);margin-bottom:16px}
+.card h3{margin-bottom:8px}
+.card p{color:var(--text-muted);font-size:.95rem}
+.card-link{display:block;text-decoration:none;color:inherit;height:100%}
+.card-arrow{display:inline-flex;margin-top:12px;color:var(--text-muted);transition:var(--transition)}
+.card:hover .card-arrow{color:var(--text-main);transform:translateX(4px)}
+/* Pains — pills/tags */
+.pains-pills{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.pain-pill{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:var(--radius-pill);border:1px solid var(--border-color);font-size:.95rem;color:var(--text-muted);background:var(--bg-main);transition:var(--transition)}
+.pain-pill:hover{border-color:var(--border-hover);color:var(--text-main)}
+.pain-pill i{color:#ef4444;font-size:.85rem}
+
+/* Solution — checklist */
+.solution-checklist{display:grid;grid-template-columns:1fr 1fr;gap:24px 48px}
+.solution-check-item{display:flex;gap:14px;align-items:flex-start}
+.solution-check-icon{flex-shrink:0;width:32px;height:32px;border-radius:50%;background:rgba(204,255,0,.15);color:var(--acid-green);display:flex;align-items:center;justify-content:center;font-size:.8rem;margin-top:2px}
+.solution-check-item h3{font-size:1.05rem;margin-bottom:6px}
+.solution-check-item p{font-size:.95rem;color:var(--text-muted);line-height:1.6}
+@media(max-width:768px){.solution-checklist{grid-template-columns:1fr}}
+/* Service card equal height */
+.card--service{display:flex;flex-direction:column;height:100%}
+.card--service .card-link{display:flex;flex-direction:column;height:100%}
+.card--service p{flex-grow:1}
+
+/* Service category cards on front page */
+.services-home-wrapper{position:relative}
+.services-home-slider{display:flex;gap:24px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;scrollbar-width:none;padding-bottom:4px}
+.services-home-slider::-webkit-scrollbar{display:none}
+.service-cat-card{flex:0 0 calc(33.333% - 16px);min-width:300px;scroll-snap-align:start;padding:28px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-main);display:flex;flex-direction:column;transition:var(--transition)}
+.service-cat-card:hover{border-color:var(--border-hover);box-shadow:var(--shadow-md)}
+.service-cat-card__title{margin-bottom:16px;padding-bottom:12px;border-bottom:2px solid var(--acid-green)}
+.service-cat-card__title a{color:var(--text-main);text-decoration:none;font-size:1.1rem}
+.service-cat-card__title a:hover{color:var(--acid-green)}
+.service-cat-card__list{list-style:none;flex-grow:1;margin-bottom:16px}
+.service-cat-card__list li{margin-bottom:6px}
+.service-cat-card__list li a{display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--text-muted);text-decoration:none;padding:6px 0;transition:color .2s}
+.service-cat-card__list li a:hover{color:var(--text-main)}
+.service-cat-card__icon{font-size:1.1rem;color:var(--acid-green);width:20px;text-align:center;flex-shrink:0}
+.service-cat-card__more{font-weight:600;font-size:.9rem;display:inline-flex;align-items:center;gap:6px;color:var(--text-muted);text-decoration:none;margin-top:auto;transition:color .2s}
+.service-cat-card__more:hover{color:var(--text-main);gap:10px}
+@media(max-width:768px){.service-cat-card{flex:0 0 280px;min-width:280px}}
