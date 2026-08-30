@@ -54,6 +54,33 @@ document.querySelectorAll('.slider-arrow').forEach(function (btn) {
     });
 });
 
+/* ── Mega menu open/close with delay ────── */
+(function () {
+    var closeTimer = null;
+    var DELAY = 300;
+
+    document.querySelectorAll('.nav-item--mega').forEach(function (item) {
+        item.addEventListener('mouseenter', function () {
+            if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+            item.classList.add('open');
+        });
+        item.addEventListener('mouseleave', function () {
+            closeTimer = setTimeout(function () { item.classList.remove('open'); }, DELAY);
+        });
+
+        var mega = item.querySelector('.mega-menu');
+        if (mega) {
+            mega.addEventListener('mouseenter', function () {
+                if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+                item.classList.add('open');
+            });
+            mega.addEventListener('mouseleave', function () {
+                closeTimer = setTimeout(function () { item.classList.remove('open'); }, DELAY);
+            });
+        }
+    });
+})();
+
 /* ── Mega menu category hover ────────────── */
 document.querySelectorAll('.mega-menu__cat').forEach(function (cat) {
     cat.addEventListener('mouseenter', function () {
