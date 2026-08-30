@@ -7,6 +7,17 @@
 
 defined('ABSPATH') || exit;
 
+add_filter('wpseo_breadcrumb_separator', function () {
+    return '<span class="sep">/</span>';
+});
+
+add_filter('wpseo_breadcrumb_links', function ($links) {
+    if (!empty($links[0]['text']) && $links[0]['text'] === 'Главная') {
+        $links[0]['text'] = '<i class="ph-bold ph-house-simple"></i>';
+    }
+    return $links;
+});
+
 function webseo_breadcrumbs(): void {
     if (is_front_page()) return;
 
@@ -16,18 +27,7 @@ function webseo_breadcrumbs(): void {
     echo '<div class="container">';
 
     if (function_exists('yoast_breadcrumb')) {
-        ob_start();
         yoast_breadcrumb('', '');
-        $yoast_html = ob_get_clean();
-        $yoast_html = preg_replace(
-            '/>Главная<\/a>/',
-            ' aria-label="Главная">' . $home_icon . '</a>',
-            $yoast_html,
-            1
-        );
-        $sep = '<span class="sep">/</span>';
-        $yoast_html = preg_replace('/\s*(?:»|&raquo;|&rsaquo;|›|>)\s*/', $sep, $yoast_html);
-        echo $yoast_html;
     } else {
         echo '<a href="' . esc_url(home_url('/')) . '" aria-label="Главная">' . $home_icon . '</a>';
         echo '<span class="sep">/</span>';
@@ -58,7 +58,6 @@ function webseo_breadcrumbs(): void {
         } elseif (is_page()) {
             echo '<span>' . get_the_title() . '</span>';
         }
-
     }
 
     echo '</div>';
