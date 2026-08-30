@@ -77,7 +77,7 @@ $tags        = get_the_terms($id, 'portfolio_tag');
             <span class="section-badge">Задача</span>
             <h2>С чем обратился клиент</h2>
         </div>
-        <div class="case-task__grid">
+        <div class="case-task__grid<?php echo ($task && $challenge) ? '' : ' case-task__grid--single'; ?>">
             <?php if ($task) : ?>
                 <div class="case-task__block" data-reveal>
                     <div class="case-task__icon"><i class="ph-bold ph-target"></i></div>
@@ -166,16 +166,13 @@ $tags        = get_the_terms($id, 'portfolio_tag');
             <?php foreach ($results as $r) : ?>
                 <div class="case-result-card" data-reveal>
                     <div class="case-result-card__metric"><?php echo esc_html($r['metric']); ?></div>
-                    <div class="case-result-card__values">
-                        <div class="case-result-card__before">
-                            <span class="case-result-card__label">Было</span>
-                            <span class="case-result-card__value"><?php echo esc_html($r['before']); ?></span>
-                        </div>
-                        <div class="case-result-card__arrow"><i class="ph-bold ph-arrow-right"></i></div>
-                        <div class="case-result-card__after">
-                            <span class="case-result-card__label">Стало</span>
-                            <span class="case-result-card__value"><?php echo esc_html($r['after']); ?></span>
-                        </div>
+                    <div class="case-result-card__before">
+                        <span class="case-result-card__label">Было</span>
+                        <span class="case-result-card__value"><?php echo esc_html($r['before']); ?></span>
+                    </div>
+                    <div class="case-result-card__after">
+                        <span class="case-result-card__label">Стало</span>
+                        <span class="case-result-card__value"><?php echo esc_html($r['after']); ?></span>
                     </div>
                 </div>
             <?php endforeach; ?>
