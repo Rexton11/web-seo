@@ -149,26 +149,48 @@ button { cursor: pointer; font-family: inherit; }
 /* ── Breadcrumbs ────────────────────────────── */
 
 .breadcrumbs {
-    padding: 88px 0 0;
+    padding: 88px 24px 0;
     font-size: 0.875rem;
     color: var(--text-muted);
+    margin-bottom: 12px;
 }
 .breadcrumbs .container {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
     overflow-x: auto;
     white-space: nowrap;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
+    gap: 0;
+    padding-top: 4px;
+    padding-bottom: 4px;
 }
 .breadcrumbs .container::-webkit-scrollbar { display: none; }
-@media(max-width:768px){
-.breadcrumbs { padding: 72px 0 0; }
-    font-size: 0.875rem;
+.breadcrumbs a {
     color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+}
+.breadcrumbs a:hover { color: var(--text-main); }
+.breadcrumbs a i { font-size: 1rem; }
+.breadcrumbs .sep {
+    margin: 0 8px;
+    opacity: 0.35;
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.7rem;
+}
+.breadcrumbs span:last-child {
+    color: var(--text-main);
+    font-weight: 500;
 }
 
-.breadcrumbs a { color: var(--text-muted); }
-.breadcrumbs a:hover { color: var(--text-main); }
-.breadcrumbs .sep { margin: 0 8px; opacity: 0.4; }
+@media (max-width: 768px) {
+    .breadcrumbs { padding: 72px 12px 0; font-size: 0.8rem; margin-bottom: 8px; }
+    .breadcrumbs .container { padding-top: 2px; padding-bottom: 2px; }
+    .breadcrumbs .sep { margin: 0 6px; }
+}
 
 /* ── Filter tabs ────────────────────────────── */
 

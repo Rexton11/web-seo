@@ -308,7 +308,7 @@ function webseo_register_acf_fields(): void {
     ]);
 
     /* ================================================================
-     * 6. SINGLE PORTFOLIO — Кейс
+     * 6. SINGLE PORTFOLIO — Кейс (продающая структура)
      * ================================================================ */
     acf_add_local_field_group([
         'key'      => 'group_portfolio',
@@ -317,25 +317,74 @@ function webseo_register_acf_fields(): void {
             'param' => 'post_type', 'operator' => '==', 'value' => 'portfolio',
         ]]],
         'fields' => [
-            ['key' => 'f_pf_client',  'name' => 'client',  'label' => 'Клиент / отрасль', 'type' => 'text'],
-            ['key' => 'f_pf_task',    'name' => 'task',     'label' => 'Задача',           'type' => 'wysiwyg', 'media_upload' => 0],
-            ['key' => 'f_pf_solution','name' => 'solution', 'label' => 'Решение',          'type' => 'wysiwyg'],
+            // Hero
+            ['key' => 'f_pf_tab_hero', 'label' => 'Hero', 'type' => 'tab'],
+            ['key' => 'f_pf_client',  'name' => 'client',  'label' => 'Клиент / компания', 'type' => 'text', 'instructions' => 'Название компании или имя клиента'],
+            ['key' => 'f_pf_niche',   'name' => 'niche',   'label' => 'Ниша / отрасль',    'type' => 'text', 'instructions' => 'Например: «E-commerce», «Медицина», «B2B SaaS»'],
+
+            // Task & Challenge
+            ['key' => 'f_pf_tab_task', 'label' => 'Задача', 'type' => 'tab'],
+            ['key' => 'f_pf_task',      'name' => 'task',      'label' => 'Задача проекта',  'type' => 'wysiwyg', 'media_upload' => 0, 'toolbar' => 'basic',
+             'instructions' => 'Что нужно было сделать. HTML: p, ul, li'],
+            ['key' => 'f_pf_challenge', 'name' => 'challenge', 'label' => 'Сложности',       'type' => 'wysiwyg', 'media_upload' => 0, 'toolbar' => 'basic',
+             'instructions' => 'С какими трудностями столкнулись. Опционально'],
+
+            // Approach
+            ['key' => 'f_pf_tab_approach', 'label' => 'Подход', 'type' => 'tab'],
             [
-                'key' => 'f_pf_results', 'name' => 'results', 'label' => 'Результаты', 'type' => 'repeater', 'layout' => 'table',
+                'key' => 'f_pf_approach', 'name' => 'approach', 'label' => 'Этапы решения', 'type' => 'repeater', 'layout' => 'block',
+                'instructions' => 'Пошаговый подход: анализ → проектирование → разработка → тестирование. 4–6 этапов',
+                'sub_fields' => [
+                    ['key' => 'f_pf_app_title', 'name' => 'title', 'label' => 'Этап',     'type' => 'text'],
+                    ['key' => 'f_pf_app_text',  'name' => 'text',  'label' => 'Описание', 'type' => 'textarea', 'rows' => 3],
+                ],
+            ],
+
+            // Solution
+            ['key' => 'f_pf_tab_solution', 'label' => 'Решение', 'type' => 'tab'],
+            ['key' => 'f_pf_solution','name' => 'solution', 'label' => 'Решение', 'type' => 'wysiwyg',
+             'instructions' => 'Подробное описание что сделали, какой подход выбрали'],
+
+            // Results
+            ['key' => 'f_pf_tab_results', 'label' => 'Результаты', 'type' => 'tab'],
+            [
+                'key' => 'f_pf_results', 'name' => 'results', 'label' => 'Измеримые результаты', 'type' => 'repeater', 'layout' => 'table',
+                'instructions' => '3–6 метрик: трафик, конверсия, позиции, скорость и т.д.',
                 'sub_fields' => [
                     ['key' => 'f_pf_res_metric', 'name' => 'metric', 'label' => 'Метрика',        'type' => 'text'],
                     ['key' => 'f_pf_res_before', 'name' => 'before', 'label' => 'Было',           'type' => 'text'],
                     ['key' => 'f_pf_res_after',  'name' => 'after',  'label' => 'Стало',          'type' => 'text'],
                 ],
             ],
+
+            // Gallery
+            ['key' => 'f_pf_tab_gallery', 'label' => 'Визуал', 'type' => 'tab'],
             ['key' => 'f_pf_gallery',  'name' => 'gallery',     'label' => 'Скриншоты',    'type' => 'gallery', 'return_format' => 'array', 'preview_size' => 'medium'],
+
+            // Technologies
+            ['key' => 'f_pf_tab_tech', 'label' => 'Технологии', 'type' => 'tab'],
             [
-                'key' => 'f_pf_tech', 'name' => 'technologies', 'label' => 'Технологии', 'type' => 'repeater', 'layout' => 'table',
+                'key' => 'f_pf_tech', 'name' => 'technologies', 'label' => 'Стек технологий', 'type' => 'repeater', 'layout' => 'table',
                 'sub_fields' => [
                     ['key' => 'f_pf_tech_name', 'name' => 'name', 'label' => 'Название', 'type' => 'text'],
                     ['key' => 'f_pf_tech_icon', 'name' => 'icon', 'label' => 'Иконка',   'type' => 'text'],
                 ],
             ],
+
+            // Timeline
+            ['key' => 'f_pf_tab_timeline', 'label' => 'Хронология', 'type' => 'tab'],
+            [
+                'key' => 'f_pf_timeline', 'name' => 'timeline', 'label' => 'Хронология проекта', 'type' => 'repeater', 'layout' => 'block',
+                'instructions' => 'Ключевые вехи проекта: «Неделя 1–2» — «Аудит и анализ». Опционально, 3–6 пунктов',
+                'sub_fields' => [
+                    ['key' => 'f_pf_tl_period', 'name' => 'period', 'label' => 'Период',   'type' => 'text', 'instructions' => 'Неделя 1–2, Месяц 1, и т.д.'],
+                    ['key' => 'f_pf_tl_title',  'name' => 'title',  'label' => 'Заголовок','type' => 'text'],
+                    ['key' => 'f_pf_tl_text',   'name' => 'text',   'label' => 'Описание', 'type' => 'textarea', 'rows' => 2],
+                ],
+            ],
+
+            // Meta
+            ['key' => 'f_pf_tab_meta', 'label' => 'Доп. данные', 'type' => 'tab'],
             ['key' => 'f_pf_url',         'name' => 'project_url',   'label' => 'Ссылка на сайт', 'type' => 'url'],
             ['key' => 'f_pf_testimonial', 'name' => 'testimonial_id','label' => 'Отзыв клиента',  'type' => 'post_object', 'post_type' => ['testimonial'], 'return_format' => 'id', 'allow_null' => 1],
         ],

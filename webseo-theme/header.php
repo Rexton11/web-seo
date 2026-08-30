@@ -113,36 +113,31 @@ $cta_url   = webseo_option('header_cta_url');
             <?php endforeach; endif; ?>
         </div>
 
-        <!-- Level 1: Service categories -->
-        <div class="mob-level" data-level="1">
+        <!-- Level 1: All services mega menu -->
+        <div class="mob-level mob-level--mega" data-level="1">
             <button class="mob-back" data-goto="0"><i class="ph-bold ph-arrow-left"></i> Меню</button>
             <div class="mob-level__title">Услуги</div>
-            <?php
-            $mob_cats = get_terms(['taxonomy' => 'service_category', 'hide_empty' => true, 'orderby' => 'menu_order']);
-            if ($mob_cats && !is_wp_error($mob_cats)) :
-                foreach ($mob_cats as $ci => $mcat) :
-            ?>
-                <button class="mob-link mob-link--arrow" data-goto="cat-<?php echo $mcat->slug; ?>">
-                    <?php echo esc_html($mcat->name); ?>
-                    <i class="ph-bold ph-caret-right"></i>
-                </button>
-            <?php endforeach; endif; ?>
-            <a href="<?php echo esc_url(get_post_type_archive_link('service')); ?>" class="mob-link mob-link--muted">Все услуги</a>
-        </div>
-
-        <!-- Level 2: Services per category -->
-        <?php if ($mob_cats && !is_wp_error($mob_cats)) :
-            foreach ($mob_cats as $mcat) :
-                $mob_services = get_posts(['post_type' => 'service', 'posts_per_page' => 15, 'orderby' => 'menu_order', 'order' => 'ASC', 'tax_query' => [['taxonomy' => 'service_category', 'terms' => $mcat->term_id]]]);
-        ?>
-            <div class="mob-level" data-level="cat-<?php echo $mcat->slug; ?>">
-                <button class="mob-back" data-goto="1"><i class="ph-bold ph-arrow-left"></i> Услуги</button>
-                <div class="mob-level__title"><?php echo esc_html($mcat->name); ?></div>
-                <?php foreach ($mob_services as $ms) : ?>
-                    <a href="<?php echo get_permalink($ms); ?>" class="mob-link"><?php echo esc_html($ms->post_title); ?></a>
-                <?php endforeach; ?>
+            <div class="mob-mega-scroll">
+                <?php
+                $mob_cats = get_terms(['taxonomy' => 'service_category', 'hide_empty' => true, 'orderby' => 'menu_order']);
+                if ($mob_cats && !is_wp_error($mob_cats)) :
+                    foreach ($mob_cats as $mcat) :
+                        $mob_services = get_posts(['post_type' => 'service', 'posts_per_page' => 30, 'orderby' => 'menu_order', 'order' => 'ASC', 'tax_query' => [['taxonomy' => 'service_category', 'terms' => $mcat->term_id]]]);
+                ?>
+                    <div class="mob-mega-group">
+                        <div class="mob-mega-group__title">
+                            <a href="<?php echo esc_url(get_term_link($mcat)); ?>"><?php echo esc_html($mcat->name); ?></a>
+                        </div>
+                        <?php foreach ($mob_services as $ms) : ?>
+                            <a href="<?php echo get_permalink($ms); ?>" class="mob-mega-link"><?php echo esc_html($ms->post_title); ?></a>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endforeach; endif; ?>
+                <a href="<?php echo esc_url(get_post_type_archive_link('service')); ?>" class="mob-link mob-link--muted" style="margin-top:8px;">
+                    Все услуги <i class="ph-bold ph-arrow-right" style="font-size:.75rem;"></i>
+                </a>
             </div>
-        <?php endforeach; endif; ?>
+        </div>
     </nav>
     <?php if ($phone) : ?>
         <a href="tel:<?php echo esc_attr(preg_replace('/[^\d+]/', '', $phone)); ?>" class="mobile-phone"><?php echo esc_html($phone); ?></a>

@@ -357,7 +357,7 @@ ph ph-headset, ph ph-browser, ph ph-globe, ph ph-paint-brush</pre>
 function webseo_tab_portfolio(): void {
     ?>
     <h2>Импорт портфолио</h2>
-    <p>Каждый кейс — это CPT <code>portfolio</code> со страницей проекта: задача, решение, результаты, технологии.</p>
+    <p>Каждый кейс — CPT <code>portfolio</code> с продающей структурой: hero → задача/сложности → подход → решение → скриншоты → результаты → технологии → хронология → отзыв → похожие кейсы → CTA.</p>
 
     <div class="webseo-cols">
         <div>
@@ -365,54 +365,154 @@ function webseo_tab_portfolio(): void {
             <table class="field-table">
                 <tr><th colspan="3" style="background:#e8f5e9;">Основные поля</th></tr>
                 <tr><th><code>title</code></th><td>string</td><td>Название проекта. Пример: «Интернет-магазин автозапчастей»</td></tr>
-                <tr><th><code>excerpt</code></th><td>string</td><td>Краткое описание для карточки (1–2 предложения)</td></tr>
-                <tr><th><code>taxonomies.portfolio_tag</code></th><td>array</td><td>Теги: <code>["WordPress", "SEO"]</code> или <code>["OpenCart", "Интеграция"]</code></td></tr>
-                <tr><th><code>thumbnail_url</code></th><td>string</td><td>URL скриншота (загрузится автоматически). Опционально</td></tr>
+                <tr><th><code>excerpt</code></th><td>string</td><td>Краткое описание для hero и карточки (2–3 предложения, продающее)</td></tr>
+                <tr><th><code>taxonomies.portfolio_tag</code></th><td>array</td><td>Теги: <code>["WordPress", "E-commerce"]</code> или <code>["SEO", "Медицина"]</code></td></tr>
+                <tr><th><code>thumbnail_url</code></th><td>string</td><td>URL скриншота для hero (загрузится автоматически). Опционально</td></tr>
 
-                <tr><th colspan="3" style="background:#e3f2fd;">fields → Данные кейса</th></tr>
-                <tr><th><code>client</code></th><td>string</td><td>Клиент / отрасль. Пример: «Магазин автозапчастей, Москва»</td></tr>
-                <tr><th><code>task</code></th><td>HTML</td><td>Описание задачи. Можно с <code>&lt;p&gt;</code>, <code>&lt;ul&gt;</code></td></tr>
-                <tr><th><code>solution</code></th><td>HTML</td><td>Описание решения. Что сделали, какой подход выбрали</td></tr>
-                <tr><th><code>results</code></th><td>array</td><td>Измеримые результаты. Объекты:<br><code>metric</code> — что измеряли («Трафик», «Конверсия»)<br><code>before</code> — было<br><code>after</code> — стало</td></tr>
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Hero</th></tr>
+                <tr><th><code>client</code></th><td>string</td><td>Клиент / компания. Пример: «ООО «АвтоДеталь»»</td></tr>
+                <tr><th><code>niche</code></th><td>string</td><td>Ниша / отрасль. Пример: «E-commerce», «Медицина», «B2B SaaS»</td></tr>
+
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Задача</th></tr>
+                <tr><th><code>task</code></th><td>HTML</td><td>Описание задачи. Теги p, ul, li. Что хотел клиент, какие цели</td></tr>
+                <tr><th><code>challenge</code></th><td>HTML</td><td>Сложности проекта. Опционально. Что затрудняло работу</td></tr>
+
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Подход (СТРОГО 4–6 этапов)</th></tr>
+                <tr><th><code>approach</code></th><td>array</td><td>Этапы решения. Объекты:<br><code>title</code> — название этапа<br><code>text</code> — описание (2–3 предложения)</td></tr>
+
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Решение</th></tr>
+                <tr><th><code>solution</code></th><td>HTML</td><td>Подробное описание решения. HTML: p, ul, li, h3. Развёрнуто</td></tr>
+
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Результаты (СТРОГО 3–6 метрик)</th></tr>
+                <tr><th><code>results</code></th><td>array</td><td>Измеримые результаты. Объекты:<br><code>metric</code> — название<br><code>before</code> — было<br><code>after</code> — стало</td></tr>
+
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Технологии</th></tr>
                 <tr><th><code>technologies</code></th><td>array</td><td>Стек. Объекты: <code>name</code>, <code>icon</code> (CSS-класс Phosphor)</td></tr>
+
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Хронология (опционально, 3–6 пунктов)</th></tr>
+                <tr><th><code>timeline</code></th><td>array</td><td>Вехи проекта. Объекты:<br><code>period</code> — период («Неделя 1–2»)<br><code>title</code> — заголовок<br><code>text</code> — описание</td></tr>
+
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Мета</th></tr>
                 <tr><th><code>project_url</code></th><td>string</td><td>Ссылка на живой сайт (опционально)</td></tr>
             </table>
         </div>
         <div>
             <div class="prompt-box">
-                <h4>📎 Промт для ИИ</h4>
-                <pre>Сгенерируй JSON для импорта кейса портфолио в WordPress-тему.
+                <h4>📎 Промт для кейса по разработке сайта</h4>
+                <pre>Сгенерируй JSON для импорта кейса по РАЗРАБОТКЕ САЙТА в WordPress-тему.
 Проект: [ОПИСАНИЕ ПРОЕКТА]
-Формат:
 
+Правила:
+— approach: СТРОГО 4–6 этапов (аудит → проектирование → дизайн → разработка → тестирование → запуск)
+— results: СТРОГО 4–6 метрик (скорость загрузки, конверсия, мобильный трафик и т.д.)
+— challenge: описать технические или бизнес-сложности проекта
+— solution: развёрнутый HTML с подзаголовками h3
+— timeline: 4–6 ключевых вех с периодами
+— Все тексты на русском, реалистичные данные
+— Задачу, сложности и решение пиши в HTML (теги p, ul, li, h3)
+
+Формат:
 {
   "portfolio": [
     {
       "title": "Название проекта",
-      "excerpt": "Краткое описание для карточки",
+      "excerpt": "Продающее описание для карточки (2–3 предложения)",
       "taxonomies": {
-        "portfolio_tag": ["WordPress", "SEO"]
+        "portfolio_tag": ["WordPress", "E-commerce"]
       },
       "fields": {
-        "client": "Клиент / отрасль, город",
-        "task": "<p>Описание задачи клиента</p>",
-        "solution": "<p>Что сделали и как решили задачу</p>",
+        "client": "Название компании",
+        "niche": "Ниша / отрасль",
+        "task": "&lt;p&gt;Описание задачи клиента&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Цель 1&lt;/li&gt;&lt;/ul&gt;",
+        "challenge": "&lt;p&gt;Основные сложности проекта&lt;/p&gt;",
+        "approach": [
+          {"title": "Аудит и анализ", "text": "Провели полный аудит текущего сайта, проанализировали конкурентов и ЦА"},
+          {"title": "Проектирование", "text": "Создали структуру сайта, прототипы страниц, user flow"},
+          {"title": "Дизайн", "text": "Разработали уникальный UI/UX дизайн с фокусом на конверсию"},
+          {"title": "Разработка", "text": "Вёрстка, программирование, интеграция CMS и сторонних сервисов"}
+        ],
+        "solution": "&lt;h3&gt;Архитектура&lt;/h3&gt;&lt;p&gt;Описание...&lt;/p&gt;",
         "results": [
-          {"metric": "Трафик", "before": "500 визитов/мес", "after": "3 200 визитов/мес"},
-          {"metric": "Позиции в ТОП-10", "before": "3 запроса", "after": "45 запросов"}
+          {"metric": "Скорость загрузки", "before": "4.2 сек", "after": "1.1 сек"},
+          {"metric": "Конверсия", "before": "0.8%", "after": "3.2%"},
+          {"metric": "Мобильный трафик", "before": "15%", "after": "52%"},
+          {"metric": "Позиции ТОП-10", "before": "5 запросов", "after": "38 запросов"}
         ],
         "technologies": [
           {"name": "WordPress", "icon": "ph ph-globe"},
-          {"name": "PHP", "icon": "ph ph-code"}
+          {"name": "PHP", "icon": "ph ph-code"},
+          {"name": "JavaScript", "icon": "ph ph-file-js"}
+        ],
+        "timeline": [
+          {"period": "Неделя 1–2", "title": "Аудит и аналитика", "text": "Полный анализ текущего сайта и конкурентов"},
+          {"period": "Неделя 3–4", "title": "Дизайн и прототипы", "text": "UI/UX дизайн всех ключевых страниц"},
+          {"period": "Неделя 5–8", "title": "Разработка", "text": "Вёрстка, бэкенд, интеграции"},
+          {"period": "Неделя 9–10", "title": "Тестирование и запуск", "text": "QA, правки, запуск в продакшен"}
         ],
         "project_url": "https://example.com"
       }
     }
   ]
-}
+}</pre>
+            </div>
 
-Результаты должны быть реалистичными и измеримыми.
-Задачу и решение пиши в HTML (теги p, ul, li).</pre>
+            <div class="prompt-box" style="margin-top:16px;">
+                <h4>📎 Промт для SEO-кейса</h4>
+                <pre>Сгенерируй JSON для импорта SEO-кейса в WordPress-тему.
+Проект: [ОПИСАНИЕ ПРОЕКТА / НИША]
+
+Правила:
+— approach: СТРОГО 4–6 этапов (аудит → семантика → техническая оптимизация → контент → линкбилдинг → аналитика)
+— results: СТРОГО 4–6 метрик (трафик, позиции в ТОП-10, видимость, конверсия, CTR и т.д.)
+— challenge: описать SEO-проблемы (санкции, высокая конкуренция, дубли и т.д.)
+— solution: развёрнутый HTML с подзаголовками h3 (техническая, контентная, ссылочная оптимизация)
+— timeline: 4–6 ключевых вех с месячными периодами (SEO — длительный процесс)
+— Все тексты на русском, реалистичные данные
+— Задачу, сложности и решение пиши в HTML (теги p, ul, li, h3)
+
+Формат:
+{
+  "portfolio": [
+    {
+      "title": "SEO-продвижение [НИША]",
+      "excerpt": "Продающее описание результатов SEO (2–3 предложения)",
+      "taxonomies": {
+        "portfolio_tag": ["SEO", "Яндекс"]
+      },
+      "fields": {
+        "client": "Название компании",
+        "niche": "Ниша / отрасль",
+        "task": "&lt;p&gt;Задачи SEO-продвижения&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Вывести в ТОП-10&lt;/li&gt;&lt;/ul&gt;",
+        "challenge": "&lt;p&gt;SEO-проблемы: санкции, дубли, низкая скорость&lt;/p&gt;",
+        "approach": [
+          {"title": "SEO-аудит", "text": "Полный технический и контентный аудит сайта, выявление критических ошибок"},
+          {"title": "Сбор семантики", "text": "Собрали семантическое ядро из 2000+ запросов, кластеризация"},
+          {"title": "Техническая оптимизация", "text": "Исправление ошибок индексации, скорость загрузки, мобильная версия"},
+          {"title": "Контентная стратегия", "text": "Создание и оптимизация посадочных страниц, блог"}
+        ],
+        "solution": "&lt;h3&gt;Техническая оптимизация&lt;/h3&gt;&lt;p&gt;...&lt;/p&gt;&lt;h3&gt;Контент&lt;/h3&gt;&lt;p&gt;...&lt;/p&gt;",
+        "results": [
+          {"metric": "Органический трафик", "before": "1 200 визитов/мес", "after": "8 500 визитов/мес"},
+          {"metric": "Запросы в ТОП-10", "before": "12", "after": "145"},
+          {"metric": "Видимость в Яндекс", "before": "3%", "after": "34%"},
+          {"metric": "Конверсия с SEO", "before": "0.5%", "after": "2.8%"}
+        ],
+        "technologies": [
+          {"name": "Яндекс.Вебмастер", "icon": "ph ph-magnifying-glass"},
+          {"name": "Google Search Console", "icon": "ph ph-google-logo"},
+          {"name": "Ahrefs", "icon": "ph ph-chart-line-up"}
+        ],
+        "timeline": [
+          {"period": "Месяц 1", "title": "Аудит и стратегия", "text": "Технический аудит, анализ конкурентов, сбор семантики"},
+          {"period": "Месяц 2–3", "title": "Техническая оптимизация", "text": "Исправление ошибок, ускорение, структура"},
+          {"period": "Месяц 3–5", "title": "Контент и оптимизация", "text": "Создание посадочных, перелинковка, мета-теги"},
+          {"period": "Месяц 6+", "title": "Рост и масштабирование", "text": "Линкбилдинг, расширение семантики, аналитика"}
+        ],
+        "project_url": "https://example.com"
+      }
+    }
+  ]
+}</pre>
             </div>
 
             <h3>Вставьте JSON и импортируйте</h3>
