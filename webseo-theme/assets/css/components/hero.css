@@ -1,16 +1,16 @@
-.hero{padding-top:140px;text-align:center;min-height:80vh;display:flex;align-items:center;position:relative;overflow:hidden;margin:0 24px 32px;border-radius:24px;background:var(--bg-hero)}
+.hero{padding-top:140px;text-align:center;min-height:80vh;display:flex;align-items:center;position:relative;overflow:hidden;margin:0 24px 48px;border-radius:24px;background:var(--bg-hero);box-shadow:0 4px 24px rgba(0,0,0,.06)}
 .hero .container{position:relative;z-index:1}
 .hero h1{margin-bottom:16px}
 .hero p{font-size:1.2rem;color:var(--text-muted);max-width:560px;margin:0 auto 32px}
 .hero-actions{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
-.service-hero{padding:32px 0 64px;position:relative;overflow:hidden;margin:0 24px 32px;border-radius:24px;background:var(--bg-hero)}
+.service-hero{padding:32px 0 64px;position:relative;overflow:hidden;margin:0 24px 48px;border-radius:24px;background:var(--bg-hero);box-shadow:0 4px 24px rgba(0,0,0,.06)}
 .service-hero .container{position:relative;z-index:2}
 .service-hero__content{max-width:680px}
 .service-hero__icon{font-size:2rem;color:#000;width:56px;height:56px;background:var(--acid-green);border-radius:var(--radius-main);display:flex;align-items:center;justify-content:center;margin-bottom:24px}
 .service-hero h1{margin-bottom:16px;font-size:clamp(2.2rem,5vw,3.2rem)}
 .service-hero__subtitle{font-size:1.15rem;color:var(--text-muted);max-width:560px;line-height:1.7;margin-bottom:32px}
 .service-hero__actions{display:flex;gap:16px;flex-wrap:wrap}
-@media(max-width:768px){.service-hero{padding:12px 0 36px;margin:0 12px 24px;border-radius:16px}.hero{margin:0 12px 24px;border-radius:16px}}
+@media(max-width:768px){.service-hero{padding:12px 0 36px;margin:0 12px 32px;border-radius:16px}.hero{margin:0 12px 32px;border-radius:16px}}
 .service-hero--with-media .container{display:flex;align-items:center;justify-content:space-between;gap:48px}
 .service-hero__media{flex-shrink:0;width:420px;max-width:40%}
 .service-hero__media img,.service-hero__media video{width:100%;height:auto;border-radius:var(--radius-main)}

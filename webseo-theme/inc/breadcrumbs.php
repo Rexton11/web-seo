@@ -25,13 +25,8 @@ function webseo_breadcrumbs(): void {
             $yoast_html,
             1
         );
-        $yoast_html = str_replace(
-            ['<span class="breadcrumb_last"', '» ', ' »'],
-            ['<span class="breadcrumb_last"', '', ''],
-            $yoast_html
-        );
-        $sep_icon = '<span class="sep">/</span>';
-        $yoast_html = preg_replace('/\s*(?:»|&raquo;|›)\s*/', $sep_icon, $yoast_html);
+        $sep = '<span class="sep">/</span>';
+        $yoast_html = preg_replace('/\s*(?:»|&raquo;|&rsaquo;|›|>)\s*/', $sep, $yoast_html);
         echo $yoast_html;
     } else {
         echo '<a href="' . esc_url(home_url('/')) . '" aria-label="Главная">' . $home_icon . '</a>';
