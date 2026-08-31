@@ -128,7 +128,7 @@ $tags        = get_the_terms($id, 'portfolio_tag');
             <span class="section-badge">Решение</span>
             <h2>Что мы сделали</h2>
         </div>
-        <div class="container--narrow" style="margin:0 auto;" data-reveal>
+        <div class="container--narrow" data-reveal>
             <div class="prose"><?php echo $solution; ?></div>
         </div>
     </div>
