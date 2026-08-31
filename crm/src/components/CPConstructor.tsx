@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Plus, Trash2, FileText, ChevronDown } from 'lucide-react';
 
 interface CPStage {
@@ -288,69 +288,24 @@ export default function CPConstructor({ clientName, projectType, taskDescription
     setData(initFromTemplate(t, data.clientName, data.projectType, data.taskDescription));
   };
 
-  const generateMarkdown = (): string => {
+  const generateStructuredJSON = (): string => {
     const today = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-
-    let md = `# Коммерческое предложение\n\n`;
-    md += `**Клиент:** ${data.clientName}\n`;
-    md += `**Проект:** ${data.projectType}\n`;
-    md += `**Дата:** ${today}\n`;
-    if (agencyName) md += `**Исполнитель:** ${agencyName}\n`;
-    md += `\n---\n\n`;
-
-    if (data.taskDescription) {
-      md += `## Задача\n\n${data.taskDescription}\n\n`;
-    }
-
-    md += `## Что предлагаем\n\n`;
-    md += `| № | Этап | Что делаем | Результат |\n`;
-    md += `|---|------|-----------|----------|\n`;
-    data.stages.forEach((s, i) => {
-      md += `| ${i + 1} | ${s.stage} | ${s.action} | ${s.result} |\n`;
+    return JSON.stringify({
+      clientName: data.clientName,
+      projectType: data.projectType,
+      taskDescription: data.taskDescription,
+      agencyName: agencyName || '',
+      date: today,
+      stages: data.stages,
+      included: data.included,
+      excluded: data.excluded,
+      timeline: data.timeline,
+      packages: data.packages,
     });
-    md += `\n`;
-
-    md += `## Что входит в работу\n\n`;
-    data.included.forEach(item => {
-      md += `- ${item}\n`;
-    });
-    md += `\n`;
-
-    md += `## Что НЕ входит\n\n`;
-    data.excluded.forEach(item => {
-      md += `- ${item}\n`;
-    });
-    md += `\n`;
-
-    md += `## Сроки\n\n`;
-    md += `| Этап | Срок | Что нужно от клиента |\n`;
-    md += `|------|------|---------------------|\n`;
-    data.timeline.forEach(tl => {
-      md += `| ${tl.stage} | ${tl.duration} | ${tl.clientAction} |\n`;
-    });
-    md += `\n> Пауза в согласовании со стороны клиента переносит сроки на соответствующий период.\n\n`;
-
-    if (data.packages.length > 0) {
-      md += `## Стоимость\n\n`;
-      md += `| Вариант | Состав | Стоимость |\n`;
-      md += `|---------|--------|----------|\n`;
-      data.packages.forEach(p => {
-        md += `| **${p.name}** | ${p.description} | ${p.price || 'По запросу'} |\n`;
-      });
-      md += `\n`;
-    }
-
-    md += `## Следующий шаг\n\n`;
-    md += `1. Выберите подходящий вариант\n`;
-    md += `2. Созвонимся на 20 минут для обсуждения деталей\n`;
-    md += `3. Подписываем договор\n`;
-    md += `4. Начинаем работу (kickoff)\n`;
-
-    return md;
   };
 
   const handleGenerate = () => {
-    onGenerate(generateMarkdown());
+    onGenerate(generateStructuredJSON());
   };
 
   const updateStage = (index: number, field: keyof CPStage, value: string) => {
