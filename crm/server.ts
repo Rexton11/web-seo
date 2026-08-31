@@ -4,7 +4,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import { ProxyAgent, fetch as undiciFetch } from 'undici';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { getAuth } from 'firebase-admin/auth';
 import { db } from './src/db/index.js';
@@ -55,7 +55,7 @@ async function startServer() {
   // Deals CRUD
   apiRouter.get('/deals', requireAuth, requireDb, async (req: any, res: any) => {
     try {
-      const deals = await db.select().from(schema.deals).where(eq(schema.deals.userId, req.user.uid));
+      const deals = await db!.select().from(schema.deals).where(eq(schema.deals.userId, req.user.uid));
       res.json(deals);
     } catch (e: any) {
       console.error('GET /deals error:', e);
@@ -73,6 +73,13 @@ async function startServer() {
         projectType: req.body.projectType || '',
         status: req.body.status || 'new',
         amount: req.body.amount ?? 0,
+        phone: req.body.phone || null,
+        email: req.body.email || null,
+        company: req.body.company || null,
+        source: req.body.source || 'manual',
+        temperature: req.body.temperature || 'warm',
+        reminderDate: req.body.reminderDate || null,
+        reminderNote: req.body.reminderNote || null,
         currentSituation: req.body.currentSituation || null,
         businessGoals: req.body.businessGoals || null,
         growthPoints: req.body.growthPoints || null,
@@ -82,6 +89,16 @@ async function startServer() {
         legalInfo: req.body.legalInfo || null,
       };
       await db!.insert(schema.deals).values(newDeal);
+
+      const activityId = uuidv4();
+      await db!.insert(schema.activities).values({
+        id: activityId,
+        dealId: id,
+        userId: req.user.uid,
+        type: 'created',
+        text: 'Сделка создана',
+      });
+
       res.json(newDeal);
     } catch (e: any) {
       console.error('POST /deals error:', e);
@@ -91,7 +108,7 @@ async function startServer() {
 
   apiRouter.get('/deals/:id', requireAuth, requireDb, async (req: any, res: any) => {
     try {
-      const result = await db.select().from(schema.deals).where(and(
+      const result = await db!.select().from(schema.deals).where(and(
         eq(schema.deals.id, req.params.id),
         eq(schema.deals.userId, req.user.uid)
       ));
@@ -105,7 +122,7 @@ async function startServer() {
 
   apiRouter.put('/deals/:id', requireAuth, requireDb, async (req: any, res: any) => {
     try {
-      await db.update(schema.deals)
+      await db!.update(schema.deals)
         .set(req.body)
         .where(and(eq(schema.deals.id, req.params.id), eq(schema.deals.userId, req.user.uid)));
       res.json({ success: true });
@@ -115,10 +132,56 @@ async function startServer() {
     }
   });
 
+  apiRouter.delete('/deals/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      await db!.delete(schema.activities).where(eq(schema.activities.dealId, req.params.id));
+      await db!.delete(schema.deals)
+        .where(and(eq(schema.deals.id, req.params.id), eq(schema.deals.userId, req.user.uid)));
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error('DELETE /deals/:id error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Activities CRUD
+  apiRouter.get('/deals/:dealId/activities', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const result = await db!.select().from(schema.activities)
+        .where(and(
+          eq(schema.activities.dealId, req.params.dealId),
+          eq(schema.activities.userId, req.user.uid)
+        ))
+        .orderBy(desc(schema.activities.createdAt));
+      res.json(result);
+    } catch (e: any) {
+      console.error('GET /activities error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.post('/deals/:dealId/activities', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const id = uuidv4();
+      const activity = {
+        id,
+        dealId: req.params.dealId,
+        userId: req.user.uid,
+        type: req.body.type || 'note',
+        text: req.body.text || null,
+      };
+      await db!.insert(schema.activities).values(activity);
+      res.json(activity);
+    } catch (e: any) {
+      console.error('POST /activities error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Settings CRUD
   apiRouter.get('/settings', requireAuth, requireDb, async (req: any, res: any) => {
     try {
-      const result = await db.select().from(schema.settings).where(eq(schema.settings.userId, req.user.uid));
+      const result = await db!.select().from(schema.settings).where(eq(schema.settings.userId, req.user.uid));
       if (result.length === 0) return res.json(null);
       res.json(result[0]);
     } catch (e: any) {
@@ -129,9 +192,9 @@ async function startServer() {
 
   apiRouter.put('/settings', requireAuth, requireDb, async (req: any, res: any) => {
     try {
-      const existing = await db.select().from(schema.settings).where(eq(schema.settings.userId, req.user.uid));
+      const existing = await db!.select().from(schema.settings).where(eq(schema.settings.userId, req.user.uid));
       if (existing.length > 0) {
-        await db.update(schema.settings).set(req.body).where(eq(schema.settings.userId, req.user.uid));
+        await db!.update(schema.settings).set(req.body).where(eq(schema.settings.userId, req.user.uid));
       } else {
         await db!.insert(schema.settings).values({
           userId: req.user.uid,
@@ -148,6 +211,7 @@ async function startServer() {
           actTemplate: req.body.actTemplate || null,
           kanbanColumns: req.body.kanbanColumns || null,
           geminiProxy: req.body.geminiProxy || null,
+          stageScripts: req.body.stageScripts || null,
         });
       }
       res.json({ success: true });
@@ -167,22 +231,28 @@ async function startServer() {
       const phone = data.phone || data.your_phone || data['your-phone'] || data.tel || '';
       const email = data.email || data.your_email || data['your-email'] || '';
       const message = data.message || data.your_message || data['your-message'] || '';
+      const company = data.company || data.organization || '';
 
-      let situation = "🔥 ЗАЯВКА С САЙТА\n\n";
-      if (phone) situation += `Телефон: ${phone}\n`;
-      if (email) situation += `Email: ${email}\n`;
-      if (message) situation += `Сообщение: ${message}\n`;
-
+      let situation = "";
+      if (message) situation += `${message}\n`;
       situation += `\n---\nТехнические данные:\n${JSON.stringify(data, null, 2)}`;
 
+      const dealId = uuidv4();
       const newDeal = {
-        id: uuidv4(),
+        id: dealId,
         userId: userId,
         clientName: clientName,
         projectType: 'Лид с сайта',
         status: 'new',
         amount: 0,
-        currentSituation: situation,
+        phone: phone || null,
+        email: email || null,
+        company: company || null,
+        source: 'website',
+        temperature: 'warm',
+        reminderDate: null,
+        reminderNote: null,
+        currentSituation: situation || null,
         businessGoals: null,
         growthPoints: null,
         cpData: null,
@@ -192,6 +262,15 @@ async function startServer() {
       };
 
       await db!.insert(schema.deals).values(newDeal);
+
+      await db!.insert(schema.activities).values({
+        id: uuidv4(),
+        dealId: dealId,
+        userId: userId,
+        type: 'created',
+        text: 'Заявка получена с сайта',
+      });
+
       res.status(200).json({ success: true, dealId: newDeal.id });
     } catch (e: any) {
       console.error("Webhook error:", e);

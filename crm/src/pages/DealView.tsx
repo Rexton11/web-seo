@@ -2,12 +2,44 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useSettings } from '../SettingsContext';
-import { Deal, CPFormData, GenerateResponse } from '../types';
-import { ArrowLeft, Check, FileText, Settings, Briefcase, FileSignature, FileCheck, Building2, Save } from 'lucide-react';
+import { Deal, CPFormData, GenerateResponse, Activity } from '../types';
+import {
+  ArrowLeft, Save, FileText, FileSignature, FileCheck, Building2,
+  Phone, Mail, Building, Globe, Thermometer, Clock, MessageSquare,
+  Plus, Send, PhoneCall, CalendarCheck, Users, ChevronRight, BookOpen,
+  Flame, Snowflake, Sun, AlertCircle, Loader2, Trash2
+} from 'lucide-react';
 import clsx from 'clsx';
 import CPForm from '../components/CPForm';
 import CPPreview from '../components/CPPreview';
-import { generatePDF } from '../utils/pdf';
+
+const ACTIVITY_ICONS: Record<string, any> = {
+  call: PhoneCall,
+  email_sent: Send,
+  meeting: Users,
+  cp_sent: FileText,
+  note: MessageSquare,
+  status_change: ChevronRight,
+  created: Plus,
+  reminder: Clock,
+};
+
+const ACTIVITY_LABELS: Record<string, string> = {
+  call: 'Звонок',
+  email_sent: 'Email отправлен',
+  meeting: 'Встреча',
+  cp_sent: 'КП отправлено',
+  note: 'Заметка',
+  status_change: 'Смена статуса',
+  created: 'Создано',
+  reminder: 'Напоминание',
+};
+
+const TEMP_CONFIG = {
+  hot: { icon: Flame, label: 'Горячий', color: 'text-red-500 bg-red-50 border-red-200' },
+  warm: { icon: Sun, label: 'Теплый', color: 'text-amber-500 bg-amber-50 border-amber-200' },
+  cold: { icon: Snowflake, label: 'Холодный', color: 'text-blue-400 bg-blue-50 border-blue-200' },
+};
 
 export default function DealView() {
   const { id } = useParams<{ id: string }>();
@@ -17,35 +49,54 @@ export default function DealView() {
   const [deal, setDeal] = useState<Deal | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'info' | 'legal' | 'cp' | 'contract' | 'act'>('info');
+  const [activeTab, setActiveTab] = useState<'card' | 'cp_form' | 'legal' | 'cp' | 'contract' | 'act'>('card');
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [newNote, setNewNote] = useState('');
+  const [showScript, setShowScript] = useState(false);
 
-  // Legal form state
   const [legalForm, setLegalForm] = useState({
     companyName: '', inn: '', kpp: '', ogrn: '', directorName: '', address: '', bankAccount: '', bankName: '', bik: ''
   });
 
+  // Editable deal fields
+  const [editForm, setEditForm] = useState({
+    clientName: '', projectType: '', phone: '', email: '', company: '', source: '',
+    amount: 0, temperature: 'warm' as string, reminderDate: '', reminderNote: '',
+    currentSituation: '', businessGoals: '', growthPoints: ''
+  });
+
   useEffect(() => {
     if (!id || !user) return;
-
     const fetchDeal = async () => {
       try {
         const idToken = await user.getIdToken();
         const response = await fetch(`/api/deals/${id}`, {
           headers: { 'Authorization': `Bearer ${idToken}` }
         });
-        
         if (response.ok) {
-          const fetchedDeal = await response.json();
-          // parse json fields if needed
-          if (typeof fetchedDeal.legalInfo === 'string') {
-            try { fetchedDeal.legalInfo = JSON.parse(fetchedDeal.legalInfo); } catch (e) {}
+          const d = await response.json();
+          if (typeof d.legalInfo === 'string') {
+            try { d.legalInfo = JSON.parse(d.legalInfo); } catch (e) {}
           }
-          setDeal(fetchedDeal);
-          if (fetchedDeal.legalInfo) {
-            setLegalForm(fetchedDeal.legalInfo);
-          }
+          setDeal(d);
+          if (d.legalInfo) setLegalForm(d.legalInfo);
+          setEditForm({
+            clientName: d.clientName || '',
+            projectType: d.projectType || '',
+            phone: d.phone || '',
+            email: d.email || '',
+            company: d.company || '',
+            source: d.source || 'manual',
+            amount: d.amount || 0,
+            temperature: d.temperature || 'warm',
+            reminderDate: d.reminderDate || '',
+            reminderNote: d.reminderNote || '',
+            currentSituation: d.currentSituation || '',
+            businessGoals: d.businessGoals || '',
+            growthPoints: d.growthPoints || '',
+          });
         } else {
           navigate('/');
         }
@@ -56,9 +107,24 @@ export default function DealView() {
         setLoading(false);
       }
     };
-
     fetchDeal();
-  }, [id, user, navigate]);
+    fetchActivities();
+  }, [id, user]);
+
+  const fetchActivities = async () => {
+    if (!id || !user) return;
+    try {
+      const idToken = await user.getIdToken();
+      const resp = await fetch(`/api/deals/${id}/activities`, {
+        headers: { 'Authorization': `Bearer ${idToken}` }
+      });
+      if (resp.ok) {
+        setActivities(await resp.json());
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+  };
 
   const saveDeal = async (updates: Partial<Deal>) => {
     if (!id || !deal || !user) return;
@@ -67,7 +133,7 @@ export default function DealView() {
       const idToken = await user.getIdToken();
       const response = await fetch(`/api/deals/${id}`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${idToken}`,
           'Content-Type': 'application/json'
         },
@@ -83,9 +149,41 @@ export default function DealView() {
     }
   };
 
+  const saveCardForm = async () => {
+    await saveDeal(editForm as any);
+  };
+
+  const addActivity = async (type: string, text: string) => {
+    if (!id || !user) return;
+    try {
+      const idToken = await user.getIdToken();
+      await fetch(`/api/deals/${id}/activities`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ type, text })
+      });
+      fetchActivities();
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  const handleQuickAction = async (type: string) => {
+    const label = ACTIVITY_LABELS[type] || type;
+    await addActivity(type, label);
+  };
+
+  const handleAddNote = async () => {
+    if (!newNote.trim()) return;
+    await addActivity('note', newNote.trim());
+    setNewNote('');
+  };
+
   const handleGenerateCP = async (formData: CPFormData) => {
     setIsGenerating(true);
-    // Save discovery data first
     await saveDeal({
       clientName: formData.clientName,
       projectType: formData.projectType,
@@ -93,18 +191,16 @@ export default function DealView() {
       businessGoals: formData.businessGoals,
       growthPoints: formData.growthPoints,
     });
-
     try {
       const response = await fetch('/api/generate-cp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, proxy: settings?.geminiProxy }),
       });
-
       if (!response.ok) throw new Error('Failed to generate CP');
       const resultData: GenerateResponse = await response.json();
-      
       await saveDeal({ cpData: resultData.result, status: (deal?.status === 'new' || deal?.status === 'need_cp') ? 'cp_sent' : deal?.status });
+      await addActivity('cp_sent', 'КП сгенерировано и сохранено');
       setActiveTab('cp');
     } catch (error) {
       console.warn(error);
@@ -116,12 +212,11 @@ export default function DealView() {
 
   const saveLegalInfo = async () => {
     await saveDeal({ legalInfo: legalForm });
-    alert('Реквизиты сохранены');
   };
 
   const generateLocalDoc = (template: string) => {
     if (!settings || !deal) return '';
-    const legal = deal.legalInfo || {};
+    const legal = deal.legalInfo || {} as any;
     return template
       .replace(/{{dealId}}/g, deal.id)
       .replace(/{{clientName}}/g, legal.companyName || deal.clientName || '_______________')
@@ -134,7 +229,7 @@ export default function DealView() {
       .replace(/{{clientBank}}/g, legal.bankName || '_______________')
       .replace(/{{clientBik}}/g, legal.bik || '_______________')
       .replace(/{{projectType}}/g, deal.projectType || '_______________')
-      .replace(/{{dealAmount}}/g, deal.budget || '_______________')
+      .replace(/{{dealAmount}}/g, String(deal.amount || '_______________'))
       .replace(/{{agencyName}}/g, settings.agencyName || '_______________')
       .replace(/{{agencyInn}}/g, settings.inn || '_______________')
       .replace(/{{agencyKpp}}/g, settings.kpp || '_______________')
@@ -151,6 +246,7 @@ export default function DealView() {
     setSaving(true);
     const content = generateLocalDoc(settings.contractTemplate);
     await saveDeal({ contractData: content, status: 'contract_signed' });
+    await addActivity('status_change', 'Договор сформирован');
     setSaving(false);
   };
 
@@ -159,14 +255,21 @@ export default function DealView() {
     setSaving(true);
     const content = generateLocalDoc(settings.actTemplate);
     await saveDeal({ actData: content });
+    await addActivity('status_change', 'Акт сформирован');
     setSaving(false);
   };
 
   if (loading) return <div className="flex h-full items-center justify-center bg-slate-50">Загрузка сделки...</div>;
   if (!deal) return null;
 
+  const currentScript = settings?.stageScripts?.find(s => s.stageId === deal.status);
+  const currentStageLabel = settings?.kanbanColumns?.find(c => c.id === deal.status)?.label || deal.status;
+  const tempConfig = TEMP_CONFIG[(deal.temperature || 'warm') as keyof typeof TEMP_CONFIG] || TEMP_CONFIG.warm;
+  const TempIcon = tempConfig.icon;
+
   const tabs = [
-    { id: 'info', label: 'Discovery', icon: Settings },
+    { id: 'card', label: 'Карточка', icon: Building2 },
+    { id: 'cp_form', label: 'Discovery / КП', icon: FileText },
     { id: 'legal', label: 'Реквизиты', icon: Building2 },
     { id: 'cp', label: 'КП', icon: FileText },
     { id: 'contract', label: 'Договор', icon: FileSignature },
@@ -175,40 +278,81 @@ export default function DealView() {
 
   return (
     <div className="flex flex-col h-full bg-slate-50">
+      {/* Header */}
       <div className="px-6 py-4 bg-white border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate('/')} className="p-2 hover:bg-slate-100 rounded-md text-slate-500 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div>
-            <h1 className="text-xl font-bold text-slate-800">{deal.clientName || 'Новая сделка'}</h1>
-            <p className="text-sm text-slate-500">{deal.projectType}</p>
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-xl font-bold text-slate-800">{deal.clientName || 'Новая сделка'}</h1>
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <span>{deal.projectType}</span>
+                {deal.source && <span className="text-xs bg-slate-100 px-2 py-0.5 rounded">{deal.source === 'website' ? 'С сайта' : deal.source === 'manual' ? 'Вручную' : deal.source}</span>}
+              </div>
+            </div>
+            <div className={clsx('flex items-center gap-1 px-2 py-1 rounded-full border text-xs font-medium', tempConfig.color)}>
+              <TempIcon className="w-3.5 h-3.5" />
+              {tempConfig.label}
+            </div>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-400 mr-2">{saving ? 'Сохранение...' : 'Сохранено'}</span>
-          <select 
+          {deal.amount > 0 && (
+            <span className="text-sm font-bold text-emerald-600">{deal.amount.toLocaleString('ru-RU')} &#8381;</span>
+          )}
+          <span className="text-xs text-slate-400 mr-2">{saving ? 'Сохранение...' : ''}</span>
+          <select
             value={deal.status}
-            onChange={(e) => saveDeal({ status: e.target.value as Deal['status'] })}
+            onChange={async (e) => {
+              const newStatus = e.target.value;
+              await saveDeal({ status: newStatus });
+              await addActivity('status_change', `Статус изменен: ${currentStageLabel} → ${settings?.kanbanColumns?.find(c => c.id === newStatus)?.label || newStatus}`);
+            }}
             className="text-sm border border-slate-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           >
             {settings?.kanbanColumns?.map(col => (
               <option key={col.id} value={col.id}>{col.label}</option>
             ))}
           </select>
+          <button
+            onClick={() => setShowScript(!showScript)}
+            className={clsx(
+              "p-2 rounded-md transition-colors",
+              showScript ? "bg-blue-100 text-blue-600" : "hover:bg-slate-100 text-slate-500"
+            )}
+            title="Скрипт продаж"
+          >
+            <BookOpen className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
-      <div className="flex px-6 border-b border-slate-200 bg-white">
+      {/* Sales Script Panel */}
+      {showScript && currentScript && (
+        <div className="px-6 py-3 bg-blue-50 border-b border-blue-200">
+          <div className="flex items-start gap-3">
+            <BookOpen className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <h3 className="text-sm font-semibold text-blue-900 mb-1">Скрипт: {currentStageLabel}</h3>
+              <pre className="text-sm text-blue-800 whitespace-pre-wrap font-sans">{currentScript.script}</pre>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="flex px-6 border-b border-slate-200 bg-white overflow-x-auto">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={clsx(
-              "px-5 py-3 text-sm font-medium border-b-2 flex items-center gap-2 transition-colors outline-none",
-              activeTab === tab.id 
-                ? "border-blue-600 text-blue-600" 
+              "px-4 py-3 text-sm font-medium border-b-2 flex items-center gap-2 transition-colors outline-none whitespace-nowrap",
+              activeTab === tab.id
+                ? "border-blue-600 text-blue-600"
                 : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
             )}
           >
@@ -218,11 +362,193 @@ export default function DealView() {
         ))}
       </div>
 
+      {/* Content */}
       <div className="flex-1 overflow-hidden relative">
-        {activeTab === 'info' && (
+        {/* TAB: DEAL CARD */}
+        {activeTab === 'card' && (
+          <div className="h-full overflow-y-auto">
+            <div className="flex flex-col lg:flex-row gap-6 p-6">
+              {/* Left: Contact Info + Details */}
+              <div className="flex-1 space-y-6">
+                {/* Contact Info */}
+                <div className="bg-white shadow-sm rounded-xl border border-slate-200 p-5">
+                  <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-blue-600" />
+                    Контактная информация
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Имя клиента / Компания</label>
+                      <input type="text" value={editForm.clientName} onChange={e => setEditForm({...editForm, clientName: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Компания</label>
+                      <input type="text" value={editForm.company} onChange={e => setEditForm({...editForm, company: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="ООО Ромашка" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Телефон</label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                        <input type="tel" value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="+7 (___) ___-__-__" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Email</label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                        <input type="email" value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="client@example.com" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Тип проекта</label>
+                      <input type="text" value={editForm.projectType} onChange={e => setEditForm({...editForm, projectType: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Сумма сделки, &#8381;</label>
+                      <input type="number" value={editForm.amount} onChange={e => setEditForm({...editForm, amount: Number(e.target.value)})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Источник</label>
+                      <select value={editForm.source} onChange={e => setEditForm({...editForm, source: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="manual">Вручную</option>
+                        <option value="website">С сайта</option>
+                        <option value="referral">По рекомендации</option>
+                        <option value="social">Соцсети</option>
+                        <option value="ads">Реклама</option>
+                        <option value="cold">Холодный контакт</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Температура</label>
+                      <select value={editForm.temperature} onChange={e => setEditForm({...editForm, temperature: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="hot">Горячий</option>
+                        <option value="warm">Теплый</option>
+                        <option value="cold">Холодный</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reminder */}
+                <div className="bg-white shadow-sm rounded-xl border border-slate-200 p-5">
+                  <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-500" />
+                    Напоминание
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Дата напоминания</label>
+                      <input type="datetime-local" value={editForm.reminderDate} onChange={e => setEditForm({...editForm, reminderDate: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Примечание</label>
+                      <input type="text" value={editForm.reminderNote} onChange={e => setEditForm({...editForm, reminderNote: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Перезвонить по КП" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Discovery fields */}
+                <div className="bg-white shadow-sm rounded-xl border border-slate-200 p-5">
+                  <h2 className="text-base font-bold text-slate-800 mb-4">Детали проекта</h2>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Текущая ситуация</label>
+                      <textarea rows={3} value={editForm.currentSituation} onChange={e => setEditForm({...editForm, currentSituation: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-y" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Бизнес-цели</label>
+                      <textarea rows={2} value={editForm.businessGoals} onChange={e => setEditForm({...editForm, businessGoals: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-y" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Точки роста</label>
+                      <textarea rows={2} value={editForm.growthPoints} onChange={e => setEditForm({...editForm, growthPoints: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-y" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <button onClick={saveCardForm} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors flex items-center gap-2 disabled:opacity-50">
+                    <Save className="w-4 h-4" />
+                    {saving ? 'Сохранение...' : 'Сохранить карточку'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Right: Activity Feed */}
+              <div className="w-full lg:w-96 flex-shrink-0">
+                <div className="bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden sticky top-4">
+                  <div className="p-4 border-b border-slate-200">
+                    <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4 text-blue-600" />
+                      Активность
+                    </h2>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="p-3 border-b border-slate-100 flex flex-wrap gap-2">
+                    <button onClick={() => handleQuickAction('call')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 transition-colors">
+                      <PhoneCall className="w-3.5 h-3.5" /> Звонок
+                    </button>
+                    <button onClick={() => handleQuickAction('email_sent')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors">
+                      <Send className="w-3.5 h-3.5" /> Email
+                    </button>
+                    <button onClick={() => handleQuickAction('meeting')} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 transition-colors">
+                      <Users className="w-3.5 h-3.5" /> Встреча
+                    </button>
+                  </div>
+
+                  {/* Add Note */}
+                  <div className="p-3 border-b border-slate-100">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newNote}
+                        onChange={e => setNewNote(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddNote()}
+                        placeholder="Добавить заметку..."
+                        className="flex-1 px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                      <button onClick={handleAddNote} disabled={!newNote.trim()} className="p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Activity List */}
+                  <div className="max-h-96 overflow-y-auto divide-y divide-slate-100">
+                    {activities.length === 0 && (
+                      <div className="p-6 text-center text-sm text-slate-400">Нет записей</div>
+                    )}
+                    {activities.map(act => {
+                      const Icon = ACTIVITY_ICONS[act.type] || MessageSquare;
+                      return (
+                        <div key={act.id} className="px-4 py-3 flex gap-3">
+                          <div className="mt-0.5">
+                            <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center">
+                              <Icon className="w-3.5 h-3.5 text-slate-500" />
+                            </div>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-slate-700">{act.text}</p>
+                            <p className="text-xs text-slate-400 mt-0.5">
+                              {act.createdAt ? new Date(act.createdAt).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: CP FORM / DISCOVERY */}
+        {activeTab === 'cp_form' && (
           <div className="h-full overflow-y-auto p-6 flex justify-center">
             <div className="w-full max-w-2xl bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
-               <CPForm 
+               <CPForm
                   initialData={{
                     clientName: deal.clientName,
                     projectType: deal.projectType,
@@ -230,14 +556,15 @@ export default function DealView() {
                     businessGoals: deal.businessGoals,
                     growthPoints: deal.growthPoints,
                   }}
-                  onGenerate={handleGenerateCP} 
-                  isLoading={isGenerating} 
+                  onGenerate={handleGenerateCP}
+                  isLoading={isGenerating}
                   buttonText="Сгенерировать КП"
                />
             </div>
           </div>
         )}
 
+        {/* TAB: LEGAL */}
         {activeTab === 'legal' && (
           <div className="h-full overflow-y-auto p-6 flex justify-center">
             <div className="w-full max-w-2xl bg-white shadow-sm rounded-xl border border-slate-200 p-6">
@@ -270,9 +597,7 @@ export default function DealView() {
                    <label className="block text-sm font-medium text-slate-700 mb-1">Юридический адрес</label>
                    <input type="text" value={legalForm.address} onChange={e => setLegalForm({...legalForm, address: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none" />
                  </div>
-                 <div className="md:col-span-2">
-                   <h3 className="font-semibold text-slate-800 mt-4 mb-2">Банковские реквизиты</h3>
-                 </div>
+                 <div className="md:col-span-2"><h3 className="font-semibold text-slate-800 mt-4 mb-2">Банковские реквизиты</h3></div>
                  <div>
                    <label className="block text-sm font-medium text-slate-700 mb-1">Расчетный счет</label>
                    <input type="text" value={legalForm.bankAccount} onChange={e => setLegalForm({...legalForm, bankAccount: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none" />
@@ -286,7 +611,6 @@ export default function DealView() {
                    <input type="text" value={legalForm.bankName} onChange={e => setLegalForm({...legalForm, bankName: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none" />
                  </div>
                </div>
-               
                <div className="mt-8 flex justify-end">
                  <button onClick={saveLegalInfo} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors flex items-center gap-2">
                    <Save className="w-4 h-4" />
@@ -297,28 +621,30 @@ export default function DealView() {
           </div>
         )}
 
+        {/* TAB: CP PREVIEW */}
         {activeTab === 'cp' && (
           <div className="h-full relative shadow-inner overflow-hidden">
-            <CPPreview 
-              content={deal.cpData || ''} 
-              onChange={(newContent) => saveDeal({ cpData: newContent })} 
+            <CPPreview
+              content={deal.cpData || ''}
+              onChange={(newContent) => saveDeal({ cpData: newContent })}
             />
           </div>
         )}
 
+        {/* TAB: CONTRACT */}
         {activeTab === 'contract' && (
           <div className="h-full relative shadow-inner overflow-hidden">
             {deal.contractData ? (
-              <CPPreview 
-                content={deal.contractData} 
-                onChange={(newContent) => saveDeal({ contractData: newContent })} 
+              <CPPreview
+                content={deal.contractData}
+                onChange={(newContent) => saveDeal({ contractData: newContent })}
               />
             ) : (
               <div className="h-full overflow-y-auto p-6 flex flex-col items-center justify-center">
                 <FileSignature className="w-16 h-16 text-slate-300 mb-4" />
                 <h2 className="text-xl font-bold text-slate-700 mb-2">Генератор Договоров</h2>
-                <p className="text-slate-500 mb-6 max-w-md text-center">Договор формируется с учетом сохраненных реквизитов клиента из вкладки «Реквизиты» и ваших данных из раздела «Настройки».</p>
-                <button 
+                <p className="text-slate-500 mb-6 max-w-md text-center">Договор формируется с учетом реквизитов клиента и ваших данных из раздела «Настройки».</p>
+                <button
                   onClick={handleGenerateContract}
                   className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-sm"
                 >
@@ -329,19 +655,20 @@ export default function DealView() {
           </div>
         )}
 
+        {/* TAB: ACT */}
         {activeTab === 'act' && (
           <div className="h-full relative shadow-inner overflow-hidden">
             {deal.actData ? (
-              <CPPreview 
-                content={deal.actData} 
-                onChange={(newContent) => saveDeal({ actData: newContent })} 
+              <CPPreview
+                content={deal.actData}
+                onChange={(newContent) => saveDeal({ actData: newContent })}
               />
             ) : (
               <div className="h-full overflow-y-auto p-6 flex flex-col items-center justify-center">
                 <FileCheck className="w-16 h-16 text-slate-300 mb-4" />
                 <h2 className="text-xl font-bold text-slate-700 mb-2">Акты выполненных работ</h2>
-                <p className="text-slate-500 mb-6 max-w-md text-center">Закройте этап или проект актом, который можно скачать в PDF. В акт автоматически подтянутся реквизиты.</p>
-                <button 
+                <p className="text-slate-500 mb-6 max-w-md text-center">Закройте этап или проект актом, который можно скачать в PDF.</p>
+                <button
                   onClick={handleGenerateAct}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-sm"
                 >

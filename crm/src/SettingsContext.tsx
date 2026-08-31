@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import { AgencySettings, KanbanColumn } from './types';
+import { AgencySettings, KanbanColumn, StageScript } from './types';
 
 interface SettingsContextType {
   settings: AgencySettings | null;
@@ -16,6 +16,14 @@ const DEFAULT_COLUMNS: KanbanColumn[] = [
   { id: 'cp_sent', label: 'КП отправлено', color: 'bg-blue-50 border-blue-200 text-blue-700', order: 2 },
   { id: 'contract_signed', label: 'В работе (Договор)', color: 'bg-indigo-50 border-indigo-200 text-indigo-700', order: 3 },
   { id: 'won', label: 'Успешно', color: 'bg-emerald-50 border-emerald-200 text-emerald-700', order: 4 }
+];
+
+const DEFAULT_STAGE_SCRIPTS: StageScript[] = [
+  { stageId: 'new', script: '1. Представьтесь и уточните, как к клиенту обращаться\n2. Узнайте, откуда узнали о вас\n3. Уточните, какую задачу хотят решить\n4. Запишите контакты (телефон, email)\n5. Назначьте время для подробного разговора' },
+  { stageId: 'need_cp', script: '1. Уточните бюджет и сроки\n2. Выясните текущую ситуацию (есть ли сайт, аналитика)\n3. Спросите про конкурентов\n4. Определите ЛПР и процесс принятия решений\n5. Договоритесь о сроках подготовки КП' },
+  { stageId: 'cp_sent', script: '1. Убедитесь, что КП получено и открыто\n2. Уточните, есть ли вопросы по составу работ\n3. Обсудите выбранный вариант\n4. Согласуйте дату созвона для обсуждения\n5. Отработайте возражения по цене/срокам' },
+  { stageId: 'contract_signed', script: '1. Отправьте договор на согласование\n2. Уточните реквизиты для документов\n3. Согласуйте дату старта (kickoff)\n4. Определите контактное лицо со стороны клиента\n5. Запросите доступы и материалы для работы' },
+  { stageId: 'won', script: '1. Подготовьте акт выполненных работ\n2. Запросите отзыв о сотрудничестве\n3. Предложите дальнейшее сопровождение\n4. Обсудите новые проекты/этапы\n5. Поблагодарите за работу' },
 ];
 
 const DEFAULT_CONTRACT_TEMPLATE = `
@@ -91,20 +99,24 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const response = await fetch('/api/settings', {
           headers: { 'Authorization': `Bearer ${idToken}` }
         });
-        
+
         if (response.ok) {
           const data = await response.json();
           if (data) {
-            // Need to parse kanbanColumns if it comes as string depending on mysql driver
             if (typeof data.kanbanColumns === 'string') {
-                try { data.kanbanColumns = JSON.parse(data.kanbanColumns); } catch (e) {}
+              try { data.kanbanColumns = JSON.parse(data.kanbanColumns); } catch (e) {}
+            }
+            if (typeof data.stageScripts === 'string') {
+              try { data.stageScripts = JSON.parse(data.stageScripts); } catch (e) {}
+            }
+            if (!data.stageScripts) {
+              data.stageScripts = DEFAULT_STAGE_SCRIPTS;
             }
             setSettings(data as AgencySettings);
             return;
           }
         }
-        
-        // Defaults
+
         const defaultSettings: AgencySettings = {
           agencyName: '',
           inn: '',
@@ -119,13 +131,14 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           actTemplate: DEFAULT_ACT_TEMPLATE.trim(),
           kanbanColumns: DEFAULT_COLUMNS,
           geminiProxy: '',
+          stageScripts: DEFAULT_STAGE_SCRIPTS,
         };
         try {
           await fetch('/api/settings', {
             method: 'PUT',
-            headers: { 
+            headers: {
               'Authorization': `Bearer ${idToken}`,
-              'Content-Type': 'application/json' 
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify(defaultSettings)
           });
@@ -135,7 +148,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setSettings(defaultSettings);
       } catch (error) {
         console.warn("Error fetching settings:", error);
-        // Fallback gracefully so the app doesn't break
         setSettings({
             agencyName: '',
             inn: '',
@@ -150,6 +162,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             actTemplate: DEFAULT_ACT_TEMPLATE.trim(),
             kanbanColumns: DEFAULT_COLUMNS,
             geminiProxy: '',
+            stageScripts: DEFAULT_STAGE_SCRIPTS,
         });
       } finally {
         setLoading(false);
@@ -167,15 +180,14 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const idToken = await user.getIdToken();
       await fetch('/api/settings', {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${idToken}`,
-          'Content-Type': 'application/json' 
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(updated)
       });
     } catch (error) {
       console.warn("Error saving settings:", error);
-      // rollback in a real app, but optimistic update for now
     }
   };
 

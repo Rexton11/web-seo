@@ -19,6 +19,20 @@ export interface KanbanColumn {
   order: number;
 }
 
+export interface StageScript {
+  stageId: string;
+  script: string;
+}
+
+export interface Activity {
+  id: string;
+  dealId: string;
+  userId: string;
+  type: 'call' | 'email_sent' | 'meeting' | 'cp_sent' | 'note' | 'status_change' | 'created' | 'reminder';
+  text: string;
+  createdAt: string;
+}
+
 export interface AgencySettings {
   agencyName: string;
   inn: string;
@@ -33,6 +47,7 @@ export interface AgencySettings {
   actTemplate: string;
   kanbanColumns: KanbanColumn[];
   geminiProxy?: string;
+  stageScripts?: StageScript[];
 }
 
 export interface Deal {
@@ -42,14 +57,21 @@ export interface Deal {
   projectType: string;
   status: string;
   amount: number;
-  createdAt: number;
-  updatedAt: number;
+  phone?: string;
+  email?: string;
+  company?: string;
+  source?: string;
+  temperature?: 'hot' | 'warm' | 'cold';
+  reminderDate?: string;
+  reminderNote?: string;
+  createdAt: string;
+  updatedAt: string;
   currentSituation: string;
   businessGoals: string;
   growthPoints: string;
-  cpData?: string; // Markdown text of CP
-  contractData?: string; // Markdown text of Contract
-  actData?: string; // Markdown text of Act
+  cpData?: string;
+  contractData?: string;
+  actData?: string;
   legalInfo?: {
     companyName: string;
     inn: string;

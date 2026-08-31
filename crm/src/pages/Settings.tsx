@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
 import { useSettings } from '../SettingsContext';
 import { useAuth } from '../AuthContext';
-import { Save, Building2, LayoutTemplate, Columns, Webhook } from 'lucide-react';
+import { Save, Building2, LayoutTemplate, Columns, Webhook, BookOpen } from 'lucide-react';
 import clsx from 'clsx';
-import { KanbanColumn } from '../types';
+import { KanbanColumn, StageScript } from '../types';
 
 export default function Settings() {
   const { settings, updateSettings, loading } = useSettings();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'agency' | 'templates' | 'kanban' | 'integrations'>('agency');
+  const [activeTab, setActiveTab] = useState<'agency' | 'templates' | 'kanban' | 'scripts' | 'integrations'>('agency');
   const [saving, setSaving] = useState(false);
 
-  // Local state for edits
   const [agencyForm, setAgencyForm] = useState({
     agencyName: '', inn: '', kpp: '', ogrn: '', directorName: '', address: '', bankAccount: '', bankName: '', bik: '', geminiProxy: ''
   });
@@ -19,6 +18,7 @@ export default function Settings() {
     contractTemplate: '', actTemplate: ''
   });
   const [kanbanForm, setKanbanForm] = useState<KanbanColumn[]>([]);
+  const [scriptsForm, setScriptsForm] = useState<StageScript[]>([]);
 
   React.useEffect(() => {
     if (settings) {
@@ -39,6 +39,7 @@ export default function Settings() {
         actTemplate: settings.actTemplate || ''
       });
       setKanbanForm(settings.kanbanColumns || []);
+      setScriptsForm(settings.stageScripts || []);
     }
   }, [settings]);
 
@@ -53,9 +54,10 @@ export default function Settings() {
   if (!settings) return <div className="p-8">Требуется авторизация</div>;
 
   const tabs = [
-    { id: 'agency', label: 'Реквизиты агентства', icon: Building2 },
-    { id: 'templates', label: 'Шаблоны документов', icon: LayoutTemplate },
-    { id: 'kanban', label: 'Воронка (Канбан)', icon: Columns },
+    { id: 'agency', label: 'Реквизиты', icon: Building2 },
+    { id: 'templates', label: 'Шаблоны', icon: LayoutTemplate },
+    { id: 'kanban', label: 'Воронка', icon: Columns },
+    { id: 'scripts', label: 'Скрипты продаж', icon: BookOpen },
     { id: 'integrations', label: 'Интеграции', icon: Webhook },
   ] as const;
 
@@ -63,18 +65,18 @@ export default function Settings() {
     <div className="flex flex-col h-full bg-slate-50">
       <div className="px-8 py-6 bg-white border-b border-slate-200">
         <h1 className="text-2xl font-bold text-slate-800">Настройки CRM</h1>
-        <p className="text-sm text-slate-500 mt-1">Управление воронкой, реквизитами и шаблонами договоров</p>
+        <p className="text-sm text-slate-500 mt-1">Воронка, скрипты продаж, реквизиты и шаблоны</p>
       </div>
 
-      <div className="flex px-8 border-b border-slate-200 bg-white">
+      <div className="flex px-8 border-b border-slate-200 bg-white overflow-x-auto">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={clsx(
-              "px-5 py-3 text-sm font-medium border-b-2 flex items-center gap-2 transition-colors outline-none",
-              activeTab === tab.id 
-                ? "border-blue-600 text-blue-600" 
+              "px-5 py-3 text-sm font-medium border-b-2 flex items-center gap-2 transition-colors outline-none whitespace-nowrap",
+              activeTab === tab.id
+                ? "border-blue-600 text-blue-600"
                 : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
             )}
           >
@@ -86,8 +88,7 @@ export default function Settings() {
 
       <div className="flex-1 overflow-y-auto p-8">
         <div className="max-w-3xl bg-white shadow-sm rounded-xl border border-slate-200 p-6">
-          
-          {/* ТАБ: АГЕНТСТВО */}
+
           {activeTab === 'agency' && (
             <div>
                <h2 className="text-lg font-bold text-slate-800 mb-6">Ваши юридические реквизиты</h2>
@@ -109,14 +110,13 @@ export default function Settings() {
                    <input type="text" value={agencyForm.ogrn} onChange={e => setAgencyForm({...agencyForm, ogrn: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none" />
                  </div>
                  <div>
-                   <label className="block text-sm font-medium text-slate-700 mb-1">ФИО подписанта (в Лице...)</label>
+                   <label className="block text-sm font-medium text-slate-700 mb-1">ФИО подписанта</label>
                    <input type="text" value={agencyForm.directorName} onChange={e => setAgencyForm({...agencyForm, directorName: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Иванова Ивана Ивановича" />
                  </div>
                  <div className="md:col-span-2">
                    <label className="block text-sm font-medium text-slate-700 mb-1">Юридический адрес</label>
                    <input type="text" value={agencyForm.address} onChange={e => setAgencyForm({...agencyForm, address: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none" />
                  </div>
-                 
                  <div className="md:col-span-2 mt-4"><h3 className="font-semibold text-slate-800">Банковские реквизиты</h3></div>
                  <div>
                    <label className="block text-sm font-medium text-slate-700 mb-1">Расчетный счет</label>
@@ -130,7 +130,6 @@ export default function Settings() {
                    <label className="block text-sm font-medium text-slate-700 mb-1">Наименование банка</label>
                    <input type="text" value={agencyForm.bankName} onChange={e => setAgencyForm({...agencyForm, bankName: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none" />
                  </div>
-                 
                  <div className="md:col-span-2 mt-4 pt-4 border-t border-slate-100">
                    <h3 className="font-semibold text-slate-800">Настройки интеграций</h3>
                  </div>
@@ -140,7 +139,6 @@ export default function Settings() {
                    <input type="text" value={agencyForm.geminiProxy} onChange={e => setAgencyForm({...agencyForm, geminiProxy: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none" placeholder="http://..." />
                  </div>
                </div>
-               
                <div className="mt-8 flex justify-end">
                  <button onClick={() => handleSave(agencyForm)} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors flex items-center gap-2">
                    <Save className="w-4 h-4" />
@@ -150,32 +148,28 @@ export default function Settings() {
             </div>
           )}
 
-          {/* ТАБ: ШАБЛОНЫ */}
           {activeTab === 'templates' && (
             <div>
                <h2 className="text-lg font-bold text-slate-800 mb-2">Шаблоны генерации</h2>
-               <p className="text-sm text-slate-500 mb-6">Здесь вы можете изменить текст договоров и актов (в формате Markdown). Переменные (например, <code>{'{{clientName}}'}</code>) будут заменены автоматически.</p>
-               
+               <p className="text-sm text-slate-500 mb-6">Текст договоров и актов в формате Markdown. Переменные (<code>{'{{clientName}}'}</code>) заменяются автоматически.</p>
                <div className="mb-6">
                  <label className="block text-sm font-semibold text-slate-700 mb-2">Шаблон договора</label>
-                 <textarea 
+                 <textarea
                    rows={12}
-                   value={templatesForm.contractTemplate} 
-                   onChange={e => setTemplatesForm({...templatesForm, contractTemplate: e.target.value})} 
+                   value={templatesForm.contractTemplate}
+                   onChange={e => setTemplatesForm({...templatesForm, contractTemplate: e.target.value})}
                    className="w-full px-4 py-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm"
                  />
                </div>
-               
                <div>
                  <label className="block text-sm font-semibold text-slate-700 mb-2">Шаблон акта</label>
-                 <textarea 
+                 <textarea
                    rows={12}
-                   value={templatesForm.actTemplate} 
-                   onChange={e => setTemplatesForm({...templatesForm, actTemplate: e.target.value})} 
+                   value={templatesForm.actTemplate}
+                   onChange={e => setTemplatesForm({...templatesForm, actTemplate: e.target.value})}
                    className="w-full px-4 py-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm"
                  />
                </div>
-               
                <div className="mt-8 flex justify-end">
                  <button onClick={() => handleSave(templatesForm)} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors flex items-center gap-2">
                    <Save className="w-4 h-4" />
@@ -185,44 +179,37 @@ export default function Settings() {
             </div>
           )}
 
-          {/* ТАБ: КАНБАН */}
           {activeTab === 'kanban' && (
             <div>
                <h2 className="text-lg font-bold text-slate-800 mb-2">Этапы воронки продаж</h2>
-               <p className="text-sm text-slate-500 mb-6">Настройте колонки Канбан-доски. Вы можете переименовать этапы или добавить новые.</p>
-               
+               <p className="text-sm text-slate-500 mb-6">Настройте колонки Канбан-доски.</p>
                <div className="space-y-3 mb-6">
                  {kanbanForm.sort((a,b)=>a.order - b.order).map((col, index) => (
                    <div key={col.id} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
                      <div className="font-mono text-xs text-slate-400 w-6">{index + 1}.</div>
-                     <input 
-                       type="text" 
-                       value={col.id} 
-                       disabled
-                       className="w-32 px-2 py-1.5 text-sm bg-slate-100 border border-transparent rounded text-slate-500" 
-                     />
-                     <input 
-                       type="text" 
-                       value={col.label} 
+                     <input type="text" value={col.id} disabled className="w-32 px-2 py-1.5 text-sm bg-slate-100 border border-transparent rounded text-slate-500" />
+                     <input
+                       type="text"
+                       value={col.label}
                        onChange={(e) => {
                          const newKanban = [...kanbanForm];
                          newKanban[index].label = e.target.value;
                          setKanbanForm(newKanban);
                        }}
-                       className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded focus:border-blue-500 outline-none" 
+                       className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded focus:border-blue-500 outline-none"
                      />
-                     <input 
-                       type="text" 
-                       value={col.color} 
+                     <input
+                       type="text"
+                       value={col.color}
                        onChange={(e) => {
                          const newKanban = [...kanbanForm];
                          newKanban[index].color = e.target.value;
                          setKanbanForm(newKanban);
                        }}
-                       className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded focus:border-blue-500 outline-none" 
-                       placeholder="Tailwind классы (bg-slate-50...)"
+                       className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded focus:border-blue-500 outline-none"
+                       placeholder="Tailwind классы"
                      />
-                     <button 
+                     <button
                        onClick={() => {
                          if(confirm('Удалить этап?')) setKanbanForm(kanbanForm.filter((_, i) => i !== index));
                        }}
@@ -231,8 +218,7 @@ export default function Settings() {
                    </div>
                  ))}
                </div>
-               
-               <button 
+               <button
                  onClick={() => {
                    setKanbanForm([...kanbanForm, { id: `stage_${Date.now()}`, label: 'Новый этап', color: 'bg-slate-50 border-slate-200 text-slate-700', order: kanbanForm.length }]);
                  }}
@@ -240,7 +226,6 @@ export default function Settings() {
                >
                  + Добавить этап
                </button>
-
                <div className="flex justify-end pt-4 border-t border-slate-100">
                  <button onClick={() => handleSave({ kanbanColumns: kanbanForm })} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors flex items-center gap-2">
                    <Save className="w-4 h-4" />
@@ -250,23 +235,62 @@ export default function Settings() {
             </div>
           )}
 
-          {/* ТАБ: ИНТЕГРАЦИИ */}
+          {activeTab === 'scripts' && (
+            <div>
+               <h2 className="text-lg font-bold text-slate-800 mb-2">Скрипты продаж по этапам</h2>
+               <p className="text-sm text-slate-500 mb-6">Для каждого этапа воронки задайте скрипт, который будет доступен менеджеру прямо в карточке сделки.</p>
+
+               <div className="space-y-6">
+                 {(settings?.kanbanColumns || []).sort((a, b) => a.order - b.order).map(col => {
+                   const existing = scriptsForm.find(s => s.stageId === col.id);
+                   return (
+                     <div key={col.id} className="border border-slate-200 rounded-lg overflow-hidden">
+                       <div className={`px-4 py-2.5 ${col.color.split(' ')[0]} border-b border-slate-200`}>
+                         <span className={`font-semibold text-sm ${col.color.split(' ')[2]}`}>{col.label}</span>
+                         <span className="text-xs text-slate-400 ml-2">({col.id})</span>
+                       </div>
+                       <div className="p-4">
+                         <textarea
+                           rows={6}
+                           value={existing?.script || ''}
+                           onChange={(e) => {
+                             const newScripts = scriptsForm.filter(s => s.stageId !== col.id);
+                             newScripts.push({ stageId: col.id, script: e.target.value });
+                             setScriptsForm(newScripts);
+                           }}
+                           placeholder="Введите скрипт продаж для этого этапа...&#10;1. Шаг первый&#10;2. Шаг второй&#10;3. ..."
+                           className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-y font-mono"
+                         />
+                       </div>
+                     </div>
+                   );
+                 })}
+               </div>
+
+               <div className="mt-8 flex justify-end">
+                 <button onClick={() => handleSave({ stageScripts: scriptsForm })} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors flex items-center gap-2">
+                   <Save className="w-4 h-4" />
+                   {saving ? 'Сохранение...' : 'Сохранить скрипты'}
+                 </button>
+               </div>
+            </div>
+          )}
+
           {activeTab === 'integrations' && (
             <div>
                <h2 className="text-lg font-bold text-slate-800 mb-2">Интеграция с WordPress (Webhooks)</h2>
-               <p className="text-sm text-slate-500 mb-6">Подключите ваш сайт на WordPress (или любой другой), чтобы заявки автоматически попадали в колонку «Новые».</p>
-               
+               <p className="text-sm text-slate-500 mb-6">Подключите ваш сайт, чтобы заявки автоматически попадали в колонку «Новые».</p>
                <div className="bg-blue-50 border border-blue-100 rounded-lg p-5 mb-6">
                  <h3 className="font-semibold text-blue-900 mb-2">Ваш уникальный Webhook URL</h3>
-                 <p className="text-sm text-blue-800 mb-3">Скопируйте этот URL и вставьте его в настройки вебхуков вашей формы (например, в Elementor Pro, Contact Form 7 с плагином Webhooks или WPForms).</p>
+                 <p className="text-sm text-blue-800 mb-3">Скопируйте этот URL и вставьте его в настройки вебхуков вашей формы.</p>
                  <div className="flex items-center gap-2">
-                   <input 
-                     type="text" 
+                   <input
+                     type="text"
                      readOnly
                      value={`https://crm.weboptics.ru/api/webhooks/wordpress/${user?.uid}`}
                      className="flex-1 px-3 py-2 bg-white border border-blue-200 rounded font-mono text-sm text-slate-700 outline-none"
                    />
-                   <button 
+                   <button
                      onClick={() => {
                        navigator.clipboard.writeText(`https://crm.weboptics.ru/api/webhooks/wordpress/${user?.uid}`);
                        alert('Скопировано!');
@@ -277,14 +301,13 @@ export default function Settings() {
                    </button>
                  </div>
                </div>
-
                <div className="space-y-4">
                  <h3 className="font-semibold text-slate-800">Как это работает?</h3>
                  <ul className="list-disc list-inside text-sm text-slate-600 space-y-2">
-                   <li>CRM автоматически распознает стандартные поля: <code>name</code>, <code>phone</code>, <code>email</code>, <code>message</code>.</li>
-                   <li>Поддерживаются плагины: <strong>Elementor Pro (Action After Submit &gt; Webhook)</strong>. Просто вставьте URL выше.</li>
-                   <li>Все остальные данные из формы также будут сохранены в карточке сделки в поле «Текущая ситуация».</li>
-                   <li>Заявка создается мгновенно. Вам не нужно писать код.</li>
+                   <li>CRM распознает стандартные поля: <code>name</code>, <code>phone</code>, <code>email</code>, <code>message</code>, <code>company</code>.</li>
+                   <li>Контактные данные (телефон, email, компания) сохраняются в отдельных полях карточки сделки.</li>
+                   <li>Поддерживаются плагины: <strong>Elementor Pro (Webhook)</strong>, Contact Form 7 и другие.</li>
+                   <li>Заявка создается мгновенно с пометкой «С сайта» и температурой «Теплый».</li>
                  </ul>
                </div>
             </div>
