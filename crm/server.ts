@@ -306,6 +306,23 @@ async function startServer() {
 
   app.use('/api', apiRouter);
 
+  // Test Gemini API connection
+  app.get('/api/test-gemini', async (req, res) => {
+    try {
+      if (!process.env.GEMINI_API_KEY) {
+        return res.json({ status: 'error', message: 'GEMINI_API_KEY не задан в .env' });
+      }
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: 'Ответь одним словом: работает',
+      });
+      res.json({ status: 'ok', response: response.text });
+    } catch (error: any) {
+      res.json({ status: 'error', message: error.message });
+    }
+  });
+
   // AI generation endpoint
   app.post('/api/generate-cp', async (req, res) => {
     try {

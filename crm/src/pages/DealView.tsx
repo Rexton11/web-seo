@@ -198,13 +198,16 @@ export default function DealView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, proxy: settings?.geminiProxy }),
       });
-      if (!response.ok) throw new Error('Failed to generate CP');
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.details || errData.error || `Статус ${response.status}`);
+      }
       const resultData: GenerateResponse = await response.json();
       await saveDeal({ cpData: resultData.result, status: (deal?.status === 'new' || deal?.status === 'need_cp') ? 'cp_sent' : deal?.status });
       await addActivity('cp_sent', 'КП сгенерировано и сохранено');
-    } catch (error) {
+    } catch (error: any) {
       console.warn(error);
-      alert('Ошибка при генерации КП.');
+      alert(`Ошибка при генерации КП: ${error.message}`);
     } finally {
       setIsGenerating(false);
     }
