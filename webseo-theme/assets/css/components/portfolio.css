@@ -148,8 +148,6 @@
 }
 .case-task__grid--single {
     grid-template-columns: 1fr;
-    max-width: 800px;
-    margin: 0 auto;
 }
 .case-task__block {
     background: var(--bg-card);
