@@ -101,6 +101,33 @@ function webseo_get_testimonials(int $post_id = 0, int $limit = 10): array {
 }
 
 /**
+ * Render privacy consent checkbox for forms.
+ */
+function webseo_consent_checkbox(string $id_prefix = 'form'): void {
+    $privacy_url = webseo_option('privacy_policy_url');
+    if (!$privacy_url) {
+        $privacy_page = get_option('wp_page_for_privacy_policy');
+        if ($privacy_page) {
+            $privacy_url = get_permalink($privacy_page);
+        }
+    }
+    $consent_text = webseo_option('consent_text', 'Нажимая кнопку, вы даёте согласие на обработку персональных данных и соглашаетесь с');
+    ?>
+    <div class="form-consent" id="<?php echo esc_attr($id_prefix); ?>Consent">
+        <input type="checkbox" id="<?php echo esc_attr($id_prefix); ?>ConsentCheck" name="consent" value="1">
+        <label class="form-consent__label" for="<?php echo esc_attr($id_prefix); ?>ConsentCheck">
+            <?php echo esc_html($consent_text); ?>
+            <?php if ($privacy_url) : ?>
+                <a href="<?php echo esc_url($privacy_url); ?>" target="_blank" rel="noopener">Политикой конфиденциальности</a>
+            <?php else : ?>
+                Политикой конфиденциальности
+            <?php endif; ?>
+        </label>
+    </div>
+    <?php
+}
+
+/**
  * Get parsed reviews from Yandex/Kwork parser plugin.
  * Returns arrays (not WP_Post objects) with source_url added.
  */

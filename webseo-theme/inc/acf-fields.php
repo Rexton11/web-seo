@@ -103,6 +103,35 @@ function webseo_register_acf_fields(): void {
     ]);
 
     /* ================================================================
+     * 3c. OPTIONS — Правовая информация (152-ФЗ)
+     * ================================================================ */
+    acf_add_local_field_group([
+        'key'      => 'group_legal',
+        'title'    => 'Правовая информация (152-ФЗ)',
+        'location' => [[[
+            'param' => 'options_page', 'operator' => '==', 'value' => 'webseo-legal',
+        ]]],
+        'fields'   => [
+            ['key' => 'f_legal_tab_privacy', 'label' => 'Политика конфиденциальности', 'type' => 'tab'],
+            ['key' => 'f_privacy_url', 'name' => 'privacy_policy_url', 'label' => 'URL страницы «Политика конфиденциальности»', 'type' => 'url',
+             'instructions' => 'Ссылка на страницу с политикой. Если пусто — используется страница из Настройки → Приватность WordPress.'],
+            ['key' => 'f_consent_text', 'name' => 'consent_text', 'label' => 'Текст согласия на обработку данных', 'type' => 'textarea', 'rows' => 2,
+             'default_value' => 'Нажимая кнопку, вы даёте согласие на обработку персональных данных и соглашаетесь с',
+             'instructions' => 'Текст перед ссылкой на Политику конфиденциальности. Ссылка добавляется автоматически.'],
+            ['key' => 'f_legal_tab_cookie', 'label' => 'Куки', 'type' => 'tab'],
+            ['key' => 'f_cookie_text', 'name' => 'cookie_text', 'label' => 'Текст баннера cookie', 'type' => 'textarea', 'rows' => 2,
+             'default_value' => 'Мы используем файлы cookie для улучшения работы сайта. Продолжая использовать сайт, вы соглашаетесь с использованием cookie и обработкой данных в соответствии с',
+             'instructions' => 'Текст перед ссылкой на Политику конфиденциальности.'],
+            ['key' => 'f_legal_tab_operator', 'label' => 'Оператор данных', 'type' => 'tab'],
+            ['key' => 'f_operator_name', 'name' => 'operator_name', 'label' => 'Наименование оператора', 'type' => 'text',
+             'instructions' => 'ИП Иванов Иван Иванович или ООО «Название»'],
+            ['key' => 'f_operator_inn', 'name' => 'operator_inn', 'label' => 'ИНН', 'type' => 'text'],
+            ['key' => 'f_operator_address', 'name' => 'operator_address', 'label' => 'Адрес оператора', 'type' => 'text',
+             'instructions' => 'Юридический адрес для политики конфиденциальности'],
+        ],
+    ]);
+
+    /* ================================================================
      * 4. FRONT PAGE — Главная
      * ================================================================ */
     acf_add_local_field_group([

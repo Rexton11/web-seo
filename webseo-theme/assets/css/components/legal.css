@@ -1,0 +1,18 @@
+/* Cookie consent banner */
+.cookie-consent{position:fixed;bottom:0;left:0;right:0;z-index:9999;background:var(--bg-card);border-top:1px solid var(--border-color);box-shadow:0 -4px 24px rgba(0,0,0,.08);padding:16px 0;transform:translateY(100%);opacity:0;transition:transform .4s var(--ease-out,ease),opacity .3s ease}
+.cookie-consent.visible{transform:translateY(0);opacity:1}
+.cookie-consent__inner{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.cookie-consent__text{flex:1;min-width:0;font-size:.88rem;line-height:1.6;color:var(--text-muted);margin:0}
+.cookie-consent__text a{color:var(--acid-green);text-decoration:underline;text-underline-offset:2px}
+.cookie-consent__text a:hover{opacity:.8}
+.cookie-consent__accept{white-space:nowrap;flex-shrink:0;padding:10px 24px;font-size:.85rem}
+@media(max-width:600px){.cookie-consent__inner{flex-direction:column;text-align:center}.cookie-consent__accept{width:100%}}
+
+/* Privacy consent checkbox on forms */
+.form-consent{display:flex;align-items:flex-start;gap:8px;margin-top:12px;margin-bottom:4px}
+.form-consent input[type="checkbox"]{flex-shrink:0;width:18px;height:18px;margin-top:2px;accent-color:var(--acid-green);cursor:pointer}
+.form-consent__label{font-size:.8rem;line-height:1.5;color:var(--text-muted);cursor:pointer;user-select:none}
+.form-consent__label a{color:var(--acid-green);text-decoration:underline;text-underline-offset:2px}
+.form-consent__label a:hover{opacity:.8}
+.form-consent--error .form-consent__label{color:#e53935}
+.form-consent--error input[type="checkbox"]{outline:2px solid #e53935;outline-offset:1px}

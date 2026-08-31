@@ -49,4 +49,11 @@ add_action('acf/init', function () {
         'parent_slug' => 'webseo-settings',
         'menu_slug'   => 'webseo-geo',
     ]);
+
+    acf_add_options_sub_page([
+        'page_title'  => 'Правовая информация (152-ФЗ)',
+        'menu_title'  => 'Правовая информация',
+        'parent_slug' => 'webseo-settings',
+        'menu_slug'   => 'webseo-legal',
+    ]);
 });

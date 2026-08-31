@@ -25,7 +25,7 @@ add_action('wp_enqueue_scripts', function () {
     wp_enqueue_style('webseo-main', $uri . '/assets/css/main.css', ['webseo-fonts'], $v);
 
     // Component stylesheets
-    $components = ['header', 'hero', 'cards', 'sections', 'buttons', 'faq', 'quiz', 'footer', 'portfolio', 'pricing', 'testimonials', 'blog', 'modal', 'mega-menu', 'animations'];
+    $components = ['header', 'hero', 'cards', 'sections', 'buttons', 'faq', 'quiz', 'footer', 'portfolio', 'pricing', 'testimonials', 'blog', 'modal', 'mega-menu', 'animations', 'legal'];
     foreach ($components as $component) {
         $file = "/assets/css/components/{$component}.css";
         if (file_exists(WEBSEO_DIR . $file)) {
@@ -38,6 +38,9 @@ add_action('wp_enqueue_scripts', function () {
     wp_enqueue_script('webseo-header', $uri . '/assets/js/header.js', [], $v, true);
     wp_enqueue_script('webseo-main', $uri . '/assets/js/main.js', [], $v, true);
     wp_enqueue_script('webseo-animations', $uri . '/assets/js/animations.js', [], $v, true);
+
+    // Cookie consent — global
+    wp_enqueue_script('webseo-cookie-consent', $uri . '/assets/js/cookie-consent.js', [], $v, true);
 
     // Modal form — global (any page can have CTA buttons)
     wp_enqueue_script('webseo-modal', $uri . '/assets/js/modal.js', [], $v, true);

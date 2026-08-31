@@ -70,11 +70,14 @@
         var phone   = form.querySelector('[name="phone"]');
         var message = form.querySelector('[name="message"]');
         var honey   = form.querySelector('[name="website"]');
+        var consentWrap = document.getElementById('modalConsent');
+        var consentBox  = document.getElementById('modalConsentCheck');
 
         msg.hidden = true;
         form.querySelectorAll('.form-input--error').forEach(function (el) {
             el.classList.remove('form-input--error');
         });
+        if (consentWrap) consentWrap.classList.remove('form-consent--error');
 
         if (!name.value.trim()) {
             name.classList.add('form-input--error');
@@ -84,6 +87,11 @@
         if (!phone.value.trim()) {
             phone.classList.add('form-input--error');
             phone.focus();
+            return;
+        }
+        if (consentBox && !consentBox.checked) {
+            consentWrap.classList.add('form-consent--error');
+            consentBox.focus();
             return;
         }
 
@@ -115,6 +123,7 @@
                 name.value = '';
                 phone.value = '';
                 message.value = '';
+                if (consentBox) consentBox.checked = false;
                 setTimeout(closeModal, 2500);
             } else {
                 msg.className = 'form-message form-message--error';
