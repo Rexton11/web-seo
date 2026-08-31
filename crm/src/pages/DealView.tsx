@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useSettings } from '../SettingsContext';
-import { Deal, CPFormData, GenerateResponse, Activity } from '../types';
+import { Deal, Activity } from '../types';
 import {
   ArrowLeft, Save, FileText, FileSignature, FileCheck, Building2,
   Phone, Mail, Building, Globe, Thermometer, Clock, MessageSquare,
@@ -10,7 +10,7 @@ import {
   Flame, Snowflake, Sun, AlertCircle, Loader2, Trash2
 } from 'lucide-react';
 import clsx from 'clsx';
-import CPForm from '../components/CPForm';
+import CPConstructor from '../components/CPConstructor';
 import CPPreview from '../components/CPPreview';
 
 const ACTIVITY_ICONS: Record<string, any> = {
@@ -52,7 +52,6 @@ export default function DealView() {
   const [activeTab, setActiveTab] = useState<'card' | 'cp' | 'legal' | 'contract' | 'act'>('card');
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [isGenerating, setIsGenerating] = useState(false);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [newNote, setNewNote] = useState('');
   const [showScript, setShowScript] = useState(false);
@@ -183,34 +182,9 @@ export default function DealView() {
     setNewNote('');
   };
 
-  const handleGenerateCP = async (formData: CPFormData) => {
-    setIsGenerating(true);
-    await saveDeal({
-      clientName: formData.clientName,
-      projectType: formData.projectType,
-      currentSituation: formData.currentSituation,
-      businessGoals: formData.businessGoals,
-      growthPoints: formData.growthPoints,
-    });
-    try {
-      const response = await fetch('/api/generate-cp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, proxy: settings?.geminiProxy }),
-      });
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.details || errData.error || `Статус ${response.status}`);
-      }
-      const resultData: GenerateResponse = await response.json();
-      await saveDeal({ cpData: resultData.result, status: (deal?.status === 'new' || deal?.status === 'need_cp') ? 'cp_sent' : deal?.status });
-      await addActivity('cp_sent', 'КП сгенерировано и сохранено');
-    } catch (error: any) {
-      console.warn(error);
-      alert(`Ошибка при генерации КП: ${error.message}`);
-    } finally {
-      setIsGenerating(false);
-    }
+  const handleCPGenerated = async (markdown: string) => {
+    await saveDeal({ cpData: markdown, status: (deal?.status === 'new' || deal?.status === 'need_cp') ? 'cp_sent' : deal?.status });
+    await addActivity('cp_sent', 'КП сформировано и сохранено');
   };
 
   const handleDeleteDeal = async () => {
@@ -630,32 +604,33 @@ export default function DealView() {
           </div>
         )}
 
-        {/* TAB: КП (форма + результат) */}
+        {/* TAB: КП (конструктор + результат) */}
         {activeTab === 'cp' && (
           <div className="h-full overflow-y-auto">
-            <div className="p-6 flex justify-center">
-              <div className="w-full max-w-2xl bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
-                <CPForm
-                  initialData={{
-                    clientName: deal.clientName,
-                    projectType: deal.projectType,
-                    currentSituation: deal.currentSituation,
-                    businessGoals: deal.businessGoals,
-                    growthPoints: deal.growthPoints,
-                  }}
-                  onGenerate={handleGenerateCP}
-                  isLoading={isGenerating}
-                  buttonText="Сгенерировать КП"
-                />
-              </div>
-            </div>
-            {deal.cpData && (
-              <div className="border-t border-slate-200">
+            {deal.cpData ? (
+              <div>
+                <div className="p-4 border-b border-slate-200 bg-white flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-slate-700">Сформированное КП</h3>
+                  <button
+                    onClick={() => saveDeal({ cpData: null as any })}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Создать новое КП
+                  </button>
+                </div>
                 <CPPreview
                   content={deal.cpData}
                   onChange={(newContent) => saveDeal({ cpData: newContent })}
                 />
               </div>
+            ) : (
+              <CPConstructor
+                clientName={deal.clientName}
+                projectType={deal.projectType}
+                taskDescription={deal.currentSituation || ''}
+                agencyName={settings?.agencyName || ''}
+                onGenerate={handleCPGenerated}
+              />
             )}
           </div>
         )}
