@@ -101,6 +101,21 @@ function webseo_get_testimonials(int $post_id = 0, int $limit = 10): array {
 }
 
 /**
+ * Send lead data to CRM webhook.
+ */
+function webseo_send_to_crm(array $data): void {
+    $url = webseo_option('crm_webhook_url');
+    if (empty($url)) return;
+
+    wp_remote_post($url, [
+        'body'      => wp_json_encode($data),
+        'headers'   => ['Content-Type' => 'application/json'],
+        'timeout'   => 5,
+        'blocking'  => false,
+    ]);
+}
+
+/**
  * Render privacy consent checkbox for forms.
  */
 function webseo_consent_checkbox(string $id_prefix = 'form'): void {

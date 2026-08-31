@@ -56,4 +56,11 @@ add_action('acf/init', function () {
         'parent_slug' => 'webseo-settings',
         'menu_slug'   => 'webseo-legal',
     ]);
+
+    acf_add_options_sub_page([
+        'page_title'  => 'CRM и интеграции',
+        'menu_title'  => 'Интеграции',
+        'parent_slug' => 'webseo-settings',
+        'menu_slug'   => 'webseo-integrations',
+    ]);
 });

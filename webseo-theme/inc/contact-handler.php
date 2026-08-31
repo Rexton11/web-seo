@@ -57,6 +57,11 @@ function webseo_contact_submit(): void {
 
     $sent = wp_mail($to, $subject, $body, $headers);
 
+    $crm_data = ['name' => $name, 'phone' => $phone, 'email' => $email, 'message' => $message];
+    if ($plan) $crm_data['plan'] = $plan;
+    $crm_data['source'] = $page_url ?: home_url('/');
+    webseo_send_to_crm($crm_data);
+
     if ($sent) {
         wp_send_json_success(['message' => 'Спасибо! Свяжусь с вами в ближайшее время.']);
     } else {

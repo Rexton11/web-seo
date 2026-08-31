@@ -132,6 +132,21 @@ function webseo_register_acf_fields(): void {
     ]);
 
     /* ================================================================
+     * 3d. OPTIONS — CRM и интеграции
+     * ================================================================ */
+    acf_add_local_field_group([
+        'key'      => 'group_integrations',
+        'title'    => 'CRM и интеграции',
+        'location' => [[[
+            'param' => 'options_page', 'operator' => '==', 'value' => 'webseo-integrations',
+        ]]],
+        'fields'   => [
+            ['key' => 'f_crm_webhook_url', 'name' => 'crm_webhook_url', 'label' => 'Webhook URL (CRM)', 'type' => 'url',
+             'instructions' => 'URL вебхука из CRM. Все заявки с форм и квизов будут автоматически отправляться по этому адресу. Поля: name, phone, email, message.'],
+        ],
+    ]);
+
+    /* ================================================================
      * 4. FRONT PAGE — Главная
      * ================================================================ */
     acf_add_local_field_group([
