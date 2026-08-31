@@ -152,7 +152,8 @@ if ($cases) :
 <!-- Testimonials -->
 <?php
 $testimonials = webseo_get_testimonials();
-if ($testimonials) :
+$parsed_reviews = webseo_get_parsed_reviews();
+if ($testimonials || $parsed_reviews) :
 ?>
 <section class="section-padding" id="testimonials">
     <div class="container">
@@ -165,6 +166,10 @@ if ($testimonials) :
         <div class="testimonials-slider">
             <?php foreach ($testimonials as $t) :
                 set_query_var('card_post', $t);
+                get_template_part('parts/card', 'testimonial');
+            endforeach; ?>
+            <?php foreach ($parsed_reviews as $pr) :
+                set_query_var('card_post', $pr);
                 get_template_part('parts/card', 'testimonial');
             endforeach; ?>
         </div>

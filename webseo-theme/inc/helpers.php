@@ -99,3 +99,33 @@ function webseo_get_testimonials(int $post_id = 0, int $limit = 10): array {
 
     return get_posts($args);
 }
+
+/**
+ * Get parsed reviews from Yandex/Kwork parser plugin.
+ * Returns arrays (not WP_Post objects) with source_url added.
+ */
+function webseo_get_parsed_reviews(int $limit = 20): array {
+    $saved = get_option('yrp_saved_reviews', []);
+    if (empty($saved)) return [];
+
+    $yandex_url = get_option('yrp_yandex_url', '');
+    $reviews = [];
+
+    foreach ($saved as $rev) {
+        if (!empty($rev['hidden'])) continue;
+        if (empty($rev['text'])) continue;
+
+        $rev['source_url'] = '';
+        if (($rev['source'] ?? '') === 'yandex' && $yandex_url) {
+            $rev['source_url'] = rtrim($yandex_url, '/') . '/reviews/';
+        }
+
+        $reviews[] = $rev;
+    }
+
+    if ((int)get_option('yrp_shuffle_sources', 0)) {
+        shuffle($reviews);
+    }
+
+    return array_slice($reviews, 0, $limit);
+}
