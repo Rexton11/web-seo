@@ -122,24 +122,25 @@ async function startServer() {
 
   apiRouter.put('/deals/:id', requireAuth, requireDb, async (req: any, res: any) => {
     try {
+      const safeFields: any = {};
+      const allowedKeys = [
+        'clientName', 'projectType', 'status', 'amount',
+        'phone', 'email', 'company', 'source', 'temperature',
+        'reminderDate', 'reminderNote',
+        'currentSituation', 'businessGoals', 'growthPoints',
+        'cpData', 'contractData', 'actData', 'legalInfo'
+      ];
+      for (const key of allowedKeys) {
+        if (req.body[key] !== undefined) {
+          safeFields[key] = req.body[key];
+        }
+      }
       await db!.update(schema.deals)
-        .set(req.body)
+        .set(safeFields)
         .where(and(eq(schema.deals.id, req.params.id), eq(schema.deals.userId, req.user.uid)));
       res.json({ success: true });
     } catch (e: any) {
       console.error('PUT /deals/:id error:', e);
-      res.status(500).json({ error: e.message });
-    }
-  });
-
-  apiRouter.delete('/deals/:id', requireAuth, requireDb, async (req: any, res: any) => {
-    try {
-      await db!.delete(schema.activities).where(eq(schema.activities.dealId, req.params.id));
-      await db!.delete(schema.deals)
-        .where(and(eq(schema.deals.id, req.params.id), eq(schema.deals.userId, req.user.uid)));
-      res.json({ success: true });
-    } catch (e: any) {
-      console.error('DELETE /deals/:id error:', e);
       res.status(500).json({ error: e.message });
     }
   });
@@ -192,9 +193,21 @@ async function startServer() {
 
   apiRouter.put('/settings', requireAuth, requireDb, async (req: any, res: any) => {
     try {
+      const safeFields: any = {};
+      const allowedKeys = [
+        'agencyName', 'inn', 'kpp', 'ogrn', 'directorName', 'address',
+        'bankAccount', 'bankName', 'bik', 'contractTemplate', 'actTemplate',
+        'kanbanColumns', 'geminiProxy', 'stageScripts'
+      ];
+      for (const key of allowedKeys) {
+        if (req.body[key] !== undefined) {
+          safeFields[key] = req.body[key] ?? null;
+        }
+      }
+
       const existing = await db!.select().from(schema.settings).where(eq(schema.settings.userId, req.user.uid));
       if (existing.length > 0) {
-        await db!.update(schema.settings).set(req.body).where(eq(schema.settings.userId, req.user.uid));
+        await db!.update(schema.settings).set(safeFields).where(eq(schema.settings.userId, req.user.uid));
       } else {
         await db!.insert(schema.settings).values({
           userId: req.user.uid,

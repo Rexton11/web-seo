@@ -278,11 +278,13 @@ export default function Settings() {
 
           {activeTab === 'integrations' && (
             <div>
-               <h2 className="text-lg font-bold text-slate-800 mb-2">Интеграция с WordPress (Webhooks)</h2>
-               <p className="text-sm text-slate-500 mb-6">Подключите ваш сайт, чтобы заявки автоматически попадали в колонку «Новые».</p>
+               <h2 className="text-lg font-bold text-slate-800 mb-2">Интеграция с сайтом (Webhook)</h2>
+               <p className="text-sm text-slate-500 mb-6">Заявки с вашего сайта автоматически попадают в CRM. Поддерживается любая форма, которая умеет отправлять POST-запрос (webhook).</p>
+
+               {/* Webhook URL */}
                <div className="bg-blue-50 border border-blue-100 rounded-lg p-5 mb-6">
-                 <h3 className="font-semibold text-blue-900 mb-2">Ваш уникальный Webhook URL</h3>
-                 <p className="text-sm text-blue-800 mb-3">Скопируйте этот URL и вставьте его в настройки вебхуков вашей формы.</p>
+                 <h3 className="font-semibold text-blue-900 mb-2">Ваш Webhook URL</h3>
+                 <p className="text-sm text-blue-800 mb-3">Вставьте этот URL в настройки вебхука вашей формы. Метод: <strong>POST</strong>, формат: <strong>JSON</strong>.</p>
                  <div className="flex items-center gap-2">
                    <input
                      type="text"
@@ -301,13 +303,123 @@ export default function Settings() {
                    </button>
                  </div>
                </div>
-               <div className="space-y-4">
-                 <h3 className="font-semibold text-slate-800">Как это работает?</h3>
-                 <ul className="list-disc list-inside text-sm text-slate-600 space-y-2">
-                   <li>CRM распознает стандартные поля: <code>name</code>, <code>phone</code>, <code>email</code>, <code>message</code>, <code>company</code>.</li>
-                   <li>Контактные данные (телефон, email, компания) сохраняются в отдельных полях карточки сделки.</li>
-                   <li>Поддерживаются плагины: <strong>Elementor Pro (Webhook)</strong>, Contact Form 7 и другие.</li>
-                   <li>Заявка создается мгновенно с пометкой «С сайта» и температурой «Теплый».</li>
+
+               {/* Mapping Table */}
+               <div className="mb-8">
+                 <h3 className="font-semibold text-slate-800 mb-3">Маппинг полей формы → CRM</h3>
+                 <p className="text-sm text-slate-500 mb-3">CRM автоматически распознает следующие имена полей. Используйте эти <code>name</code>-атрибуты в вашей форме:</p>
+                 <div className="overflow-x-auto">
+                   <table className="w-full text-sm border border-slate-200 rounded-lg overflow-hidden">
+                     <thead className="bg-slate-50">
+                       <tr>
+                         <th className="text-left px-4 py-2 font-semibold text-slate-700 border-b border-slate-200">Поле CRM</th>
+                         <th className="text-left px-4 py-2 font-semibold text-slate-700 border-b border-slate-200">Принимаемые name-атрибуты</th>
+                         <th className="text-left px-4 py-2 font-semibold text-slate-700 border-b border-slate-200">Пример</th>
+                       </tr>
+                     </thead>
+                     <tbody>
+                       <tr className="border-b border-slate-100">
+                         <td className="px-4 py-2 font-medium text-slate-800">Имя клиента</td>
+                         <td className="px-4 py-2"><code className="text-xs bg-slate-100 px-1 py-0.5 rounded">name</code> <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">client_name</code> <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">fullname</code> <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">your_name</code> <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">your-name</code> <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">title</code></td>
+                         <td className="px-4 py-2 text-slate-500">Иван Петров</td>
+                       </tr>
+                       <tr className="border-b border-slate-100">
+                         <td className="px-4 py-2 font-medium text-slate-800">Телефон</td>
+                         <td className="px-4 py-2"><code className="text-xs bg-slate-100 px-1 py-0.5 rounded">phone</code> <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">your_phone</code> <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">your-phone</code> <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">tel</code></td>
+                         <td className="px-4 py-2 text-slate-500">+7 (999) 123-45-67</td>
+                       </tr>
+                       <tr className="border-b border-slate-100">
+                         <td className="px-4 py-2 font-medium text-slate-800">Email</td>
+                         <td className="px-4 py-2"><code className="text-xs bg-slate-100 px-1 py-0.5 rounded">email</code> <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">your_email</code> <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">your-email</code></td>
+                         <td className="px-4 py-2 text-slate-500">client@example.com</td>
+                       </tr>
+                       <tr className="border-b border-slate-100">
+                         <td className="px-4 py-2 font-medium text-slate-800">Компания</td>
+                         <td className="px-4 py-2"><code className="text-xs bg-slate-100 px-1 py-0.5 rounded">company</code> <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">organization</code></td>
+                         <td className="px-4 py-2 text-slate-500">ООО Ромашка</td>
+                       </tr>
+                       <tr>
+                         <td className="px-4 py-2 font-medium text-slate-800">Сообщение</td>
+                         <td className="px-4 py-2"><code className="text-xs bg-slate-100 px-1 py-0.5 rounded">message</code> <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">your_message</code> <code className="text-xs bg-slate-100 px-1 py-0.5 rounded">your-message</code></td>
+                         <td className="px-4 py-2 text-slate-500">Хочу заказать сайт</td>
+                       </tr>
+                     </tbody>
+                   </table>
+                 </div>
+                 <p className="text-xs text-slate-500 mt-2">Все остальные поля формы также сохраняются в поле «Текущая ситуация» как JSON.</p>
+               </div>
+
+               {/* Instructions per plugin */}
+               <div className="space-y-6 mb-8">
+                 <h3 className="font-semibold text-slate-800">Инструкции по настройке</h3>
+
+                 {/* Elementor */}
+                 <div className="border border-slate-200 rounded-lg p-5">
+                   <h4 className="font-semibold text-slate-800 mb-2">Elementor Pro (Action After Submit → Webhook)</h4>
+                   <ol className="list-decimal list-inside text-sm text-slate-600 space-y-1.5">
+                     <li>Откройте форму в редакторе Elementor</li>
+                     <li>Перейдите в раздел <strong>Actions After Submit</strong></li>
+                     <li>Добавьте действие <strong>Webhook</strong></li>
+                     <li>В поле <strong>Webhook URL</strong> вставьте ваш URL (выше)</li>
+                     <li>Убедитесь, что поля формы имеют ID: <code>name</code>, <code>phone</code>, <code>email</code>, <code>message</code></li>
+                     <li>В <strong>Advanced</strong> → каждому полю формы задайте соответствующий ID</li>
+                     <li>Сохраните и опубликуйте страницу</li>
+                   </ol>
+                 </div>
+
+                 {/* Contact Form 7 */}
+                 <div className="border border-slate-200 rounded-lg p-5">
+                   <h4 className="font-semibold text-slate-800 mb-2">Contact Form 7 + плагин CF7 to Webhook</h4>
+                   <ol className="list-decimal list-inside text-sm text-slate-600 space-y-1.5">
+                     <li>Установите плагин <strong>CF7 to Webhook</strong> (или CF7 Webhook)</li>
+                     <li>Откройте настройки вашей формы → вкладка <strong>Webhook</strong></li>
+                     <li>Вставьте ваш Webhook URL</li>
+                     <li>Формат отправки: <strong>JSON</strong></li>
+                     <li>Имена полей в форме CF7 должны быть: <code>[text* your-name]</code>, <code>[tel* your-phone]</code>, <code>[email* your-email]</code>, <code>[textarea your-message]</code></li>
+                     <li>CRM автоматически распознает поля с дефисами (<code>your-name</code>, <code>your-phone</code> и т.д.)</li>
+                   </ol>
+                 </div>
+
+                 {/* WPForms */}
+                 <div className="border border-slate-200 rounded-lg p-5">
+                   <h4 className="font-semibold text-slate-800 mb-2">WPForms (Webhooks Addon)</h4>
+                   <ol className="list-decimal list-inside text-sm text-slate-600 space-y-1.5">
+                     <li>Установите аддон <strong>Webhooks</strong> для WPForms</li>
+                     <li>Откройте форму → <strong>Settings</strong> → <strong>Webhooks</strong></li>
+                     <li>Включите Webhook и вставьте URL</li>
+                     <li>В разделе <strong>Field Mapping</strong> сопоставьте поля формы с ключами: <code>name</code>, <code>phone</code>, <code>email</code>, <code>message</code></li>
+                     <li>Формат: JSON. Метод: POST</li>
+                   </ol>
+                 </div>
+
+                 {/* Custom / any form */}
+                 <div className="border border-slate-200 rounded-lg p-5">
+                   <h4 className="font-semibold text-slate-800 mb-2">Любая форма / Свой код</h4>
+                   <p className="text-sm text-slate-600 mb-3">Отправьте POST-запрос на ваш Webhook URL с JSON-телом:</p>
+                   <pre className="bg-slate-900 text-green-400 p-4 rounded-lg text-xs overflow-x-auto font-mono">{`fetch("https://crm.weboptics.ru/api/webhooks/wordpress/${user?.uid || 'ВАШ_USER_ID'}", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    name: "Иван Петров",
+    phone: "+7 (999) 123-45-67",
+    email: "client@example.com",
+    company: "ООО Ромашка",
+    message: "Хочу заказать разработку сайта"
+  })
+})`}</pre>
+                 </div>
+               </div>
+
+               {/* What happens */}
+               <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-5">
+                 <h3 className="font-semibold text-emerald-900 mb-2">Что происходит при получении заявки</h3>
+                 <ul className="list-disc list-inside text-sm text-emerald-800 space-y-1.5">
+                   <li>Создается карточка сделки в колонке <strong>«Новые лиды»</strong></li>
+                   <li>Телефон, email и компания сохраняются в отдельных полях карточки</li>
+                   <li>Источник автоматически помечается как <strong>«С сайта»</strong></li>
+                   <li>Температура устанавливается как <strong>«Теплый»</strong></li>
+                   <li>Сообщение и все остальные данные формы сохраняются в поле «Текущая ситуация»</li>
+                   <li>В ленте активности создается запись «Заявка получена с сайта»</li>
                  </ul>
                </div>
             </div>
