@@ -9,7 +9,7 @@ export default function App() {
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
       <Sidebar />
-      <div className="flex-1 overflow-hidden relative">
+      <div className="flex-1 overflow-y-auto relative">
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/deal/:id" element={<DealView />} />

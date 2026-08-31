@@ -145,6 +145,20 @@ async function startServer() {
     }
   });
 
+  apiRouter.delete('/deals/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      await db!.delete(schema.activities).where(eq(schema.activities.dealId, req.params.id));
+      await db!.delete(schema.deals).where(and(
+        eq(schema.deals.id, req.params.id),
+        eq(schema.deals.userId, req.user.uid)
+      ));
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error('DELETE /deals/:id error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Activities CRUD
   apiRouter.get('/deals/:dealId/activities', requireAuth, requireDb, async (req: any, res: any) => {
     try {

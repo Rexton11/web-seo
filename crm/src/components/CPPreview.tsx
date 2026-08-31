@@ -33,7 +33,7 @@ export default function CPPreview({ content, onChange }: CPPreviewProps) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-slate-400 bg-slate-50">
         <FileTextPlaceholder />
-        <p className="mt-4 text-sm font-medium">Заполните форму слева, чтобы сгенерировать КП</p>
+        <p className="mt-4 text-sm font-medium">Заполните форму выше, чтобы сгенерировать КП</p>
         <p className="text-xs max-w-sm text-center mt-2 opacity-80">
           Оно будет создано по методологии: с контекстом, точками роста, scope работ, сроками и тремя тарифами.
         </p>

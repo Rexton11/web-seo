@@ -49,7 +49,8 @@ export default function DealView() {
   const [deal, setDeal] = useState<Deal | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'card' | 'cp_form' | 'legal' | 'cp' | 'contract' | 'act'>('card');
+  const [activeTab, setActiveTab] = useState<'card' | 'cp' | 'legal' | 'contract' | 'act'>('card');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -201,12 +202,34 @@ export default function DealView() {
       const resultData: GenerateResponse = await response.json();
       await saveDeal({ cpData: resultData.result, status: (deal?.status === 'new' || deal?.status === 'need_cp') ? 'cp_sent' : deal?.status });
       await addActivity('cp_sent', 'КП сгенерировано и сохранено');
-      setActiveTab('cp');
     } catch (error) {
       console.warn(error);
       alert('Ошибка при генерации КП.');
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleDeleteDeal = async () => {
+    if (!id || !user) return;
+    if (!window.confirm('Удалить эту сделку? Это действие нельзя отменить.')) return;
+    setIsDeleting(true);
+    try {
+      const idToken = await user.getIdToken();
+      const response = await fetch(`/api/deals/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${idToken}` }
+      });
+      if (response.ok) {
+        navigate('/');
+      } else {
+        alert('Ошибка при удалении сделки');
+      }
+    } catch (error) {
+      console.warn("Error deleting deal", error);
+      alert('Ошибка при удалении сделки');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -269,9 +292,8 @@ export default function DealView() {
 
   const tabs = [
     { id: 'card', label: 'Карточка', icon: Building2 },
-    { id: 'cp_form', label: 'Discovery / КП', icon: FileText },
-    { id: 'legal', label: 'Реквизиты', icon: Building2 },
     { id: 'cp', label: 'КП', icon: FileText },
+    { id: 'legal', label: 'Реквизиты', icon: Building2 },
     { id: 'contract', label: 'Договор', icon: FileSignature },
     { id: 'act', label: 'Акт', icon: FileCheck },
   ] as const;
@@ -327,6 +349,14 @@ export default function DealView() {
           >
             <BookOpen className="w-5 h-5" />
           </button>
+          <button
+            onClick={handleDeleteDeal}
+            disabled={isDeleting}
+            className="p-2 rounded-md transition-colors text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+            title="Удалить сделку"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
@@ -363,7 +393,7 @@ export default function DealView() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden relative">
+      <div className="flex-1 min-h-0 overflow-hidden relative">
         {/* TAB: DEAL CARD */}
         {activeTab === 'card' && (
           <div className="h-full overflow-y-auto">
@@ -447,23 +477,19 @@ export default function DealView() {
                   </div>
                 </div>
 
-                {/* Discovery fields */}
+                {/* Comment */}
                 <div className="bg-white shadow-sm rounded-xl border border-slate-200 p-5">
-                  <h2 className="text-base font-bold text-slate-800 mb-4">Детали проекта</h2>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-medium text-slate-500 mb-1">Текущая ситуация</label>
-                      <textarea rows={3} value={editForm.currentSituation} onChange={e => setEditForm({...editForm, currentSituation: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-y" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-500 mb-1">Бизнес-цели</label>
-                      <textarea rows={2} value={editForm.businessGoals} onChange={e => setEditForm({...editForm, businessGoals: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-y" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-500 mb-1">Точки роста</label>
-                      <textarea rows={2} value={editForm.growthPoints} onChange={e => setEditForm({...editForm, growthPoints: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-y" />
-                    </div>
-                  </div>
+                  <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-blue-600" />
+                    Комментарий
+                  </h2>
+                  <textarea
+                    rows={4}
+                    value={editForm.currentSituation}
+                    onChange={e => setEditForm({...editForm, currentSituation: e.target.value})}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-y"
+                    placeholder="Заметки по сделке, пожелания клиента, важные детали..."
+                  />
                 </div>
 
                 <div className="flex justify-end">
@@ -544,26 +570,6 @@ export default function DealView() {
           </div>
         )}
 
-        {/* TAB: CP FORM / DISCOVERY */}
-        {activeTab === 'cp_form' && (
-          <div className="h-full overflow-y-auto p-6 flex justify-center">
-            <div className="w-full max-w-2xl bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
-               <CPForm
-                  initialData={{
-                    clientName: deal.clientName,
-                    projectType: deal.projectType,
-                    currentSituation: deal.currentSituation,
-                    businessGoals: deal.businessGoals,
-                    growthPoints: deal.growthPoints,
-                  }}
-                  onGenerate={handleGenerateCP}
-                  isLoading={isGenerating}
-                  buttonText="Сгенерировать КП"
-               />
-            </div>
-          </div>
-        )}
-
         {/* TAB: LEGAL */}
         {activeTab === 'legal' && (
           <div className="h-full overflow-y-auto p-6 flex justify-center">
@@ -621,26 +627,46 @@ export default function DealView() {
           </div>
         )}
 
-        {/* TAB: CP PREVIEW */}
+        {/* TAB: КП (форма + результат) */}
         {activeTab === 'cp' && (
-          <div className="h-full relative shadow-inner overflow-hidden">
-            <CPPreview
-              content={deal.cpData || ''}
-              onChange={(newContent) => saveDeal({ cpData: newContent })}
-            />
+          <div className="h-full overflow-y-auto">
+            <div className="p-6 flex justify-center">
+              <div className="w-full max-w-2xl bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
+                <CPForm
+                  initialData={{
+                    clientName: deal.clientName,
+                    projectType: deal.projectType,
+                    currentSituation: deal.currentSituation,
+                    businessGoals: deal.businessGoals,
+                    growthPoints: deal.growthPoints,
+                  }}
+                  onGenerate={handleGenerateCP}
+                  isLoading={isGenerating}
+                  buttonText="Сгенерировать КП"
+                />
+              </div>
+            </div>
+            {deal.cpData && (
+              <div className="border-t border-slate-200">
+                <CPPreview
+                  content={deal.cpData}
+                  onChange={(newContent) => saveDeal({ cpData: newContent })}
+                />
+              </div>
+            )}
           </div>
         )}
 
         {/* TAB: CONTRACT */}
         {activeTab === 'contract' && (
-          <div className="h-full relative shadow-inner overflow-hidden">
+          <div className="h-full overflow-y-auto">
             {deal.contractData ? (
               <CPPreview
                 content={deal.contractData}
                 onChange={(newContent) => saveDeal({ contractData: newContent })}
               />
             ) : (
-              <div className="h-full overflow-y-auto p-6 flex flex-col items-center justify-center">
+              <div className="h-full p-6 flex flex-col items-center justify-center">
                 <FileSignature className="w-16 h-16 text-slate-300 mb-4" />
                 <h2 className="text-xl font-bold text-slate-700 mb-2">Генератор Договоров</h2>
                 <p className="text-slate-500 mb-6 max-w-md text-center">Договор формируется с учетом реквизитов клиента и ваших данных из раздела «Настройки».</p>
@@ -657,14 +683,14 @@ export default function DealView() {
 
         {/* TAB: ACT */}
         {activeTab === 'act' && (
-          <div className="h-full relative shadow-inner overflow-hidden">
+          <div className="h-full overflow-y-auto">
             {deal.actData ? (
               <CPPreview
                 content={deal.actData}
                 onChange={(newContent) => saveDeal({ actData: newContent })}
               />
             ) : (
-              <div className="h-full overflow-y-auto p-6 flex flex-col items-center justify-center">
+              <div className="h-full p-6 flex flex-col items-center justify-center">
                 <FileCheck className="w-16 h-16 text-slate-300 mb-4" />
                 <h2 className="text-xl font-bold text-slate-700 mb-2">Акты выполненных работ</h2>
                 <p className="text-slate-500 mb-6 max-w-md text-center">Закройте этап или проект актом, который можно скачать в PDF.</p>
