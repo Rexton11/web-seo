@@ -306,18 +306,27 @@ async function startServer() {
 
   app.use('/api', apiRouter);
 
-  // Test Gemini API connection
+  // Test Gemini API connection (pass ?proxy=http://... to test through proxy)
   app.get('/api/test-gemini', async (req, res) => {
     try {
       if (!process.env.GEMINI_API_KEY) {
         return res.json({ status: 'error', message: 'GEMINI_API_KEY не задан в .env' });
       }
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const proxyUrl = req.query.proxy as string;
+      let fetchToUse = globalThis.fetch;
+      if (proxyUrl) {
+        const dispatcher = new ProxyAgent(proxyUrl);
+        fetchToUse = ((url: any, init?: any) => undiciFetch(url, { ...init, dispatcher: dispatcher as any })) as any;
+      }
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+        httpOptions: proxyUrl ? { fetch: fetchToUse } : undefined,
+      });
       const response = await ai.models.generateContent({
         model: 'gemini-3.7-flash',
         contents: 'Ответь одним словом: работает',
       });
-      res.json({ status: 'ok', response: response.text });
+      res.json({ status: 'ok', proxy: proxyUrl || 'none', response: response.text });
     } catch (error: any) {
       res.json({ status: 'error', message: error.message });
     }
