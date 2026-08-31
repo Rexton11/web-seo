@@ -65,12 +65,23 @@ async function startServer() {
 
   apiRouter.post('/deals', requireAuth, requireDb, async (req: any, res: any) => {
     try {
+      const id = uuidv4();
       const newDeal = {
-        ...req.body,
-        id: uuidv4(),
+        id,
         userId: req.user.uid,
+        clientName: req.body.clientName || 'Новая сделка',
+        projectType: req.body.projectType || '',
+        status: req.body.status || 'new',
+        amount: req.body.amount ?? 0,
+        currentSituation: req.body.currentSituation || null,
+        businessGoals: req.body.businessGoals || null,
+        growthPoints: req.body.growthPoints || null,
+        cpData: req.body.cpData || null,
+        contractData: req.body.contractData || null,
+        actData: req.body.actData || null,
+        legalInfo: req.body.legalInfo || null,
       };
-      await db.insert(schema.deals).values(newDeal);
+      await db!.insert(schema.deals).values(newDeal);
       res.json(newDeal);
     } catch (e: any) {
       console.error('POST /deals error:', e);
@@ -122,7 +133,22 @@ async function startServer() {
       if (existing.length > 0) {
         await db.update(schema.settings).set(req.body).where(eq(schema.settings.userId, req.user.uid));
       } else {
-        await db.insert(schema.settings).values({ ...req.body, userId: req.user.uid });
+        await db!.insert(schema.settings).values({
+          userId: req.user.uid,
+          agencyName: req.body.agencyName || null,
+          inn: req.body.inn || null,
+          kpp: req.body.kpp || null,
+          ogrn: req.body.ogrn || null,
+          directorName: req.body.directorName || null,
+          address: req.body.address || null,
+          bankAccount: req.body.bankAccount || null,
+          bankName: req.body.bankName || null,
+          bik: req.body.bik || null,
+          contractTemplate: req.body.contractTemplate || null,
+          actTemplate: req.body.actTemplate || null,
+          kanbanColumns: req.body.kanbanColumns || null,
+          geminiProxy: req.body.geminiProxy || null,
+        });
       }
       res.json({ success: true });
     } catch (e: any) {
@@ -157,11 +183,15 @@ async function startServer() {
         status: 'new',
         amount: 0,
         currentSituation: situation,
-        businessGoals: '',
-        growthPoints: '',
+        businessGoals: null,
+        growthPoints: null,
+        cpData: null,
+        contractData: null,
+        actData: null,
+        legalInfo: null,
       };
 
-      await db.insert(schema.deals).values(newDeal);
+      await db!.insert(schema.deals).values(newDeal);
       res.status(200).json({ success: true, dealId: newDeal.id });
     } catch (e: any) {
       console.error("Webhook error:", e);
