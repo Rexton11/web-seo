@@ -772,6 +772,7 @@ function webseo_tab_pages(): void {
             <h3>Структура JSON</h3>
             <table class="field-table">
                 <tr><th><code>title</code></th><td>string</td><td>Название страницы</td></tr>
+                <tr><th><code>slug</code></th><td>string</td><td>Slug для URL (латиницей). Если не указан — генерируется из title. Пример: <code>blog</code>, <code>contacts</code></td></tr>
                 <tr><th><code>template</code></th><td>string</td><td>Шаблон: <code>page-contacts.php</code>, <code>page-about.php</code>, <code>page-thanks.php</code></td></tr>
                 <tr><th><code>content</code></th><td>HTML</td><td>Контент (для шорткодов CF7, текста «Спасибо» и т.д.)</td></tr>
                 <tr><th><code>is_front_page</code></th><td>bool</td><td>Назначить главной страницей</td></tr>
@@ -825,6 +826,7 @@ function webseo_tab_pages(): void {
     },
     {
       "title": "Блог",
+      "slug": "blog",
       "is_posts_page": true
     }
   ]
@@ -966,17 +968,20 @@ function webseo_import_post(array $item, string $post_type): array {
         if (isset($item['content']))    $update['post_content'] = $item['content'];
         if (isset($item['excerpt']))    $update['post_excerpt']  = $item['excerpt'];
         if (isset($item['menu_order'])) $update['menu_order']    = $item['menu_order'];
+        if (!empty($item['slug']))      $update['post_name']     = sanitize_title($item['slug']);
         wp_update_post($update);
         $log[] = "↻ Обновлён {$post_type}: {$item['title']}";
     } else {
-        $post_id = wp_insert_post([
+        $post_data = [
             'post_title'   => $item['title'],
             'post_content' => $item['content'] ?? '',
             'post_excerpt'  => $item['excerpt'] ?? '',
             'post_status'  => 'publish',
             'post_type'    => $post_type,
             'menu_order'   => $item['menu_order'] ?? 0,
-        ]);
+        ];
+        if (!empty($item['slug'])) $post_data['post_name'] = sanitize_title($item['slug']);
+        $post_id = wp_insert_post($post_data);
         $log[] = "✓ Создан {$post_type}: {$item['title']}";
     }
 
