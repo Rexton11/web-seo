@@ -314,7 +314,7 @@ async function startServer() {
       }
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: 'gemini-3.7-flash',
         contents: 'Ответь одним словом: работает',
       });
       res.json({ status: 'ok', response: response.text });
@@ -410,7 +410,7 @@ async function startServer() {
       });
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: 'gemini-3.7-flash',
         contents: prompt,
         config: {
           temperature: 0.7,
