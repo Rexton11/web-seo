@@ -13,5 +13,5 @@
 .modal-or::before{left:0}
 .modal-or::after{right:0}
 .modal-or span{font-size:.85rem;color:var(--text-muted);background:var(--bg-main);padding:0 12px;position:relative}
-.modal-messengers{display:flex;gap:12px;justify-content:center}
-.modal-messengers .btn{flex:1;justify-content:center}
+.modal-messengers{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.modal-messengers .btn{flex:1 1 auto;min-width:0;justify-content:center;padding:10px 14px;font-size:.85rem;white-space:nowrap}

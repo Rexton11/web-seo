@@ -116,10 +116,9 @@ function webseo_register_acf_fields(): void {
             ['key' => 'f_fp_tab_hero', 'label' => 'Hero', 'type' => 'tab'],
             ['key' => 'f_fp_hero_title',    'name' => 'hero_title',    'label' => 'Заголовок (H1)',  'type' => 'text'],
             ['key' => 'f_fp_hero_subtitle', 'name' => 'hero_subtitle', 'label' => 'Подзаголовок',    'type' => 'textarea', 'rows' => 3],
-            ['key' => 'f_fp_hero_btn1_text','name' => 'hero_btn1_text','label' => 'Кнопка 1 — текст','type' => 'text'],
-            ['key' => 'f_fp_hero_btn1_url', 'name' => 'hero_btn1_url', 'label' => 'Кнопка 1 — URL', 'type' => 'url'],
+            ['key' => 'f_fp_hero_btn1_text','name' => 'hero_btn1_text','label' => 'Кнопка CTA — текст (открывает форму заявки)','type' => 'text'],
             ['key' => 'f_fp_hero_btn2_text','name' => 'hero_btn2_text','label' => 'Кнопка 2 — текст','type' => 'text'],
-            ['key' => 'f_fp_hero_btn2_url', 'name' => 'hero_btn2_url', 'label' => 'Кнопка 2 — URL', 'type' => 'url'],
+            ['key' => 'f_fp_hero_btn2_url', 'name' => 'hero_btn2_url', 'label' => 'Кнопка 2 — URL (если пусто → портфолио)', 'type' => 'url'],
 
             // Services section
             ['key' => 'f_fp_tab_services', 'label' => 'Услуги', 'type' => 'tab'],

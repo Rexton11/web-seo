@@ -22,12 +22,12 @@ get_header();
 
         <div class="hero-actions">
             <?php if ($btn1 = get_field('hero_btn1_text')) : ?>
-                <a href="<?php the_field('hero_btn1_url'); ?>" data-magnetic class="btn btn-primary">
+                <a href="#callback" data-modal="callback" data-magnetic class="btn btn-primary">
                     <?php echo esc_html($btn1); ?> <i class="ph-bold ph-arrow-right"></i>
                 </a>
             <?php endif; ?>
             <?php if ($btn2 = get_field('hero_btn2_text')) : ?>
-                <a href="<?php the_field('hero_btn2_url'); ?>" class="btn btn-secondary">
+                <a href="<?php echo esc_url(get_field('hero_btn2_url') ?: get_post_type_archive_link('portfolio')); ?>" class="btn btn-secondary">
                     <?php echo esc_html($btn2); ?> <i class="ph ph-folder"></i>
                 </a>
             <?php endif; ?>
