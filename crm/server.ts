@@ -51,6 +51,104 @@ async function startServer() {
     next();
   };
 
+  // Clients CRUD
+  apiRouter.get('/clients', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const clients = await db!.select().from(schema.clients)
+        .where(eq(schema.clients.userId, req.user.uid))
+        .orderBy(desc(schema.clients.updatedAt));
+      res.json(clients);
+    } catch (e: any) {
+      console.error('GET /clients error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.get('/clients/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const result = await db!.select().from(schema.clients).where(and(
+        eq(schema.clients.id, req.params.id),
+        eq(schema.clients.userId, req.user.uid)
+      ));
+      if (result.length === 0) return res.status(404).json({ error: 'Not found' });
+      res.json(result[0]);
+    } catch (e: any) {
+      console.error('GET /clients/:id error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.get('/clients/:id/deals', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const result = await db!.select().from(schema.deals).where(and(
+        eq(schema.deals.clientId, req.params.id),
+        eq(schema.deals.userId, req.user.uid)
+      )).orderBy(desc(schema.deals.createdAt));
+      res.json(result);
+    } catch (e: any) {
+      console.error('GET /clients/:id/deals error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.post('/clients', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const id = uuidv4();
+      const newClient = {
+        id,
+        userId: req.user.uid,
+        name: req.body.name || 'Новый клиент',
+        company: req.body.company || null,
+        phone: req.body.phone || null,
+        email: req.body.email || null,
+        source: req.body.source || null,
+        legalInfo: req.body.legalInfo || null,
+        notes: req.body.notes || null,
+      };
+      await db!.insert(schema.clients).values(newClient);
+      res.json(newClient);
+    } catch (e: any) {
+      console.error('POST /clients error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.put('/clients/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const safeFields: any = {};
+      const allowedKeys = ['name', 'company', 'phone', 'email', 'source', 'legalInfo', 'notes'];
+      for (const key of allowedKeys) {
+        if (req.body[key] !== undefined) {
+          safeFields[key] = req.body[key];
+        }
+      }
+      await db!.update(schema.clients)
+        .set(safeFields)
+        .where(and(eq(schema.clients.id, req.params.id), eq(schema.clients.userId, req.user.uid)));
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error('PUT /clients/:id error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.delete('/clients/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      // Unlink deals from this client (don't delete them)
+      await db!.update(schema.deals)
+        .set({ clientId: null })
+        .where(and(eq(schema.deals.clientId, req.params.id), eq(schema.deals.userId, req.user.uid)));
+      await db!.delete(schema.clients).where(and(
+        eq(schema.clients.id, req.params.id),
+        eq(schema.clients.userId, req.user.uid)
+      ));
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error('DELETE /clients/:id error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Deals CRUD
   apiRouter.get('/deals', requireAuth, requireDb, async (req: any, res: any) => {
     try {
@@ -68,6 +166,7 @@ async function startServer() {
       const newDeal = {
         id,
         userId: req.user.uid,
+        clientId: req.body.clientId || null,
         clientName: req.body.clientName || 'Новая сделка',
         projectType: req.body.projectType || '',
         status: req.body.status || 'new',
@@ -123,7 +222,7 @@ async function startServer() {
     try {
       const safeFields: any = {};
       const allowedKeys = [
-        'clientName', 'projectType', 'status', 'amount',
+        'clientId', 'clientName', 'projectType', 'status', 'amount',
         'phone', 'email', 'company', 'source', 'temperature',
         'reminderDate', 'reminderNote',
         'currentSituation', 'businessGoals', 'growthPoints',

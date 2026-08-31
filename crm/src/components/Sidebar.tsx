@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Briefcase, LayoutDashboard, Settings, LogOut } from 'lucide-react';
+import { Briefcase, LayoutDashboard, Users, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 
 export default function Sidebar() {
@@ -8,6 +8,7 @@ export default function Sidebar() {
 
   const navItems = [
     { name: 'Воронка продаж', to: '/', icon: LayoutDashboard },
+    { name: 'Клиенты', to: '/clients', icon: Users },
     { name: 'Настройки', to: '/settings', icon: Settings },
   ];
 

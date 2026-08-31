@@ -25,9 +25,24 @@ export const settings = mysqlTable('settings', {
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
 
+export const clients = mysqlTable('clients', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  company: varchar('company', { length: 255 }),
+  phone: varchar('phone', { length: 100 }),
+  email: varchar('email', { length: 255 }),
+  source: varchar('source', { length: 100 }),
+  legalInfo: json('legal_info'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
+
 export const deals = mysqlTable('deals', {
   id: varchar('id', { length: 255 }).primaryKey(),
   userId: varchar('user_id', { length: 255 }).notNull(),
+  clientId: varchar('client_id', { length: 255 }),
   clientName: varchar('client_name', { length: 255 }).notNull(),
   projectType: varchar('project_type', { length: 255 }).notNull(),
   status: varchar('status', { length: 50 }).notNull(),

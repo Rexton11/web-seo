@@ -50,9 +50,34 @@ export interface AgencySettings {
   stageScripts?: StageScript[];
 }
 
+export interface Client {
+  id: string;
+  userId: string;
+  name: string;
+  company?: string;
+  phone?: string;
+  email?: string;
+  source?: string;
+  notes?: string;
+  legalInfo?: {
+    companyName: string;
+    inn: string;
+    kpp: string;
+    ogrn: string;
+    directorName: string;
+    address: string;
+    bankAccount: string;
+    bankName: string;
+    bik: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Deal {
   id: string;
   userId: string;
+  clientId?: string;
   clientName: string;
   projectType: string;
   status: string;

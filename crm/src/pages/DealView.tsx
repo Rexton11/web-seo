@@ -288,6 +288,11 @@ export default function DealView() {
               <h1 className="text-xl font-bold text-slate-800">{deal.clientName || 'Новая сделка'}</h1>
               <div className="flex items-center gap-2 text-sm text-slate-500">
                 <span>{deal.projectType}</span>
+                {deal.clientId && (
+                  <button onClick={() => navigate(`/client/${deal.clientId}`)} className="text-xs text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-0.5 rounded font-medium">
+                    Карточка клиента
+                  </button>
+                )}
                 {deal.source && <span className="text-xs bg-slate-100 px-2 py-0.5 rounded">{deal.source === 'website' ? 'С сайта' : deal.source === 'manual' ? 'Вручную' : deal.source}</span>}
               </div>
             </div>

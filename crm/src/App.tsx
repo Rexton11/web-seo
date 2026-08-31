@@ -3,6 +3,8 @@ import { Routes, Route } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import DealView from './pages/DealView';
+import ClientsList from './pages/ClientsList';
+import ClientView from './pages/ClientView';
 import Settings from './pages/Settings';
 
 export default function App() {
@@ -13,6 +15,8 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/deal/:id" element={<DealView />} />
+          <Route path="/clients" element={<ClientsList />} />
+          <Route path="/client/:id" element={<ClientView />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </div>
