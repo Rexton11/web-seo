@@ -6,7 +6,7 @@ import { Client, Deal, Attachment } from '../types';
 import {
   ArrowLeft, Save, Phone, Mail, Building, Globe, Users, Trash2,
   Plus, FileText, FileSignature, Calendar, ChevronRight, Loader2,
-  Paperclip, Download, Upload
+  Paperclip, Download, Upload, KeyRound
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -26,7 +26,7 @@ export default function ClientView() {
   const [uploading, setUploading] = useState(false);
 
   const [form, setForm] = useState({
-    name: '', company: '', phone: '', email: '', source: '', notes: ''
+    name: '', company: '', phone: '', email: '', source: '', notes: '', accessNotes: ''
   });
 
   const [legalForm, setLegalForm] = useState({
@@ -50,7 +50,8 @@ export default function ClientView() {
           setClient(c);
           setForm({
             name: c.name || '', company: c.company || '', phone: c.phone || '',
-            email: c.email || '', source: c.source || '', notes: c.notes || ''
+            email: c.email || '', source: c.source || '', notes: c.notes || '',
+            accessNotes: c.accessNotes || ''
           });
           if (c.legalInfo) setLegalForm(c.legalInfo);
         } else {
@@ -130,7 +131,7 @@ export default function ClientView() {
         headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, legalInfo: legalForm })
       });
-      setClient({ ...client!, ...form, legalInfo: legalForm });
+      setClient({ ...client!, ...form, legalInfo: legalForm } as Client);
     } catch (error) {
       console.warn('Error saving client', error);
     } finally {
@@ -327,6 +328,22 @@ export default function ClientView() {
                   <input type="text" value={legalForm.bankName} onChange={e => setLegalForm({...legalForm, bankName: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                 </div>
               </div>
+            </div>
+
+            {/* Access Notes */}
+            <div className="bg-white shadow-sm rounded-xl border border-slate-200 p-5">
+              <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-blue-600" />
+                Доступы
+              </h2>
+              <textarea
+                rows={6}
+                value={form.accessNotes}
+                onChange={e => setForm({...form, accessNotes: e.target.value})}
+                className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-y font-mono"
+                placeholder={"Хостинг: hosting.example.com\nЛогин: admin\nПароль: ********\n\nCMS: site.ru/admin\nЛогин: admin\nПароль: ********\n\nFTP: ftp.example.com\nЛогин: user\nПароль: ********"}
+              />
+              <p className="text-xs text-slate-400 mt-2">Логины, пароли, доступы к хостингу, CMS, FTP и т.д.</p>
             </div>
 
             {/* Attachments */}

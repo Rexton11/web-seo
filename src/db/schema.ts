@@ -37,6 +37,7 @@ export const clients = mysqlTable('clients', {
   source: varchar('source', { length: 100 }),
   legalInfo: json('legal_info'),
   notes: text('notes'),
+  accessNotes: text('access_notes'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });

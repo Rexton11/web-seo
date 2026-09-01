@@ -132,7 +132,7 @@ async function startServer() {
   apiRouter.put('/clients/:id', requireAuth, requireDb, async (req: any, res: any) => {
     try {
       const safeFields: any = {};
-      const allowedKeys = ['name', 'company', 'phone', 'email', 'source', 'legalInfo', 'notes'];
+      const allowedKeys = ['name', 'company', 'phone', 'email', 'source', 'legalInfo', 'notes', 'accessNotes'];
       for (const key of allowedKeys) {
         if (req.body[key] !== undefined) {
           safeFields[key] = req.body[key];

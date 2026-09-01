@@ -443,6 +443,8 @@ function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExp
   const [editTitle, setEditTitle] = useState('');
   const [addingSubtask, setAddingSubtask] = useState<string | null>(null);
   const [subtaskTitle, setSubtaskTitle] = useState('');
+  const [openDescId, setOpenDescId] = useState<string | null>(null);
+  const [descText, setDescText] = useState('');
 
   const lastCol = columns.length > 0 ? columns[columns.length - 1].id : 'done';
 
@@ -511,9 +513,14 @@ function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExp
               onBlur={() => saveEdit(task.id)}
               className="flex-1 px-2 py-0.5 text-sm border border-blue-300 rounded focus:outline-none" />
           ) : (
-            <span onClick={() => startEdit(task)}
+            <span onDoubleClick={() => startEdit(task)}
+              onClick={() => {
+                if (openDescId === task.id) { setOpenDescId(null); }
+                else { setOpenDescId(task.id); setDescText(task.description || ''); }
+              }}
               className={`flex-1 text-sm cursor-pointer ${isDone ? 'line-through text-slate-400' : 'text-slate-800'}`}>
               {task.title}
+              {task.description && <FileText className="w-3 h-3 inline ml-1 text-slate-300" />}
             </span>
           )}
 
@@ -571,6 +578,19 @@ function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExp
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
+
+        {openDescId === task.id && (
+          <div className="px-6 py-3 bg-slate-50 border-b border-slate-100" style={{ paddingLeft: isSubtask ? '3.5rem' : '1.5rem' }}>
+            <textarea
+              value={descText}
+              onChange={e => setDescText(e.target.value)}
+              onBlur={() => { if (descText !== (task.description || '')) updateTask(task.id, { description: descText }); }}
+              rows={3}
+              placeholder="Описание задачи..."
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400 resize-y bg-white"
+            />
+          </div>
+        )}
 
         {isExpanded && subs.map((sub: any) => renderTask(sub, true))}
 
@@ -637,9 +657,14 @@ function KanbanView({ tasks, columns, updateTask, handleDragStart, handleDrop, t
                         className={`w-4.5 h-4.5 mt-0.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isDone ? 'bg-green-500 border-green-500' : 'border-slate-300 hover:border-blue-500'}`}>
                         {isDone && <Check className="w-2.5 h-2.5 text-white" />}
                       </button>
-                      <span className={`text-sm font-medium flex-1 ${isDone ? 'line-through text-slate-400' : 'text-slate-800'}`}>{task.title}</span>
+                      <span className={`text-sm font-medium flex-1 ${isDone ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                        {task.title}
+                      </span>
                       {task.priority > 0 && <Flag className={`w-3.5 h-3.5 flex-shrink-0 ${priority.color}`} fill="currentColor" />}
                     </div>
+                    {task.description && (
+                      <p className="text-xs text-slate-500 mt-1 line-clamp-2">{task.description}</p>
+                    )}
                     <div className="flex items-center gap-1.5 flex-wrap mt-2">
                       {project && (
                         <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ backgroundColor: project.color + '20', color: project.color }}>{project.name}</span>

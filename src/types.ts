@@ -157,6 +157,7 @@ export interface Client {
   email?: string;
   source?: string;
   notes?: string;
+  accessNotes?: string;
   legalInfo?: {
     companyName: string;
     inn: string;
