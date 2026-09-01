@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Транскрибатор видео</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f0f0f; color: #e0e0e0; min-height: 100vh; display: flex; justify-content: center; padding: 40px 20px; }
+.container { max-width: 720px; width: 100%; }
+h1 { font-size: 28px; margin-bottom: 8px; color: #fff; }
+.subtitle { color: #888; margin-bottom: 32px; }
+.tabs { display: flex; gap: 4px; margin-bottom: 24px; }
+.tab { padding: 10px 20px; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; cursor: pointer; color: #aaa; transition: all 0.2s; }
+.tab.active { background: #2a2a2a; color: #fff; border-color: #555; }
+.tab:hover { background: #222; }
+.panel { display: none; }
+.panel.active { display: block; }
+.input-group { margin-bottom: 16px; }
+.input-group label { display: block; margin-bottom: 6px; color: #aaa; font-size: 14px; }
+input[type="text"] { width: 100%; padding: 12px 16px; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 16px; outline: none; }
+input[type="text"]:focus { border-color: #666; }
+.dropzone { border: 2px dashed #333; border-radius: 12px; padding: 48px 24px; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; }
+.dropzone:hover, .dropzone.dragover { border-color: #666; background: #1a1a1a; }
+.dropzone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.dropzone-icon { font-size: 40px; margin-bottom: 12px; }
+.dropzone-text { color: #888; }
+.dropzone-text span { color: #7c9cff; }
+.file-info { margin-top: 12px; padding: 10px 16px; background: #1a1a1a; border-radius: 8px; display: none; justify-content: space-between; align-items: center; color: #ccc; font-size: 14px; }
+.file-info.visible { display: flex; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 28px; background: #7c9cff; color: #000; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+.btn:hover { background: #99b3ff; }
+.btn:disabled { background: #444; color: #888; cursor: not-allowed; }
+.btn-secondary { background: transparent; border: 1px solid #444; color: #ccc; font-weight: 400; }
+.btn-secondary:hover { background: #1a1a1a; }
+.actions { display: flex; gap: 12px; margin-top: 20px; }
+.result { margin-top: 32px; display: none; }
+.result.visible { display: block; }
+.result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.result-header h2 { font-size: 18px; color: #fff; }
+.result-text { background: #1a1a1a; border: 1px solid #333; border-radius: 12px; padding: 20px; white-space: pre-wrap; line-height: 1.7; font-size: 15px; max-height: 500px; overflow-y: auto; }
+.spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid #888; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.error { color: #ff6b6b; margin-top: 12px; display: none; }
+.error.visible { display: block; }
+.progress { margin-top: 16px; display: none; align-items: center; gap: 12px; color: #aaa; }
+.progress.visible { display: flex; }
+.copied { position: fixed; bottom: 24px; right: 24px; background: #2a2a2a; color: #7c9cff; padding: 10px 20px; border-radius: 8px; display: none; font-size: 14px; border: 1px solid #444; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Транскрибатор видео</h1>
+  <p class="subtitle">YouTube ссылка или загрузка файла</p>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="youtube">YouTube</div>
+    <div class="tab" data-tab="upload">Загрузить файл</div>
+  </div>
+
+  <div id="panel-youtube" class="panel active">
+    <div class="input-group">
+      <label>Ссылка на видео</label>
+      <input type="text" id="youtube-url" placeholder="https://www.youtube.com/watch?v=...">
+    </div>
+    <div class="actions">
+      <button class="btn" id="btn-youtube">Транскрибировать</button>
+    </div>
+  </div>
+
+  <div id="panel-upload" class="panel">
+    <div class="dropzone" id="dropzone">
+      <div class="dropzone-icon">&#8682;</div>
+      <div class="dropzone-text">Перетащите файл сюда или <span>выберите</span></div>
+      <div class="dropzone-text" style="margin-top: 6px; font-size: 13px;">MP4, MKV, WEBM, MP3, WAV, M4A — до 500 МБ</div>
+      <input type="file" id="file-input" accept="video/*,audio/*,.mp4,.mkv,.webm,.mp3,.wav,.m4a,.ogg,.flac">
+    </div>
+    <div class="file-info" id="file-info">
+      <span id="file-name"></span>
+      <button class="btn-secondary btn" style="padding: 6px 14px; font-size: 13px;" id="btn-clear">Убрать</button>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btn-upload">Транскрибировать</button>
+    </div>
+  </div>
+
+  <div class="progress" id="progress">
+    <div class="spinner"></div>
+    <span id="progress-text">Обработка...</span>
+  </div>
+
+  <div class="error" id="error"></div>
+
+  <div class="result" id="result">
+    <div class="result-header">
+      <h2>Результат</h2>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary" style="padding:8px 16px;font-size:13px;" id="btn-copy">Копировать</button>
+        <button class="btn btn-secondary" style="padding:8px 16px;font-size:13px;" id="btn-download">Скачать .txt</button>
+      </div>
+    </div>
+    <div class="result-text" id="result-text"></div>
+  </div>
+</div>
+
+<div class="copied" id="copied">Скопировано!</div>
+
+<script>
+const tabs = document.querySelectorAll('.tab');
+const panels = { youtube: document.getElementById('panel-youtube'), upload: document.getElementById('panel-upload') };
+
+tabs.forEach(t => t.addEventListener('click', () => {
+  tabs.forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  Object.values(panels).forEach(p => p.classList.remove('active'));
+  panels[t.dataset.tab].classList.add('active');
+}));
+
+const fileInput = document.getElementById('file-input');
+const dropzone = document.getElementById('dropzone');
+const fileInfo = document.getElementById('file-info');
+const fileName = document.getElementById('file-name');
+const btnClear = document.getElementById('btn-clear');
+let selectedFile = null;
+
+function formatSize(bytes) {
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' КБ';
+  return (bytes/1024/1024).toFixed(1) + ' МБ';
+}
+
+function selectFile(file) {
+  selectedFile = file;
+  fileName.textContent = file.name + ' (' + formatSize(file.size) + ')';
+  fileInfo.classList.add('visible');
+}
+
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) selectFile(fileInput.files[0]); });
+btnClear.addEventListener('click', (e) => { e.stopPropagation(); selectedFile = null; fileInfo.classList.remove('visible'); fileInput.value = ''; });
+
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('dragover'); if (e.dataTransfer.files[0]) selectFile(e.dataTransfer.files[0]); });
+
+const progress = document.getElementById('progress');
+const progressText = document.getElementById('progress-text');
+const errorEl = document.getElementById('error');
+const result = document.getElementById('result');
+const resultText = document.getElementById('result-text');
+
+function showProgress(msg) {
+  progress.classList.add('visible');
+  progressText.textContent = msg;
+  errorEl.classList.remove('visible');
+  result.classList.remove('visible');
+}
+function hideProgress() { progress.classList.remove('visible'); }
+function showError(msg) { hideProgress(); errorEl.textContent = msg; errorEl.classList.add('visible'); }
+function showResult(text) { hideProgress(); resultText.textContent = text; result.classList.add('visible'); }
+
+document.getElementById('btn-youtube').addEventListener('click', async () => {
+  const url = document.getElementById('youtube-url').value.trim();
+  if (!url) return showError('Вставьте ссылку на видео');
+  showProgress('Скачиваю видео с YouTube...');
+  try {
+    const res = await fetch('/transcribe/youtube', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url})
+    });
+    const data = await res.json();
+    if (data.error) return showError(data.error);
+    showResult(data.text);
+  } catch(e) { showError('Ошибка соединения: ' + e.message); }
+});
+
+document.getElementById('btn-upload').addEventListener('click', async () => {
+  if (!selectedFile) return showError('Выберите файл');
+  showProgress('Загружаю и обрабатываю файл...');
+  const form = new FormData();
+  form.append('file', selectedFile);
+  try {
+    const res = await fetch('/transcribe/upload', { method: 'POST', body: form });
+    const data = await res.json();
+    if (data.error) return showError(data.error);
+    showResult(data.text);
+  } catch(e) { showError('Ошибка соединения: ' + e.message); }
+});
+
+document.getElementById('btn-copy').addEventListener('click', () => {
+  navigator.clipboard.writeText(resultText.textContent);
+  const c = document.getElementById('copied');
+  c.style.display = 'block';
+  setTimeout(() => c.style.display = 'none', 1500);
+});
+
+document.getElementById('btn-download').addEventListener('click', () => {
+  const blob = new Blob([resultText.textContent], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'transcript.txt';
+  a.click();
+});
+</script>
+</body>
+</html>
