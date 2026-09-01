@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { useSettings } from '../SettingsContext';
 import { useAuth } from '../AuthContext';
-import { Save, Building2, LayoutTemplate, Columns, Webhook, BookOpen } from 'lucide-react';
+import { Save, Building2, LayoutTemplate, Columns, Webhook, BookOpen, Briefcase, Trash2, Plus } from 'lucide-react';
 import clsx from 'clsx';
-import { KanbanColumn, StageScript } from '../types';
+import { KanbanColumn, StageScript, ServiceType } from '../types';
 
 export default function Settings() {
   const { settings, updateSettings, loading } = useSettings();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'agency' | 'templates' | 'kanban' | 'scripts' | 'integrations'>('agency');
+  const [activeTab, setActiveTab] = useState<'agency' | 'services' | 'templates' | 'kanban' | 'scripts' | 'integrations'>('agency');
   const [saving, setSaving] = useState(false);
 
   const [agencyForm, setAgencyForm] = useState({
@@ -19,6 +19,7 @@ export default function Settings() {
   });
   const [kanbanForm, setKanbanForm] = useState<KanbanColumn[]>([]);
   const [scriptsForm, setScriptsForm] = useState<StageScript[]>([]);
+  const [servicesForm, setServicesForm] = useState<ServiceType[]>([]);
 
   React.useEffect(() => {
     if (settings) {
@@ -40,6 +41,7 @@ export default function Settings() {
       });
       setKanbanForm(settings.kanbanColumns || []);
       setScriptsForm(settings.stageScripts || []);
+      setServicesForm(settings.services || []);
     }
   }, [settings]);
 
@@ -55,6 +57,7 @@ export default function Settings() {
 
   const tabs = [
     { id: 'agency', label: 'Реквизиты', icon: Building2 },
+    { id: 'services', label: 'Услуги', icon: Briefcase },
     { id: 'templates', label: 'Шаблоны', icon: LayoutTemplate },
     { id: 'kanban', label: 'Воронка', icon: Columns },
     { id: 'scripts', label: 'Скрипты продаж', icon: BookOpen },
@@ -143,6 +146,68 @@ export default function Settings() {
                  <button onClick={() => handleSave(agencyForm)} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors flex items-center gap-2">
                    <Save className="w-4 h-4" />
                    {saving ? 'Сохранение...' : 'Сохранить реквизиты'}
+                 </button>
+               </div>
+            </div>
+          )}
+
+          {activeTab === 'services' && (
+            <div>
+               <h2 className="text-lg font-bold text-slate-800 mb-2">Каталог услуг</h2>
+               <p className="text-sm text-slate-500 mb-6">Услуги, которые можно выбрать при создании сделки. Привязка к шаблону КП опциональна.</p>
+               <div className="space-y-3 mb-6">
+                 {servicesForm.map((svc, index) => (
+                   <div key={svc.id} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                     <div className="font-mono text-xs text-slate-400 w-6">{index + 1}.</div>
+                     <input
+                       type="text"
+                       value={svc.name}
+                       onChange={(e) => {
+                         const updated = [...servicesForm];
+                         updated[index] = { ...updated[index], name: e.target.value };
+                         setServicesForm(updated);
+                       }}
+                       className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded focus:border-blue-500 outline-none"
+                       placeholder="Название услуги"
+                     />
+                     <select
+                       value={svc.cpTemplate || ''}
+                       onChange={(e) => {
+                         const updated = [...servicesForm];
+                         updated[index] = { ...updated[index], cpTemplate: e.target.value || undefined };
+                         setServicesForm(updated);
+                       }}
+                       className="w-48 px-2 py-1.5 text-sm border border-slate-300 rounded focus:border-blue-500 outline-none"
+                     >
+                       <option value="">Без шаблона КП</option>
+                       <option value="website">Разработка сайта</option>
+                       <option value="seo">SEO</option>
+                       <option value="context_ads">Контекстная реклама</option>
+                       <option value="redesign">Редизайн</option>
+                       <option value="support">Техподдержка</option>
+                       <option value="complex">Комплекс</option>
+                     </select>
+                     <button
+                       onClick={() => {
+                         if(confirm('Удалить услугу?')) setServicesForm(servicesForm.filter((_, i) => i !== index));
+                       }}
+                       className="text-red-500 hover:text-red-700 transition-colors p-1"
+                     ><Trash2 className="w-4 h-4" /></button>
+                   </div>
+                 ))}
+               </div>
+               <button
+                 onClick={() => {
+                   setServicesForm([...servicesForm, { id: `svc_${Date.now()}`, name: '' }]);
+                 }}
+                 className="flex items-center gap-1 text-sm text-blue-600 font-medium hover:underline mb-8"
+               >
+                 <Plus className="w-4 h-4" /> Добавить услугу
+               </button>
+               <div className="flex justify-end pt-4 border-t border-slate-100">
+                 <button onClick={() => handleSave({ services: servicesForm })} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors flex items-center gap-2">
+                   <Save className="w-4 h-4" />
+                   {saving ? 'Сохранение...' : 'Сохранить услуги'}
                  </button>
                </div>
             </div>

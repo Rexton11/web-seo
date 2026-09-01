@@ -33,6 +33,24 @@ export interface Activity {
   createdAt: string;
 }
 
+export interface ServiceType {
+  id: string;
+  name: string;
+  cpTemplate?: string;
+}
+
+export interface Attachment {
+  id: string;
+  userId: string;
+  dealId?: string;
+  clientId?: string;
+  filename: string;
+  originalName: string;
+  mimeType?: string;
+  size: number;
+  createdAt: string;
+}
+
 export interface AgencySettings {
   agencyName: string;
   inn: string;
@@ -48,6 +66,7 @@ export interface AgencySettings {
   kanbanColumns: KanbanColumn[];
   geminiProxy?: string;
   stageScripts?: StageScript[];
+  services?: ServiceType[];
 }
 
 export interface Client {

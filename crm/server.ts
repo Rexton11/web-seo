@@ -1,9 +1,11 @@
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
+import multer from 'multer';
 import { GoogleGenAI } from '@google/genai';
 import { ProxyAgent, fetch as undiciFetch } from 'undici';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, or } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { getAuth } from 'firebase-admin/auth';
 import { db } from './src/db/index.js';
@@ -15,6 +17,20 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+  const upload = multer({
+    storage: multer.diskStorage({
+      destination: (_req, _file, cb) => cb(null, uploadsDir),
+      filename: (_req, file, cb) => {
+        const ext = path.extname(file.originalname);
+        cb(null, `${uuidv4()}${ext}`);
+      }
+    }),
+    limits: { fileSize: 20 * 1024 * 1024 },
+  });
 
   const apiRouter = express.Router();
 
@@ -309,7 +325,7 @@ async function startServer() {
       const allowedKeys = [
         'agencyName', 'inn', 'kpp', 'ogrn', 'directorName', 'address',
         'bankAccount', 'bankName', 'bik', 'contractTemplate', 'actTemplate',
-        'kanbanColumns', 'geminiProxy', 'stageScripts'
+        'kanbanColumns', 'geminiProxy', 'stageScripts', 'services'
       ];
       for (const key of allowedKeys) {
         if (req.body[key] !== undefined) {
@@ -337,6 +353,7 @@ async function startServer() {
           kanbanColumns: req.body.kanbanColumns || null,
           geminiProxy: req.body.geminiProxy || null,
           stageScripts: req.body.stageScripts || null,
+          services: req.body.services || null,
         });
       }
       res.json({ success: true });
@@ -399,6 +416,80 @@ async function startServer() {
       res.status(200).json({ success: true, dealId: newDeal.id });
     } catch (e: any) {
       console.error("Webhook error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Attachments
+  apiRouter.get('/attachments', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const { dealId, clientId } = req.query;
+      let conditions = [eq(schema.attachments.userId, req.user.uid)];
+      if (dealId) conditions.push(eq(schema.attachments.dealId, dealId as string));
+      if (clientId) conditions.push(eq(schema.attachments.clientId, clientId as string));
+      const result = await db!.select().from(schema.attachments)
+        .where(and(...conditions))
+        .orderBy(desc(schema.attachments.createdAt));
+      res.json(result);
+    } catch (e: any) {
+      console.error('GET /attachments error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.post('/attachments', requireAuth, requireDb, upload.single('file'), async (req: any, res: any) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+      const id = uuidv4();
+      const attachment = {
+        id,
+        userId: req.user.uid,
+        dealId: req.body.dealId || null,
+        clientId: req.body.clientId || null,
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype || null,
+        size: req.file.size || 0,
+      };
+      await db!.insert(schema.attachments).values(attachment);
+      res.json(attachment);
+    } catch (e: any) {
+      console.error('POST /attachments error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.delete('/attachments/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const result = await db!.select().from(schema.attachments).where(and(
+        eq(schema.attachments.id, req.params.id),
+        eq(schema.attachments.userId, req.user.uid)
+      ));
+      if (result.length === 0) return res.status(404).json({ error: 'Not found' });
+      const filePath = path.join(uploadsDir, result[0].filename);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      await db!.delete(schema.attachments).where(eq(schema.attachments.id, req.params.id));
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error('DELETE /attachments/:id error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.get('/attachments/:id/download', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const result = await db!.select().from(schema.attachments).where(and(
+        eq(schema.attachments.id, req.params.id),
+        eq(schema.attachments.userId, req.user.uid)
+      ));
+      if (result.length === 0) return res.status(404).json({ error: 'Not found' });
+      const filePath = path.join(uploadsDir, result[0].filename);
+      if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found on disk' });
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(result[0].originalName)}"`);
+      res.setHeader('Content-Type', result[0].mimeType || 'application/octet-stream');
+      res.sendFile(filePath);
+    } catch (e: any) {
+      console.error('GET /attachments/:id/download error:', e);
       res.status(500).json({ error: e.message });
     }
   });

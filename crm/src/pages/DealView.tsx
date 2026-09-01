@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useSettings } from '../SettingsContext';
-import { Deal, Activity } from '../types';
+import { Deal, Activity, Attachment } from '../types';
 import {
   ArrowLeft, Save, FileText, FileSignature, FileCheck, Building2,
   Phone, Mail, Building, Globe, Thermometer, Clock, MessageSquare,
   Plus, Send, PhoneCall, CalendarCheck, Users, ChevronRight, BookOpen,
-  Flame, Snowflake, Sun, AlertCircle, Loader2, Trash2
+  Flame, Snowflake, Sun, AlertCircle, Loader2, Trash2, Paperclip, Download, X, Upload
 } from 'lucide-react';
 import clsx from 'clsx';
 import CPConstructor from '../components/CPConstructor';
@@ -55,6 +55,8 @@ export default function DealView() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [newNote, setNewNote] = useState('');
   const [showScript, setShowScript] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const [legalForm, setLegalForm] = useState({
     companyName: '', inn: '', kpp: '', ogrn: '', directorName: '', address: '', bankAccount: '', bankName: '', bik: ''
@@ -109,6 +111,7 @@ export default function DealView() {
     };
     fetchDeal();
     fetchActivities();
+    fetchAttachments();
   }, [id, user]);
 
   const fetchActivities = async () => {
@@ -124,6 +127,67 @@ export default function DealView() {
     } catch (e) {
       console.warn(e);
     }
+  };
+
+  const fetchAttachments = async () => {
+    if (!id || !user) return;
+    try {
+      const idToken = await user.getIdToken();
+      const resp = await fetch(`/api/attachments?dealId=${id}`, {
+        headers: { 'Authorization': `Bearer ${idToken}` }
+      });
+      if (resp.ok) setAttachments(await resp.json());
+    } catch (e) { console.warn(e); }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.length || !user || !id) return;
+    setUploading(true);
+    try {
+      const idToken = await user.getIdToken();
+      for (const file of Array.from(e.target.files)) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('dealId', id);
+        await fetch('/api/attachments', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${idToken}` },
+          body: formData,
+        });
+      }
+      fetchAttachments();
+    } catch (err) { console.warn(err); }
+    finally { setUploading(false); e.target.value = ''; }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!user || !confirm('Удалить файл?')) return;
+    try {
+      const idToken = await user.getIdToken();
+      await fetch(`/api/attachments/${attachmentId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${idToken}` }
+      });
+      fetchAttachments();
+    } catch (e) { console.warn(e); }
+  };
+
+  const handleDownloadAttachment = async (att: Attachment) => {
+    if (!user) return;
+    try {
+      const idToken = await user.getIdToken();
+      const resp = await fetch(`/api/attachments/${att.id}/download`, {
+        headers: { 'Authorization': `Bearer ${idToken}` }
+      });
+      if (!resp.ok) return;
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = att.originalName;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) { console.warn(e); }
   };
 
   const saveDeal = async (updates: Partial<Deal>) => {
@@ -412,8 +476,20 @@ export default function DealView() {
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-slate-500 mb-1">Тип проекта</label>
-                      <input type="text" value={editForm.projectType} onChange={e => setEditForm({...editForm, projectType: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Тип проекта / Услуга</label>
+                      {settings?.services && settings.services.length > 0 ? (
+                        <select value={editForm.projectType} onChange={e => setEditForm({...editForm, projectType: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                          <option value="">Выберите услугу</option>
+                          {settings.services.map(svc => (
+                            <option key={svc.id} value={svc.name}>{svc.name}</option>
+                          ))}
+                          {editForm.projectType && !settings.services.some(s => s.name === editForm.projectType) && (
+                            <option value={editForm.projectType}>{editForm.projectType} (другое)</option>
+                          )}
+                        </select>
+                      ) : (
+                        <input type="text" value={editForm.projectType} onChange={e => setEditForm({...editForm, projectType: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
+                      )}
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-500 mb-1">Сумма сделки, &#8381;</label>
@@ -472,6 +548,43 @@ export default function DealView() {
                     className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-y"
                     placeholder="Заметки по сделке, пожелания клиента, важные детали..."
                   />
+                </div>
+
+                {/* Attachments */}
+                <div className="bg-white shadow-sm rounded-xl border border-slate-200 p-5">
+                  <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <Paperclip className="w-4 h-4 text-blue-600" />
+                    Файлы
+                  </h2>
+                  <div className="space-y-2 mb-4">
+                    {attachments.length === 0 && (
+                      <p className="text-sm text-slate-400">Нет прикрепленных файлов</p>
+                    )}
+                    {attachments.map(att => (
+                      <div key={att.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <Paperclip className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm text-slate-700 truncate">{att.originalName}</p>
+                            <p className="text-xs text-slate-400">{(att.size / 1024).toFixed(0)} КБ</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                          <button onClick={() => handleDownloadAttachment(att)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded transition-colors" title="Скачать">
+                            <Download className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDeleteAttachment(att.id)} className="p-1.5 text-red-400 hover:bg-red-50 rounded transition-colors" title="Удалить">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <label className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-sm font-medium cursor-pointer transition-colors">
+                    <Upload className="w-4 h-4" />
+                    {uploading ? 'Загрузка...' : 'Прикрепить файл'}
+                    <input type="file" multiple onChange={handleFileUpload} className="hidden" disabled={uploading} />
+                  </label>
                 </div>
 
                 <div className="flex justify-end">

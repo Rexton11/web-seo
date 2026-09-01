@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { useSettings } from '../SettingsContext';
-import { Client, Deal } from '../types';
+import { Client, Deal, Attachment } from '../types';
 import {
   ArrowLeft, Save, Phone, Mail, Building, Globe, Users, Trash2,
-  Plus, FileText, FileSignature, Calendar, ChevronRight, Loader2
+  Plus, FileText, FileSignature, Calendar, ChevronRight, Loader2,
+  Paperclip, Download, Upload
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -21,6 +22,8 @@ export default function ClientView() {
   const [saving, setSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isCreatingDeal, setIsCreatingDeal] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const [form, setForm] = useState({
     name: '', company: '', phone: '', email: '', source: '', notes: ''
@@ -54,6 +57,8 @@ export default function ClientView() {
           navigate('/clients');
         }
         if (dealsResp.ok) setDeals(await dealsResp.json());
+        const attResp = await fetch(`/api/attachments?clientId=${id}`, { headers: { 'Authorization': `Bearer ${idToken}` } });
+        if (attResp.ok) setAttachments(await attResp.json());
       } catch (err) {
         console.warn(err);
         navigate('/clients');
@@ -63,6 +68,57 @@ export default function ClientView() {
     };
     fetchData();
   }, [id, user]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.length || !user || !id) return;
+    setUploading(true);
+    try {
+      const idToken = await user.getIdToken();
+      for (const file of Array.from(e.target.files)) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('clientId', id);
+        await fetch('/api/attachments', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${idToken}` },
+          body: formData,
+        });
+      }
+      const attResp = await fetch(`/api/attachments?clientId=${id}`, { headers: { 'Authorization': `Bearer ${idToken}` } });
+      if (attResp.ok) setAttachments(await attResp.json());
+    } catch (err) { console.warn(err); }
+    finally { setUploading(false); e.target.value = ''; }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!user || !confirm('Удалить файл?')) return;
+    try {
+      const idToken = await user.getIdToken();
+      await fetch(`/api/attachments/${attachmentId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${idToken}` }
+      });
+      setAttachments(attachments.filter(a => a.id !== attachmentId));
+    } catch (e) { console.warn(e); }
+  };
+
+  const handleDownloadAttachment = async (att: Attachment) => {
+    if (!user) return;
+    try {
+      const idToken = await user.getIdToken();
+      const resp = await fetch(`/api/attachments/${att.id}/download`, {
+        headers: { 'Authorization': `Bearer ${idToken}` }
+      });
+      if (!resp.ok) return;
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = att.originalName;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) { console.warn(e); }
+  };
 
   const saveClient = async () => {
     if (!id || !user) return;
@@ -271,6 +327,43 @@ export default function ClientView() {
                   <input type="text" value={legalForm.bankName} onChange={e => setLegalForm({...legalForm, bankName: e.target.value})} className="w-full px-3 py-2 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none" />
                 </div>
               </div>
+            </div>
+
+            {/* Attachments */}
+            <div className="bg-white shadow-sm rounded-xl border border-slate-200 p-5">
+              <h2 className="text-base font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <Paperclip className="w-4 h-4 text-blue-600" />
+                Файлы клиента
+              </h2>
+              <div className="space-y-2 mb-4">
+                {attachments.length === 0 && (
+                  <p className="text-sm text-slate-400">Нет прикрепленных файлов</p>
+                )}
+                {attachments.map(att => (
+                  <div key={att.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <Paperclip className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm text-slate-700 truncate">{att.originalName}</p>
+                        <p className="text-xs text-slate-400">{(att.size / 1024).toFixed(0)} КБ</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                      <button onClick={() => handleDownloadAttachment(att)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded transition-colors" title="Скачать">
+                        <Download className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDeleteAttachment(att.id)} className="p-1.5 text-red-400 hover:bg-red-50 rounded transition-colors" title="Удалить">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <label className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-sm font-medium cursor-pointer transition-colors">
+                <Upload className="w-4 h-4" />
+                {uploading ? 'Загрузка...' : 'Прикрепить файл'}
+                <input type="file" multiple onChange={handleFileUpload} className="hidden" disabled={uploading} />
+              </label>
             </div>
 
             <div className="flex justify-end">

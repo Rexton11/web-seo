@@ -22,6 +22,7 @@ export const settings = mysqlTable('settings', {
   kanbanColumns: json('kanban_columns'),
   geminiProxy: varchar('gemini_proxy', { length: 255 }),
   stageScripts: json('stage_scripts'),
+  services: json('services'),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
 
@@ -63,6 +64,18 @@ export const deals = mysqlTable('deals', {
   legalInfo: json('legal_info'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
+
+export const attachments = mysqlTable('attachments', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull(),
+  dealId: varchar('deal_id', { length: 255 }),
+  clientId: varchar('client_id', { length: 255 }),
+  filename: varchar('filename', { length: 255 }).notNull(),
+  originalName: varchar('original_name', { length: 500 }).notNull(),
+  mimeType: varchar('mime_type', { length: 100 }),
+  size: int('size').default(0),
+  createdAt: timestamp('created_at').defaultNow(),
 });
 
 export const activities = mysqlTable('activities', {

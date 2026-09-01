@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import { AgencySettings, KanbanColumn, StageScript } from './types';
+import { AgencySettings, KanbanColumn, StageScript, ServiceType } from './types';
 
 interface SettingsContextType {
   settings: AgencySettings | null;
@@ -24,6 +24,17 @@ const DEFAULT_STAGE_SCRIPTS: StageScript[] = [
   { stageId: 'cp_sent', script: '1. Убедитесь, что КП получено и открыто\n2. Уточните, есть ли вопросы по составу работ\n3. Обсудите выбранный вариант\n4. Согласуйте дату созвона для обсуждения\n5. Отработайте возражения по цене/срокам' },
   { stageId: 'contract_signed', script: '1. Отправьте договор на согласование\n2. Уточните реквизиты для документов\n3. Согласуйте дату старта (kickoff)\n4. Определите контактное лицо со стороны клиента\n5. Запросите доступы и материалы для работы' },
   { stageId: 'won', script: '1. Подготовьте акт выполненных работ\n2. Запросите отзыв о сотрудничестве\n3. Предложите дальнейшее сопровождение\n4. Обсудите новые проекты/этапы\n5. Поблагодарите за работу' },
+];
+
+const DEFAULT_SERVICES: ServiceType[] = [
+  { id: 'website', name: 'Разработка сайта', cpTemplate: 'website' },
+  { id: 'seo', name: 'SEO-продвижение', cpTemplate: 'seo' },
+  { id: 'context_ads', name: 'Контекстная реклама', cpTemplate: 'context_ads' },
+  { id: 'redesign', name: 'Редизайн сайта', cpTemplate: 'redesign' },
+  { id: 'support', name: 'Техподдержка сайта', cpTemplate: 'support' },
+  { id: 'complex', name: 'Комплексное продвижение', cpTemplate: 'complex' },
+  { id: 'smm', name: 'SMM / Ведение соцсетей' },
+  { id: 'branding', name: 'Брендинг / Логотип' },
 ];
 
 const DEFAULT_CONTRACT_TEMPLATE = `
@@ -109,8 +120,14 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             if (typeof data.stageScripts === 'string') {
               try { data.stageScripts = JSON.parse(data.stageScripts); } catch (e) {}
             }
+            if (typeof data.services === 'string') {
+              try { data.services = JSON.parse(data.services); } catch (e) {}
+            }
             if (!data.stageScripts) {
               data.stageScripts = DEFAULT_STAGE_SCRIPTS;
+            }
+            if (!data.services) {
+              data.services = DEFAULT_SERVICES;
             }
             setSettings(data as AgencySettings);
             return;
@@ -132,6 +149,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           kanbanColumns: DEFAULT_COLUMNS,
           geminiProxy: '',
           stageScripts: DEFAULT_STAGE_SCRIPTS,
+          services: DEFAULT_SERVICES,
         };
         try {
           await fetch('/api/settings', {
@@ -163,6 +181,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             kanbanColumns: DEFAULT_COLUMNS,
             geminiProxy: '',
             stageScripts: DEFAULT_STAGE_SCRIPTS,
+            services: DEFAULT_SERVICES,
         });
       } finally {
         setLoading(false);
