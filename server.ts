@@ -325,7 +325,7 @@ async function startServer() {
       const allowedKeys = [
         'agencyName', 'inn', 'kpp', 'ogrn', 'directorName', 'address',
         'bankAccount', 'bankName', 'bik', 'contractTemplate', 'actTemplate',
-        'kanbanColumns', 'geminiProxy', 'stageScripts', 'services'
+        'kanbanColumns', 'taskColumns', 'geminiProxy', 'stageScripts', 'services'
       ];
       for (const key of allowedKeys) {
         if (req.body[key] !== undefined) {
@@ -351,6 +351,7 @@ async function startServer() {
           contractTemplate: req.body.contractTemplate || null,
           actTemplate: req.body.actTemplate || null,
           kanbanColumns: req.body.kanbanColumns || null,
+          taskColumns: req.body.taskColumns || null,
           geminiProxy: req.body.geminiProxy || null,
           stageScripts: req.body.stageScripts || null,
           services: req.body.services || null,
@@ -359,6 +360,265 @@ async function startServer() {
       res.json({ success: true });
     } catch (e: any) {
       console.error('PUT /settings error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Projects CRUD
+  apiRouter.get('/projects', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const result = await db!.select().from(schema.projects)
+        .where(eq(schema.projects.userId, req.user.uid))
+        .orderBy(asc(schema.projects.order));
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.post('/projects', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const id = uuidv4();
+      const project = {
+        id,
+        userId: req.user.uid,
+        name: req.body.name || 'Новый проект',
+        description: req.body.description || null,
+        color: req.body.color || '#3b82f6',
+        icon: req.body.icon || 'Folder',
+        archived: false,
+        order: req.body.order ?? 0,
+      };
+      await db!.insert(schema.projects).values(project);
+      res.json(project);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.put('/projects/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const safeFields: any = {};
+      const allowedKeys = ['name', 'description', 'color', 'icon', 'archived', 'order'];
+      for (const key of allowedKeys) {
+        if (req.body[key] !== undefined) safeFields[key] = req.body[key];
+      }
+      await db!.update(schema.projects).set(safeFields)
+        .where(and(eq(schema.projects.id, req.params.id), eq(schema.projects.userId, req.user.uid)));
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.delete('/projects/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      await db!.update(schema.tasks).set({ projectId: null })
+        .where(and(eq(schema.tasks.projectId, req.params.id), eq(schema.tasks.userId, req.user.uid)));
+      await db!.delete(schema.projects)
+        .where(and(eq(schema.projects.id, req.params.id), eq(schema.projects.userId, req.user.uid)));
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Tasks CRUD
+  apiRouter.get('/tasks', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const { projectId, status, parentId } = req.query;
+      let conditions = [eq(schema.tasks.userId, req.user.uid)];
+      if (projectId) conditions.push(eq(schema.tasks.projectId, projectId as string));
+      if (status) conditions.push(eq(schema.tasks.status, status as string));
+      if (parentId) conditions.push(eq(schema.tasks.parentId, parentId as string));
+      const result = await db!.select().from(schema.tasks)
+        .where(and(...conditions))
+        .orderBy(asc(schema.tasks.order), desc(schema.tasks.createdAt));
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.post('/tasks', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const id = uuidv4();
+      const task = {
+        id,
+        userId: req.user.uid,
+        projectId: req.body.projectId || null,
+        parentId: req.body.parentId || null,
+        dealId: req.body.dealId || null,
+        clientId: req.body.clientId || null,
+        title: req.body.title || 'Новая задача',
+        description: req.body.description || null,
+        status: req.body.status || 'inbox',
+        priority: req.body.priority ?? 0,
+        order: req.body.order ?? 0,
+        dueDate: req.body.dueDate || null,
+        assignedTo: req.body.assignedTo || null,
+        tags: req.body.tags || null,
+      };
+      await db!.insert(schema.tasks).values(task);
+      res.json(task);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.get('/tasks/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const result = await db!.select().from(schema.tasks).where(and(
+        eq(schema.tasks.id, req.params.id),
+        eq(schema.tasks.userId, req.user.uid)
+      ));
+      if (result.length === 0) return res.status(404).json({ error: 'Not found' });
+      res.json(result[0]);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.put('/tasks/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const safeFields: any = {};
+      const allowedKeys = ['projectId', 'parentId', 'dealId', 'clientId', 'title', 'description', 'status', 'priority', 'order', 'dueDate', 'assignedTo', 'tags', 'completedAt'];
+      for (const key of allowedKeys) {
+        if (req.body[key] !== undefined) safeFields[key] = req.body[key];
+      }
+      await db!.update(schema.tasks).set(safeFields)
+        .where(and(eq(schema.tasks.id, req.params.id), eq(schema.tasks.userId, req.user.uid)));
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.delete('/tasks/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      await db!.delete(schema.tasks).where(and(eq(schema.tasks.parentId, req.params.id), eq(schema.tasks.userId, req.user.uid)));
+      await db!.delete(schema.tasks).where(and(eq(schema.tasks.id, req.params.id), eq(schema.tasks.userId, req.user.uid)));
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Task Templates CRUD
+  apiRouter.get('/task-templates', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const result = await db!.select().from(schema.taskTemplates)
+        .where(eq(schema.taskTemplates.userId, req.user.uid))
+        .orderBy(desc(schema.taskTemplates.createdAt));
+      res.json(result);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.post('/task-templates', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const id = uuidv4();
+      const template = {
+        id,
+        userId: req.user.uid,
+        name: req.body.name || 'Новый шаблон',
+        description: req.body.description || null,
+        tasks: req.body.tasks || null,
+      };
+      await db!.insert(schema.taskTemplates).values(template);
+      res.json(template);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.put('/task-templates/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const safeFields: any = {};
+      const allowedKeys = ['name', 'description', 'tasks'];
+      for (const key of allowedKeys) {
+        if (req.body[key] !== undefined) safeFields[key] = req.body[key];
+      }
+      await db!.update(schema.taskTemplates).set(safeFields)
+        .where(and(eq(schema.taskTemplates.id, req.params.id), eq(schema.taskTemplates.userId, req.user.uid)));
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.delete('/task-templates/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      await db!.delete(schema.taskTemplates)
+        .where(and(eq(schema.taskTemplates.id, req.params.id), eq(schema.taskTemplates.userId, req.user.uid)));
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Create tasks from template
+  apiRouter.post('/task-templates/:id/apply', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const tmplResult = await db!.select().from(schema.taskTemplates).where(and(
+        eq(schema.taskTemplates.id, req.params.id),
+        eq(schema.taskTemplates.userId, req.user.uid)
+      ));
+      if (tmplResult.length === 0) return res.status(404).json({ error: 'Template not found' });
+      const tmpl = tmplResult[0];
+      const templateTasks = typeof tmpl.tasks === 'string' ? JSON.parse(tmpl.tasks) : (tmpl.tasks || []);
+      const projectId = req.body.projectId || null;
+      const createdTasks: any[] = [];
+
+      for (let i = 0; i < templateTasks.length; i++) {
+        const t = templateTasks[i];
+        const taskId = uuidv4();
+        const task = {
+          id: taskId,
+          userId: req.user.uid,
+          projectId,
+          parentId: null,
+          dealId: null,
+          clientId: null,
+          title: t.title,
+          description: t.description || null,
+          status: 'inbox',
+          priority: 0,
+          order: i,
+          dueDate: null,
+          assignedTo: null,
+          tags: null,
+        };
+        await db!.insert(schema.tasks).values(task);
+        createdTasks.push(task);
+
+        if (t.subtasks) {
+          for (let j = 0; j < t.subtasks.length; j++) {
+            const sub = t.subtasks[j];
+            const subId = uuidv4();
+            const subtask = {
+              id: subId,
+              userId: req.user.uid,
+              projectId,
+              parentId: taskId,
+              dealId: null,
+              clientId: null,
+              title: sub.title,
+              description: null,
+              status: 'inbox',
+              priority: 0,
+              order: j,
+              dueDate: null,
+              assignedTo: null,
+              tags: null,
+            };
+            await db!.insert(schema.tasks).values(subtask);
+          }
+        }
+      }
+      res.json({ success: true, count: createdTasks.length });
+    } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
   });

@@ -7,7 +7,7 @@ import {
   ArrowLeft, Save, FileText, FileSignature, FileCheck, Building2,
   Phone, Mail, Building, Globe, Thermometer, Clock, MessageSquare,
   Plus, Send, PhoneCall, CalendarCheck, Users, ChevronRight, BookOpen,
-  Flame, Snowflake, Sun, AlertCircle, Loader2, Trash2, Paperclip, Download, X, Upload
+  Flame, Snowflake, Sun, AlertCircle, Loader2, Trash2, Paperclip, Download, X, Upload, CheckSquare
 } from 'lucide-react';
 import clsx from 'clsx';
 import CPConstructor from '../components/CPConstructor';
@@ -394,6 +394,22 @@ export default function DealView() {
             title="Скрипт продаж"
           >
             <BookOpen className="w-5 h-5" />
+          </button>
+          <button
+            onClick={async () => {
+              if (!user || !deal) return;
+              const token = await user.getIdToken();
+              const res = await fetch('/api/tasks', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: deal.clientName + ' — ' + deal.projectType, dealId: id, clientId: deal.clientId, status: 'inbox' }),
+              });
+              if (res.ok) navigate('/tasks');
+            }}
+            className="p-2 rounded-md transition-colors text-slate-400 hover:bg-blue-50 hover:text-blue-600"
+            title="Создать задачу из сделки"
+          >
+            <CheckSquare className="w-5 h-5" />
           </button>
           <button
             onClick={handleDeleteDeal}

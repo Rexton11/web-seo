@@ -78,6 +78,57 @@ export interface KBArticle {
   updatedAt: string;
 }
 
+export interface Project {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  color: string;
+  icon: string;
+  archived: boolean;
+  order: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Task {
+  id: string;
+  userId: string;
+  projectId?: string;
+  parentId?: string;
+  dealId?: string;
+  clientId?: string;
+  title: string;
+  description?: string;
+  status: string;
+  priority: number;
+  order: number;
+  dueDate?: string;
+  assignedTo?: string;
+  tags: string[];
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  subtasks?: Task[];
+}
+
+export interface TaskTemplate {
+  id: string;
+  userId: string;
+  name: string;
+  description?: string;
+  tasks: { title: string; description?: string; subtasks?: { title: string }[] }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskColumn {
+  id: string;
+  label: string;
+  color: string;
+  order: number;
+}
+
 export interface AgencySettings {
   agencyName: string;
   inn: string;
@@ -91,6 +142,7 @@ export interface AgencySettings {
   contractTemplate: string;
   actTemplate: string;
   kanbanColumns: KanbanColumn[];
+  taskColumns?: TaskColumn[];
   geminiProxy?: string;
   stageScripts?: StageScript[];
   services?: ServiceType[];

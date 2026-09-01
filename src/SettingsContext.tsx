@@ -123,6 +123,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             if (typeof data.services === 'string') {
               try { data.services = JSON.parse(data.services); } catch (e) {}
             }
+            if (typeof data.taskColumns === 'string') {
+              try { data.taskColumns = JSON.parse(data.taskColumns); } catch (e) {}
+            }
             if (!data.stageScripts) {
               data.stageScripts = DEFAULT_STAGE_SCRIPTS;
             }

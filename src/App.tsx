@@ -10,6 +10,8 @@ import KnowledgeBase from './pages/KnowledgeBase';
 import ArticleView from './pages/ArticleView';
 import ArticleEditor from './pages/ArticleEditor';
 import PublicArticle from './pages/PublicArticle';
+import Tasks from './pages/Tasks';
+import TaskTemplates from './pages/TaskTemplates';
 
 function AppLayout() {
   return (
@@ -21,6 +23,8 @@ function AppLayout() {
           <Route path="/deal/:id" element={<DealView />} />
           <Route path="/clients" element={<ClientsList />} />
           <Route path="/client/:id" element={<ClientView />} />
+          <Route path="/tasks" element={<Tasks />} />
+          <Route path="/tasks/templates" element={<TaskTemplates />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/knowledge" element={<KnowledgeBase />} />
           <Route path="/knowledge/:id" element={<ArticleView />} />

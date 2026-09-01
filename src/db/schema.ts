@@ -20,6 +20,7 @@ export const settings = mysqlTable('settings', {
   contractTemplate: text('contract_template'),
   actTemplate: text('act_template'),
   kanbanColumns: json('kanban_columns'),
+  taskColumns: json('task_columns'),
   geminiProxy: varchar('gemini_proxy', { length: 255 }),
   stageScripts: json('stage_scripts'),
   services: json('services'),
@@ -101,6 +102,49 @@ export const kbArticles = mysqlTable('kb_articles', {
   isPublic: boolean('is_public').default(false),
   isPinned: boolean('is_pinned').default(false),
   views: int('views').default(0),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
+
+export const projects = mysqlTable('projects', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  color: varchar('color', { length: 50 }).default('#3b82f6'),
+  icon: varchar('icon', { length: 50 }).default('Folder'),
+  archived: boolean('archived').default(false),
+  order: int('order').default(0),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
+
+export const tasks = mysqlTable('tasks', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull(),
+  projectId: varchar('project_id', { length: 255 }),
+  parentId: varchar('parent_id', { length: 255 }),
+  dealId: varchar('deal_id', { length: 255 }),
+  clientId: varchar('client_id', { length: 255 }),
+  title: varchar('title', { length: 500 }).notNull(),
+  description: text('description'),
+  status: varchar('status', { length: 50 }).default('inbox'),
+  priority: int('priority').default(0),
+  order: int('order').default(0),
+  dueDate: varchar('due_date', { length: 50 }),
+  assignedTo: varchar('assigned_to', { length: 255 }),
+  tags: json('tags'),
+  completedAt: timestamp('completed_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
+
+export const taskTemplates = mysqlTable('task_templates', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  tasks: json('tasks'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });

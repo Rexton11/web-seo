@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { useSettings } from '../SettingsContext';
 import { useAuth } from '../AuthContext';
-import { Save, Building2, LayoutTemplate, Columns, Webhook, BookOpen, Briefcase, Trash2, Plus } from 'lucide-react';
+import { Save, Building2, LayoutTemplate, Columns, Webhook, BookOpen, Briefcase, Trash2, Plus, CheckSquare } from 'lucide-react';
 import clsx from 'clsx';
-import { KanbanColumn, StageScript, ServiceType } from '../types';
+import { KanbanColumn, StageScript, ServiceType, TaskColumn } from '../types';
 
 export default function Settings() {
   const { settings, updateSettings, loading } = useSettings();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'agency' | 'services' | 'templates' | 'kanban' | 'scripts' | 'integrations'>('agency');
+  const [activeTab, setActiveTab] = useState<'agency' | 'services' | 'templates' | 'kanban' | 'tasks' | 'scripts' | 'integrations'>('agency');
   const [saving, setSaving] = useState(false);
 
   const [agencyForm, setAgencyForm] = useState({
@@ -20,6 +20,7 @@ export default function Settings() {
   const [kanbanForm, setKanbanForm] = useState<KanbanColumn[]>([]);
   const [scriptsForm, setScriptsForm] = useState<StageScript[]>([]);
   const [servicesForm, setServicesForm] = useState<ServiceType[]>([]);
+  const [taskColumnsForm, setTaskColumnsForm] = useState<TaskColumn[]>([]);
 
   React.useEffect(() => {
     if (settings) {
@@ -42,6 +43,13 @@ export default function Settings() {
       setKanbanForm(settings.kanbanColumns || []);
       setScriptsForm(settings.stageScripts || []);
       setServicesForm(settings.services || []);
+      setTaskColumnsForm(settings.taskColumns || [
+        { id: 'inbox', label: 'Входящие', color: 'bg-slate-50 border-slate-200 text-slate-700', order: 0 },
+        { id: 'todo', label: 'К выполнению', color: 'bg-blue-50 border-blue-200 text-blue-700', order: 1 },
+        { id: 'in_progress', label: 'В работе', color: 'bg-amber-50 border-amber-200 text-amber-700', order: 2 },
+        { id: 'review', label: 'На проверке', color: 'bg-purple-50 border-purple-200 text-purple-700', order: 3 },
+        { id: 'done', label: 'Готово', color: 'bg-green-50 border-green-200 text-green-700', order: 4 },
+      ]);
     }
   }, [settings]);
 
@@ -60,6 +68,7 @@ export default function Settings() {
     { id: 'services', label: 'Услуги', icon: Briefcase },
     { id: 'templates', label: 'Шаблоны', icon: LayoutTemplate },
     { id: 'kanban', label: 'Воронка', icon: Columns },
+    { id: 'tasks', label: 'Колонки задач', icon: CheckSquare },
     { id: 'scripts', label: 'Скрипты продаж', icon: BookOpen },
     { id: 'integrations', label: 'Интеграции', icon: Webhook },
   ] as const;
@@ -295,6 +304,62 @@ export default function Settings() {
                  <button onClick={() => handleSave({ kanbanColumns: kanbanForm })} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors flex items-center gap-2">
                    <Save className="w-4 h-4" />
                    {saving ? 'Сохранение...' : 'Сохранить воронку'}
+                 </button>
+               </div>
+            </div>
+          )}
+
+          {activeTab === 'tasks' && (
+            <div>
+               <h2 className="text-lg font-bold text-slate-800 mb-2">Колонки канбан-доски задач</h2>
+               <p className="text-sm text-slate-500 mb-6">Настройте этапы выполнения задач.</p>
+               <div className="space-y-3 mb-6">
+                 {taskColumnsForm.sort((a,b)=>a.order - b.order).map((col, index) => (
+                   <div key={col.id} className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                     <div className="font-mono text-xs text-slate-400 w-6">{index + 1}.</div>
+                     <input type="text" value={col.id} disabled className="w-32 px-2 py-1.5 text-sm bg-slate-100 border border-transparent rounded text-slate-500" />
+                     <input
+                       type="text"
+                       value={col.label}
+                       onChange={(e) => {
+                         const newCols = [...taskColumnsForm];
+                         newCols[index].label = e.target.value;
+                         setTaskColumnsForm(newCols);
+                       }}
+                       className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded focus:border-blue-500 outline-none"
+                     />
+                     <input
+                       type="text"
+                       value={col.color}
+                       onChange={(e) => {
+                         const newCols = [...taskColumnsForm];
+                         newCols[index].color = e.target.value;
+                         setTaskColumnsForm(newCols);
+                       }}
+                       className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded focus:border-blue-500 outline-none"
+                       placeholder="Tailwind классы"
+                     />
+                     <button
+                       onClick={() => {
+                         if(confirm('Удалить колонку?')) setTaskColumnsForm(taskColumnsForm.filter((_, i) => i !== index));
+                       }}
+                       className="text-red-500 text-sm hover:underline"
+                     >Удалить</button>
+                   </div>
+                 ))}
+               </div>
+               <button
+                 onClick={() => {
+                   setTaskColumnsForm([...taskColumnsForm, { id: `col_${Date.now()}`, label: 'Новая колонка', color: 'bg-slate-50 border-slate-200 text-slate-700', order: taskColumnsForm.length }]);
+                 }}
+                 className="text-sm text-blue-600 font-medium hover:underline mb-8"
+               >
+                 + Добавить колонку
+               </button>
+               <div className="flex justify-end pt-4 border-t border-slate-100">
+                 <button onClick={() => handleSave({ taskColumns: taskColumnsForm })} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors flex items-center gap-2">
+                   <Save className="w-4 h-4" />
+                   {saving ? 'Сохранение...' : 'Сохранить колонки задач'}
                  </button>
                </div>
             </div>
