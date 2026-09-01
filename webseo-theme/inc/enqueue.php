@@ -49,6 +49,11 @@ add_action('wp_enqueue_scripts', function () {
         'nonce'   => wp_create_nonce('webseo_contact_nonce'),
     ]);
 
+    // Process bar (steps) — service pages
+    if (is_singular('service')) {
+        wp_enqueue_script('webseo-process-bar', $uri . '/assets/js/process-bar.js', [], $v, true);
+    }
+
     // FAQ accordion — only where needed
     if (is_singular('service') || is_page() || is_front_page()) {
         wp_enqueue_script('webseo-faq', $uri . '/assets/js/faq.js', [], $v, true);
@@ -74,7 +79,7 @@ add_action('wp_head', function () {
 /* ── Defer non-critical JS ─────────────────────────────────── */
 
 add_filter('script_loader_tag', function ($tag, $handle) {
-    $defer_handles = ['webseo-main', 'webseo-faq', 'webseo-quiz', 'webseo-animations'];
+    $defer_handles = ['webseo-main', 'webseo-faq', 'webseo-quiz', 'webseo-animations', 'webseo-process-bar'];
     if (in_array($handle, $defer_handles, true)) {
         return str_replace(' src', ' defer src', $tag);
     }

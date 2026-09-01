@@ -129,28 +129,39 @@ $geo_city = webseo_get_effective_city();
 <?php endif; ?>
 
 <!-- 5. STEPS -->
-<?php if ($steps = get_field('steps')) : ?>
+<?php if ($steps = get_field('steps')) : $step_count = count($steps); ?>
 <section class="section-padding" id="steps">
     <div class="container">
         <?php webseo_section_header('', get_field('steps_title') ?: 'Как мы работаем'); ?>
-    </div>
-    <div class="container">
-        <div class="steps-wrapper">
-            <div class="steps-slider">
+        <div class="process-bar" id="processBar" data-reveal>
+            <div class="process-bar__track">
+                <div class="process-bar__line"><div class="process-bar__line-fill"></div></div>
                 <?php foreach ($steps as $i => $step) : ?>
-                    <div class="step-item" data-reveal="scale">
-                        <div class="step-number"><?php echo $i + 1; ?></div>
-                        <h3><?php echo esc_html($step['title']); ?></h3>
+                    <button class="process-bar__step<?php echo $i === 0 ? ' active' : ''; ?>" data-index="<?php echo $i; ?>">
+                        <span class="process-bar__dot"><?php echo $i + 1; ?></span>
+                        <span class="process-bar__label"><?php echo esc_html(mb_strimwidth($step['title'], 0, 18, '…')); ?></span>
+                    </button>
+                <?php endforeach; ?>
+            </div>
+            <div class="process-bar__content">
+                <?php foreach ($steps as $i => $step) : ?>
+                    <div class="process-bar__panel<?php echo $i === 0 ? ' active' : ''; ?>" data-panel="<?php echo $i; ?>">
+                        <div class="process-bar__panel-header">
+                            <div class="process-bar__panel-num"><?php echo $i + 1; ?></div>
+                            <h3><?php echo esc_html($step['title']); ?></h3>
+                        </div>
                         <p><?php echo esc_html($step['text']); ?></p>
                     </div>
                 <?php endforeach; ?>
-            </div>
-            <?php if (count($steps) > 4) : ?>
-                <div class="slider-arrows">
-                    <button class="slider-arrow" data-dir="-1" data-slider=".steps-slider"><i class="ph-bold ph-arrow-left"></i></button>
-                    <button class="slider-arrow" data-dir="1" data-slider=".steps-slider"><i class="ph-bold ph-arrow-right"></i></button>
+                <div class="process-bar__progress">
+                    <span class="process-bar__counter">Этап <strong>1</strong> из <strong><?php echo $step_count; ?></strong></span>
+                    <div class="process-bar__timer"><div class="process-bar__timer-fill"></div></div>
+                    <div class="process-bar__nav">
+                        <button data-pb-dir="-1" disabled aria-label="Предыдущий"><i class="ph-bold ph-arrow-left"></i></button>
+                        <button data-pb-dir="1" aria-label="Следующий"><i class="ph-bold ph-arrow-right"></i></button>
+                    </div>
                 </div>
-            <?php endif; ?>
+            </div>
         </div>
     </div>
 </section>
