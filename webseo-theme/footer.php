@@ -23,6 +23,15 @@ $messengers = webseo_get_messengers();
                     <?php endif; ?>
                 </a>
                 <p class="footer-copy"><?php echo esc_html($copyright); ?></p>
+                <?php
+                $privacy_url = webseo_option('privacy_policy_url');
+                if (!$privacy_url) {
+                    $pp_id = get_option('wp_page_for_privacy_policy');
+                    if ($pp_id) $privacy_url = get_permalink($pp_id);
+                }
+                if ($privacy_url) : ?>
+                    <a href="<?php echo esc_url($privacy_url); ?>" class="footer-privacy">Политика конфиденциальности</a>
+                <?php endif; ?>
             </div>
 
             <div class="footer-col">
@@ -70,6 +79,7 @@ $messengers = webseo_get_messengers();
 </footer>
 
 <?php get_template_part('parts/modal', 'form'); ?>
+<?php get_template_part('parts/cookie', 'consent'); ?>
 
 <?php wp_footer(); ?>
 </body>

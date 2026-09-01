@@ -4,7 +4,7 @@ if (!$faq) return;
 ?>
 <div class="faq-list">
     <?php foreach ($faq as $item) : ?>
-        <div class="faq-item">
+        <div class="faq-item" data-reveal>
             <button class="faq-question" aria-expanded="false">
                 <?php echo esc_html($item['question']); ?>
                 <i class="ph-bold ph-plus faq-icon"></i>

@@ -12,6 +12,7 @@
     --acid-green-hover: #b8e600;
     --border-color: #e4e4e7;
     --border-hover: #d4d4d8;
+    --bg-hero: #ffffff;
 
     --radius-main: 16px;
     --radius-pill: 100px;
@@ -78,6 +79,21 @@ button { cursor: pointer; font-family: inherit; }
 
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+
+/* Chess pattern — alternating light/dark cards */
+.grid-3 > .card:nth-child(even) {
+    background: #0c0c0e !important;
+    border-color: rgba(255, 255, 255, .08) !important;
+    color: #fff;
+}
+.grid-3 > .card:nth-child(even) h3 { color: #fff !important; }
+.grid-3 > .card:nth-child(even) p  { color: rgba(255, 255, 255, .6) !important; }
+.grid-3 > .card:nth-child(even) .card-icon { color: var(--acid-green); }
+.grid-3 > .card:nth-child(even):hover {
+    border-color: rgba(204, 255, 0, .35) !important;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, .3);
+}
+
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
 
 @media (max-width: 1024px) {
@@ -134,26 +150,49 @@ button { cursor: pointer; font-family: inherit; }
 /* ── Breadcrumbs ────────────────────────────── */
 
 .breadcrumbs {
-    padding: 88px 0 0;
+    padding: 88px 24px 0;
     font-size: 0.875rem;
     color: var(--text-muted);
+    margin-bottom: 12px;
 }
 .breadcrumbs .container {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
     overflow-x: auto;
     white-space: nowrap;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
+    gap: 0;
+    padding-top: 4px;
+    padding-bottom: 4px;
 }
 .breadcrumbs .container::-webkit-scrollbar { display: none; }
-@media(max-width:768px){
-.breadcrumbs { padding: 72px 0 0; }
-    font-size: 0.875rem;
+.breadcrumbs a {
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+}
+.breadcrumbs a:hover { color: var(--text-main); }
+.breadcrumbs a i { font-size: 1rem; }
+.breadcrumbs .sep {
+    margin: 0 10px;
+    opacity: 0.5;
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.75rem;
     color: var(--text-muted);
 }
+.breadcrumbs span:last-child {
+    color: var(--text-main);
+    font-weight: 500;
+}
 
-.breadcrumbs a { color: var(--text-muted); }
-.breadcrumbs a:hover { color: var(--text-main); }
-.breadcrumbs .sep { margin: 0 8px; opacity: 0.4; }
+@media (max-width: 768px) {
+    .breadcrumbs { padding: 72px 12px 0; font-size: 0.8rem; margin-bottom: 8px; }
+    .breadcrumbs .container { padding-top: 2px; padding-bottom: 2px; }
+    .breadcrumbs .sep { margin: 0 6px; }
+}
 
 /* ── Filter tabs ────────────────────────────── */
 

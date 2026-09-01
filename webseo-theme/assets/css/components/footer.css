@@ -10,3 +10,5 @@
 .footer-messengers{display:flex;gap:12px}
 @media(max-width:768px){.footer-content{flex-direction:column;align-items:center;text-align:center}}
 .footer-socials{display:flex;gap:12px;margin-top:8px}
+.footer-privacy{font-size:.8rem;color:var(--text-muted);text-decoration:underline;text-underline-offset:2px;transition:color .2s}
+.footer-privacy:hover{color:var(--text-main)}

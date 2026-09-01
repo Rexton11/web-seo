@@ -1,8 +1,17 @@
-<?php get_header(); webseo_breadcrumbs(); ?>
+<?php
+/**
+ * Template: Blog posts page (is_home)
+ *
+ * @package WebSEO
+ */
+
+get_header();
+webseo_breadcrumbs();
+?>
 <section class="section-padding">
     <div class="container">
         <div class="section-header">
-            <h1><?php echo is_home() ? 'Блог' : get_the_archive_title(); ?></h1>
+            <h1>Блог</h1>
         </div>
         <?php if (have_posts()) : ?>
             <div class="blog-grid">

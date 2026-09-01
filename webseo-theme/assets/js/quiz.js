@@ -49,6 +49,10 @@
             var nameInput = contactStep.querySelector('[name="contact_name"]');
             var phoneInput = contactStep.querySelector('[name="contact_phone"]');
             var emailInput = contactStep.querySelector('[name="contact_email"]');
+            var consentWrap = contactStep.querySelector('.form-consent');
+            var consentBox = contactStep.querySelector('[name="consent"]');
+
+            if (consentWrap) consentWrap.classList.remove('form-consent--error');
 
             var contact = {};
             if (nameInput) contact.name = nameInput.value.trim();
@@ -58,6 +62,11 @@
             if (!contact.name && !contact.phone && !contact.email) {
                 var first = phoneInput || nameInput || emailInput;
                 if (first) first.focus();
+                return;
+            }
+            if (consentBox && !consentBox.checked) {
+                consentWrap.classList.add('form-consent--error');
+                consentBox.focus();
                 return;
             }
 

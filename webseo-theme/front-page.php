@@ -10,18 +10,24 @@ get_header();
 
 <!-- Hero -->
 <section class="hero section-padding">
-    <div class="container">
-        <h1><?php the_field('hero_title'); ?></h1>
+    <div class="hero-decor">
+        <div class="hero-grid"></div>
+        <div class="hero-blob hero-blob--1"></div>
+        <div class="hero-blob hero-blob--2"></div>
+        <div class="hero-glow"></div>
+    </div>
+    <div class="container" data-reveal="scale">
+        <h1 class="js-kinetic"><?php the_field('hero_title'); ?></h1>
         <p><?php the_field('hero_subtitle'); ?></p>
 
         <div class="hero-actions">
             <?php if ($btn1 = get_field('hero_btn1_text')) : ?>
-                <a href="<?php the_field('hero_btn1_url'); ?>" class="btn btn-primary">
+                <a href="#callback" data-modal="callback" data-magnetic class="btn btn-primary">
                     <?php echo esc_html($btn1); ?> <i class="ph-bold ph-arrow-right"></i>
                 </a>
             <?php endif; ?>
             <?php if ($btn2 = get_field('hero_btn2_text')) : ?>
-                <a href="<?php the_field('hero_btn2_url'); ?>" class="btn btn-secondary">
+                <a href="<?php echo esc_url(get_field('hero_btn2_url') ?: get_post_type_archive_link('portfolio')); ?>" class="btn btn-secondary">
                     <?php echo esc_html($btn2); ?> <i class="ph ph-folder"></i>
                 </a>
             <?php endif; ?>
@@ -53,7 +59,7 @@ if ($srv_cats && !is_wp_error($srv_cats)) :
                         'tax_query' => [['taxonomy' => 'service_category', 'terms' => $cat->term_id]],
                     ]);
                 ?>
-                    <div class="service-cat-card">
+                    <div class="service-cat-card" data-reveal>
                         <h3 class="service-cat-card__title">
                             <a href="<?php echo esc_url(get_term_link($cat)); ?>"><?php echo esc_html($cat->name); ?></a>
                         </h3>
@@ -100,7 +106,7 @@ if ($srv_cats && !is_wp_error($srv_cats)) :
 
         <div class="grid-3">
             <?php foreach ($benefits as $item) : ?>
-                <div class="card">
+                <div class="card" data-reveal>
                     <div class="card-icon"><?php echo webseo_icon($item['icon']); ?></div>
                     <h3><?php echo esc_html($item['title']); ?></h3>
                     <p><?php echo esc_html($item['text']); ?></p>
@@ -146,7 +152,8 @@ if ($cases) :
 <!-- Testimonials -->
 <?php
 $testimonials = webseo_get_testimonials();
-if ($testimonials) :
+$parsed_reviews = webseo_get_parsed_reviews();
+if ($testimonials || $parsed_reviews) :
 ?>
 <section class="section-padding" id="testimonials">
     <div class="container">
@@ -159,6 +166,10 @@ if ($testimonials) :
         <div class="testimonials-slider">
             <?php foreach ($testimonials as $t) :
                 set_query_var('card_post', $t);
+                get_template_part('parts/card', 'testimonial');
+            endforeach; ?>
+            <?php foreach ($parsed_reviews as $pr) :
+                set_query_var('card_post', $pr);
                 get_template_part('parts/card', 'testimonial');
             endforeach; ?>
         </div>

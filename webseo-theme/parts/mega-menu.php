@@ -49,12 +49,7 @@ if (empty($categories) || is_wp_error($categories)) return;
                                     <?php if ($icon) : ?>
                                         <span class="mega-menu__icon"><?php echo webseo_icon($icon); ?></span>
                                     <?php endif; ?>
-                                    <span>
-                                        <strong><?php echo esc_html($s->post_title); ?></strong>
-                                        <?php if ($s->post_excerpt) : ?>
-                                            <small><?php echo esc_html(wp_trim_words($s->post_excerpt, 8)); ?></small>
-                                        <?php endif; ?>
-                                    </span>
+                                    <strong><?php echo esc_html($s->post_title); ?></strong>
                                 </a>
                             <?php endforeach; ?>
                         <?php else : ?>

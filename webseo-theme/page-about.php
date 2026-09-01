@@ -6,7 +6,7 @@ get_header(); webseo_breadcrumbs();
 ?>
 <section class="section-padding">
     <div class="container">
-        <div class="about-hero">
+        <div class="about-hero" data-reveal="scale">
             <?php if ($photo = get_field('about_photo')) : ?>
                 <div class="about-photo">
                     <img src="<?php echo esc_url($photo['sizes']['medium_large']); ?>" alt="<?php echo esc_attr(get_field('about_name')); ?>" loading="eager">

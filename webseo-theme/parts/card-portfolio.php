@@ -3,7 +3,7 @@ $p = get_query_var('card_post');
 if (!$p) return;
 $tags = wp_get_post_terms($p->ID, 'portfolio_tag');
 ?>
-<div class="portfolio-card">
+<div class="portfolio-card" data-reveal data-tilt>
     <?php if (has_post_thumbnail($p)) : ?>
         <a href="<?php echo get_permalink($p); ?>" class="portfolio-img">
             <?php echo get_the_post_thumbnail($p, 'portfolio-thumb', ['loading' => 'lazy']); ?>

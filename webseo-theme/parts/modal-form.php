@@ -31,6 +31,7 @@ defined('ABSPATH') || exit;
                 <div style="position:absolute;left:-9999px;" aria-hidden="true">
                     <input type="text" name="website" tabindex="-1" autocomplete="off">
                 </div>
+                <?php webseo_consent_checkbox('modal'); ?>
                 <button type="button" class="btn btn-primary modal-submit" id="modalSubmit" style="width:100%;">
                     Отправить заявку <i class="ph-bold ph-arrow-right"></i>
                 </button>

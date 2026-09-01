@@ -79,6 +79,74 @@ function webseo_register_acf_fields(): void {
     ]);
 
     /* ================================================================
+     * 3b. OPTIONS — Мультирегиональность
+     * ================================================================ */
+    acf_add_local_field_group([
+        'key'      => 'group_geo_settings',
+        'title'    => 'Мультирегиональность',
+        'location' => [[[
+            'param' => 'options_page', 'operator' => '==', 'value' => 'webseo-geo',
+        ]]],
+        'fields'   => [
+            [
+                'key'           => 'f_primary_city',
+                'name'          => 'primary_city',
+                'label'         => 'Основной город',
+                'type'          => 'taxonomy',
+                'taxonomy'      => 'city',
+                'field_type'    => 'select',
+                'allow_null'    => 1,
+                'return_format' => 'id',
+                'instructions'  => 'Город по умолчанию для основных страниц услуг (без /city/ в URL). Обычно — Москва.',
+            ],
+        ],
+    ]);
+
+    /* ================================================================
+     * 3c. OPTIONS — Правовая информация (152-ФЗ)
+     * ================================================================ */
+    acf_add_local_field_group([
+        'key'      => 'group_legal',
+        'title'    => 'Правовая информация (152-ФЗ)',
+        'location' => [[[
+            'param' => 'options_page', 'operator' => '==', 'value' => 'webseo-legal',
+        ]]],
+        'fields'   => [
+            ['key' => 'f_legal_tab_privacy', 'label' => 'Политика конфиденциальности', 'type' => 'tab'],
+            ['key' => 'f_privacy_url', 'name' => 'privacy_policy_url', 'label' => 'URL страницы «Политика конфиденциальности»', 'type' => 'url',
+             'instructions' => 'Ссылка на страницу с политикой. Если пусто — используется страница из Настройки → Приватность WordPress.'],
+            ['key' => 'f_consent_text', 'name' => 'consent_text', 'label' => 'Текст согласия на обработку данных', 'type' => 'textarea', 'rows' => 2,
+             'default_value' => 'Нажимая кнопку, вы даёте согласие на обработку персональных данных и соглашаетесь с',
+             'instructions' => 'Текст перед ссылкой на Политику конфиденциальности. Ссылка добавляется автоматически.'],
+            ['key' => 'f_legal_tab_cookie', 'label' => 'Куки', 'type' => 'tab'],
+            ['key' => 'f_cookie_text', 'name' => 'cookie_text', 'label' => 'Текст баннера cookie', 'type' => 'textarea', 'rows' => 2,
+             'default_value' => 'Мы используем файлы cookie для улучшения работы сайта. Продолжая использовать сайт, вы соглашаетесь с использованием cookie и обработкой данных в соответствии с',
+             'instructions' => 'Текст перед ссылкой на Политику конфиденциальности.'],
+            ['key' => 'f_legal_tab_operator', 'label' => 'Оператор данных', 'type' => 'tab'],
+            ['key' => 'f_operator_name', 'name' => 'operator_name', 'label' => 'Наименование оператора', 'type' => 'text',
+             'instructions' => 'ИП Иванов Иван Иванович или ООО «Название»'],
+            ['key' => 'f_operator_inn', 'name' => 'operator_inn', 'label' => 'ИНН', 'type' => 'text'],
+            ['key' => 'f_operator_address', 'name' => 'operator_address', 'label' => 'Адрес оператора', 'type' => 'text',
+             'instructions' => 'Юридический адрес для политики конфиденциальности'],
+        ],
+    ]);
+
+    /* ================================================================
+     * 3d. OPTIONS — CRM и интеграции
+     * ================================================================ */
+    acf_add_local_field_group([
+        'key'      => 'group_integrations',
+        'title'    => 'CRM и интеграции',
+        'location' => [[[
+            'param' => 'options_page', 'operator' => '==', 'value' => 'webseo-integrations',
+        ]]],
+        'fields'   => [
+            ['key' => 'f_crm_webhook_url', 'name' => 'crm_webhook_url', 'label' => 'Webhook URL (CRM)', 'type' => 'url',
+             'instructions' => 'URL вебхука из CRM. Все заявки с форм и квизов будут автоматически отправляться по этому адресу. Поля: name, phone, email, message.'],
+        ],
+    ]);
+
+    /* ================================================================
      * 4. FRONT PAGE — Главная
      * ================================================================ */
     acf_add_local_field_group([
@@ -92,10 +160,9 @@ function webseo_register_acf_fields(): void {
             ['key' => 'f_fp_tab_hero', 'label' => 'Hero', 'type' => 'tab'],
             ['key' => 'f_fp_hero_title',    'name' => 'hero_title',    'label' => 'Заголовок (H1)',  'type' => 'text'],
             ['key' => 'f_fp_hero_subtitle', 'name' => 'hero_subtitle', 'label' => 'Подзаголовок',    'type' => 'textarea', 'rows' => 3],
-            ['key' => 'f_fp_hero_btn1_text','name' => 'hero_btn1_text','label' => 'Кнопка 1 — текст','type' => 'text'],
-            ['key' => 'f_fp_hero_btn1_url', 'name' => 'hero_btn1_url', 'label' => 'Кнопка 1 — URL', 'type' => 'url'],
+            ['key' => 'f_fp_hero_btn1_text','name' => 'hero_btn1_text','label' => 'Кнопка CTA — текст (открывает форму заявки)','type' => 'text'],
             ['key' => 'f_fp_hero_btn2_text','name' => 'hero_btn2_text','label' => 'Кнопка 2 — текст','type' => 'text'],
-            ['key' => 'f_fp_hero_btn2_url', 'name' => 'hero_btn2_url', 'label' => 'Кнопка 2 — URL', 'type' => 'url'],
+            ['key' => 'f_fp_hero_btn2_url', 'name' => 'hero_btn2_url', 'label' => 'Кнопка 2 — URL (если пусто → портфолио)', 'type' => 'url'],
 
             // Services section
             ['key' => 'f_fp_tab_services', 'label' => 'Услуги', 'type' => 'tab'],
@@ -284,7 +351,7 @@ function webseo_register_acf_fields(): void {
     ]);
 
     /* ================================================================
-     * 6. SINGLE PORTFOLIO — Кейс
+     * 6. SINGLE PORTFOLIO — Кейс (продающая структура)
      * ================================================================ */
     acf_add_local_field_group([
         'key'      => 'group_portfolio',
@@ -293,25 +360,74 @@ function webseo_register_acf_fields(): void {
             'param' => 'post_type', 'operator' => '==', 'value' => 'portfolio',
         ]]],
         'fields' => [
-            ['key' => 'f_pf_client',  'name' => 'client',  'label' => 'Клиент / отрасль', 'type' => 'text'],
-            ['key' => 'f_pf_task',    'name' => 'task',     'label' => 'Задача',           'type' => 'wysiwyg', 'media_upload' => 0],
-            ['key' => 'f_pf_solution','name' => 'solution', 'label' => 'Решение',          'type' => 'wysiwyg'],
+            // Hero
+            ['key' => 'f_pf_tab_hero', 'label' => 'Hero', 'type' => 'tab'],
+            ['key' => 'f_pf_client',  'name' => 'client',  'label' => 'Клиент / компания', 'type' => 'text', 'instructions' => 'Название компании или имя клиента'],
+            ['key' => 'f_pf_niche',   'name' => 'niche',   'label' => 'Ниша / отрасль',    'type' => 'text', 'instructions' => 'Например: «E-commerce», «Медицина», «B2B SaaS»'],
+
+            // Task & Challenge
+            ['key' => 'f_pf_tab_task', 'label' => 'Задача', 'type' => 'tab'],
+            ['key' => 'f_pf_task',      'name' => 'task',      'label' => 'Задача проекта',  'type' => 'wysiwyg', 'media_upload' => 0, 'toolbar' => 'basic',
+             'instructions' => 'Что нужно было сделать. HTML: p, ul, li'],
+            ['key' => 'f_pf_challenge', 'name' => 'challenge', 'label' => 'Сложности',       'type' => 'wysiwyg', 'media_upload' => 0, 'toolbar' => 'basic',
+             'instructions' => 'С какими трудностями столкнулись. Опционально'],
+
+            // Approach
+            ['key' => 'f_pf_tab_approach', 'label' => 'Подход', 'type' => 'tab'],
             [
-                'key' => 'f_pf_results', 'name' => 'results', 'label' => 'Результаты', 'type' => 'repeater', 'layout' => 'table',
+                'key' => 'f_pf_approach', 'name' => 'approach', 'label' => 'Этапы решения', 'type' => 'repeater', 'layout' => 'block',
+                'instructions' => 'Пошаговый подход: анализ → проектирование → разработка → тестирование. 4–6 этапов',
+                'sub_fields' => [
+                    ['key' => 'f_pf_app_title', 'name' => 'title', 'label' => 'Этап',     'type' => 'text'],
+                    ['key' => 'f_pf_app_text',  'name' => 'text',  'label' => 'Описание', 'type' => 'textarea', 'rows' => 3],
+                ],
+            ],
+
+            // Solution
+            ['key' => 'f_pf_tab_solution', 'label' => 'Решение', 'type' => 'tab'],
+            ['key' => 'f_pf_solution','name' => 'solution', 'label' => 'Решение', 'type' => 'wysiwyg',
+             'instructions' => 'Подробное описание что сделали, какой подход выбрали'],
+
+            // Results
+            ['key' => 'f_pf_tab_results', 'label' => 'Результаты', 'type' => 'tab'],
+            [
+                'key' => 'f_pf_results', 'name' => 'results', 'label' => 'Измеримые результаты', 'type' => 'repeater', 'layout' => 'table',
+                'instructions' => '3–6 метрик: трафик, конверсия, позиции, скорость и т.д.',
                 'sub_fields' => [
                     ['key' => 'f_pf_res_metric', 'name' => 'metric', 'label' => 'Метрика',        'type' => 'text'],
                     ['key' => 'f_pf_res_before', 'name' => 'before', 'label' => 'Было',           'type' => 'text'],
                     ['key' => 'f_pf_res_after',  'name' => 'after',  'label' => 'Стало',          'type' => 'text'],
                 ],
             ],
+
+            // Gallery
+            ['key' => 'f_pf_tab_gallery', 'label' => 'Визуал', 'type' => 'tab'],
             ['key' => 'f_pf_gallery',  'name' => 'gallery',     'label' => 'Скриншоты',    'type' => 'gallery', 'return_format' => 'array', 'preview_size' => 'medium'],
+
+            // Technologies
+            ['key' => 'f_pf_tab_tech', 'label' => 'Технологии', 'type' => 'tab'],
             [
-                'key' => 'f_pf_tech', 'name' => 'technologies', 'label' => 'Технологии', 'type' => 'repeater', 'layout' => 'table',
+                'key' => 'f_pf_tech', 'name' => 'technologies', 'label' => 'Стек технологий', 'type' => 'repeater', 'layout' => 'table',
                 'sub_fields' => [
                     ['key' => 'f_pf_tech_name', 'name' => 'name', 'label' => 'Название', 'type' => 'text'],
                     ['key' => 'f_pf_tech_icon', 'name' => 'icon', 'label' => 'Иконка',   'type' => 'text'],
                 ],
             ],
+
+            // Timeline
+            ['key' => 'f_pf_tab_timeline', 'label' => 'Хронология', 'type' => 'tab'],
+            [
+                'key' => 'f_pf_timeline', 'name' => 'timeline', 'label' => 'Хронология проекта', 'type' => 'repeater', 'layout' => 'block',
+                'instructions' => 'Ключевые вехи проекта: «Неделя 1–2» — «Аудит и анализ». Опционально, 3–6 пунктов',
+                'sub_fields' => [
+                    ['key' => 'f_pf_tl_period', 'name' => 'period', 'label' => 'Период',   'type' => 'text', 'instructions' => 'Неделя 1–2, Месяц 1, и т.д.'],
+                    ['key' => 'f_pf_tl_title',  'name' => 'title',  'label' => 'Заголовок','type' => 'text'],
+                    ['key' => 'f_pf_tl_text',   'name' => 'text',   'label' => 'Описание', 'type' => 'textarea', 'rows' => 2],
+                ],
+            ],
+
+            // Meta
+            ['key' => 'f_pf_tab_meta', 'label' => 'Доп. данные', 'type' => 'tab'],
             ['key' => 'f_pf_url',         'name' => 'project_url',   'label' => 'Ссылка на сайт', 'type' => 'url'],
             ['key' => 'f_pf_testimonial', 'name' => 'testimonial_id','label' => 'Отзыв клиента',  'type' => 'post_object', 'post_type' => ['testimonial'], 'return_format' => 'id', 'allow_null' => 1],
         ],
@@ -424,6 +540,53 @@ function webseo_register_acf_fields(): void {
             ['key' => 'f_blog_cta_title',    'name' => 'blog_cta_title',    'label' => 'Заголовок CTA', 'type' => 'text'],
             ['key' => 'f_blog_cta_text',     'name' => 'blog_cta_text',     'label' => 'Текст CTA',     'type' => 'textarea', 'rows' => 2],
             ['key' => 'f_blog_cta_btn_text', 'name' => 'blog_cta_btn_text', 'label' => 'Кнопка — текст','type' => 'text'],
+        ],
+    ]);
+
+    /* ================================================================
+     * 12. CITY TAXONOMY — Склонения города
+     * ================================================================ */
+    acf_add_local_field_group([
+        'key'      => 'group_city',
+        'title'    => 'Настройки города',
+        'location' => [[[
+            'param' => 'taxonomy', 'operator' => '==', 'value' => 'city',
+        ]]],
+        'fields' => [
+            ['key' => 'f_city_prep', 'name' => 'city_prepositional', 'label' => 'Предложный (в …)', 'type' => 'text',
+             'instructions' => 'Москве, Санкт-Петербурге, Минске', 'required' => 1],
+            ['key' => 'f_city_gen',  'name' => 'city_genitive',      'label' => 'Родительный (… ого)', 'type' => 'text',
+             'instructions' => 'Москвы, Санкт-Петербурга, Минска', 'required' => 1],
+            ['key' => 'f_city_acc',  'name' => 'city_accusative',    'label' => 'Винительный (в …)', 'type' => 'text',
+             'instructions' => 'Москву, Санкт-Петербург, Минск. Если совпадает с именительным — оставьте пустым'],
+        ],
+    ]);
+
+    /* ================================================================
+     * 13. SERVICE — Региональный контент (geo)
+     * ================================================================ */
+    acf_add_local_field_group([
+        'key'      => 'group_service_geo',
+        'title'    => 'Мультирегиональность',
+        'location' => [[[
+            'param' => 'post_type', 'operator' => '==', 'value' => 'service',
+        ]]],
+        'position' => 'normal',
+        'menu_order' => 20,
+        'fields' => [
+            [
+                'key' => 'f_srv_geo_msg', 'type' => 'message', 'label' => '',
+                'message' => 'Назначьте города через таксономию «Города» справа.<br>'
+                    . 'В текстовых полях услуги используйте подстановки:<br>'
+                    . '<code>{city}</code> — предложный падеж (в <em>Москве</em>)<br>'
+                    . '<code>{city_nom}</code> — именительный (Москва)<br>'
+                    . '<code>{city_rod}</code> — родительный (Москвы)<br>'
+                    . '<code>{city_vin}</code> — винительный (Москву)',
+            ],
+            ['key' => 'f_srv_geo_subtitle', 'name' => 'geo_subtitle', 'label' => 'Подзаголовок для города', 'type' => 'textarea', 'rows' => 3,
+             'instructions' => 'Переопределяет основной подзаголовок на городской странице. Используйте {city}.', 'placeholder' => 'Профессиональная разработка интернет-магазинов в {city}'],
+            ['key' => 'f_srv_geo_desc',     'name' => 'geo_description', 'label' => 'Дополнительный текст для города', 'type' => 'wysiwyg', 'media_upload' => 0, 'toolbar' => 'basic',
+             'instructions' => 'Выводится дополнительным блоком на городской странице. Уникальный контент для SEO.'],
         ],
     ]);
 }

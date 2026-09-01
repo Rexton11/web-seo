@@ -42,6 +42,7 @@ $total = count($steps) + 1;
             <?php if ($show_name) : ?><input type="text" name="contact_name" class="quiz-input" placeholder="Ваше имя" required><?php endif; ?>
             <?php if ($show_phone) : ?><input type="tel" name="contact_phone" class="quiz-input" placeholder="Телефон" required><?php endif; ?>
             <?php if ($show_email) : ?><input type="email" name="contact_email" class="quiz-input" placeholder="Email"><?php endif; ?>
+            <?php webseo_consent_checkbox('quiz'); ?>
         </div>
         <div class="quiz-nav">
             <button class="btn btn-secondary quiz-prev" hidden>← Назад</button>

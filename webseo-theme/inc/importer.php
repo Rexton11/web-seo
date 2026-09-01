@@ -42,6 +42,7 @@ function webseo_import_page(): void {
         'portfolio'    => '📁 Портфолио',
         'quizzes'      => '📋 Квизы',
         'testimonials' => '💬 Отзывы',
+        'cities'       => '🏙 Города',
         'pages'        => '📄 Страницы',
         'settings'     => '⚙️ Настройки',
     ];
@@ -108,166 +109,209 @@ function webseo_import_form(string $type, string $placeholder = ''): void {
 function webseo_tab_services(): void {
     ?>
     <h2>Импорт услуг</h2>
-    <p>Каждая услуга — это CPT <code>service</code> с 11-секционным продающим шаблоном. Все секции опциональны — пустые не отображаются.</p>
+    <p>Каждая услуга — CPT <code>service</code> с продающим шаблоном. Поддерживается мультирегиональность: привяжите города через <code>cities</code> — автоматически создадутся страницы <code>/uslugi/slug/city/</code>.</p>
 
     <div class="webseo-cols">
         <div>
             <h3>Структура JSON</h3>
             <table class="field-table">
                 <tr><th colspan="3" style="background:#e8f5e9;">Основные поля</th></tr>
-                <tr><th><code>title</code></th><td>string</td><td>Название услуги (H1 на странице). Пример: «Разработка интернет-магазинов»</td></tr>
-                <tr><th><code>excerpt</code></th><td>string</td><td>Краткое описание для карточки на главной (1–2 предложения)</td></tr>
-                <tr><th><code>menu_order</code></th><td>number</td><td>Порядок сортировки (1, 2, 3...)</td></tr>
-                <tr><th><code>taxonomies.service_category</code></th><td>array</td><td>Категории: <code>["Разработка сайтов"]</code> или <code>["SEO-продвижение"]</code></td></tr>
+                <tr><th><code>title</code></th><td>string</td><td>Название услуги (H1). Продающий формат: «Разработка интернет-магазинов» (город добавится автоматически на городских страницах)</td></tr>
+                <tr><th><code>excerpt</code></th><td>string</td><td>Для карточки на главной (1 предложение, макс. выгода)</td></tr>
+                <tr><th><code>menu_order</code></th><td>number</td><td>Порядок сортировки</td></tr>
+                <tr><th><code>taxonomies.service_category</code></th><td>array</td><td>Категории: <code>["Разработка сайтов"]</code></td></tr>
 
-                <tr><th colspan="3" style="background:#e3f2fd;">fields → Hero</th></tr>
-                <tr><th><code>service_icon</code></th><td>string</td><td>CSS-класс иконки Phosphor. Пример: <code>ph ph-shopping-cart</code></td></tr>
-                <tr><th><code>service_subtitle</code></th><td>string</td><td>Лид-абзац под H1 (2–3 предложения, суть услуги)</td></tr>
-                <tr><th><code>service_cta_text</code></th><td>string</td><td>Текст кнопки. Пример: «Рассчитать стоимость»</td></tr>
-                <tr><th><code>service_cta_anchor</code></th><td>string</td><td>Якорь кнопки. Обычно: <code>#quiz</code></td></tr>
+                <tr><th colspan="3" style="background:#fce4ec;">Мультирегиональность</th></tr>
+                <tr><th><code>cities</code></th><td>array</td><td>Массив городов для создания региональных страниц. Каждый город:<br>
+                    <code>name</code> — именительный (Москва)<br>
+                    <code>slug</code> — slug для URL (moskva)<br>
+                    <code>prepositional</code> — предложный (Москве)<br>
+                    <code>genitive</code> — родительный (Москвы)<br>
+                    <code>accusative</code> — винительный, если отличается (Москву). Необязательно
+                </td></tr>
+
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Hero (первый экран)</th></tr>
+                <tr><th><code>service_icon</code></th><td>string</td><td>CSS-класс Phosphor: <code>ph ph-shopping-cart</code></td></tr>
+                <tr><th><code>service_subtitle</code></th><td>string</td><td><strong>Продающий подзаголовок (1–2 предложения, максимум конкретики).</strong><br>Формула: выгода + цифра + срок.<br>Пример: «Создаём магазины на 1С-Битрикс и WooCommerce с конверсией от 3%. Средний рост продаж клиентов — ×2.4 за первый квартал.»</td></tr>
+                <tr><th><code>service_cta_text</code></th><td>string</td><td>Текст CTA-кнопки. Формула: действие + результат.<br>Примеры: «Рассчитать стоимость», «Получить КП за 2 часа»</td></tr>
 
                 <tr><th colspan="3" style="background:#e8f5e9;">fields → Hero чипсы и trust</th></tr>
-                <tr><th><code>hero_chips</code></th><td>array</td><td><strong>3–4</strong> объекта с полем <code>text</code><br>Короткие обещания-выгоды: «Рост трафика ×3», «Без долгих контрактов»</td></tr>
-                <tr><th><code>hero_trust</code></th><td>array</td><td><strong>2–4</strong> объекта: <code>value</code> + <code>label</code><br>Цифры доверия: value=«10+» label=«лет опыта»</td></tr>
+                <tr><th><code>hero_chips</code></th><td>array</td><td><strong>3–4</strong> объекта: <code>{text}</code><br>Каждый чип = одна конкретная выгода с цифрой или фактом.<br>Плохо: «Качественно» / Хорошо: «Конверсия от 3%»<br>Плохо: «Быстро» / Хорошо: «Запуск от 2 недель»</td></tr>
+                <tr><th><code>hero_trust</code></th><td>array</td><td><strong>3</strong> объекта: <code>{value, label}</code><br>Только проверяемые цифры. Пример: value=«147» label=«магазинов запущено»</td></tr>
 
                 <tr><th colspan="3" style="background:#fff3e0;">fields → Боли клиента</th></tr>
-                <tr><th><code>pains_title</code></th><td>string</td><td>Заголовок секции. Пример: «Знакомые проблемы?»</td></tr>
-                <tr><th><code>pains</code></th><td>array</td><td><strong>4–6</strong> объектов: <code>icon</code>, <code>title</code>, <code>text</code><br>Отображаются как пилюли-теги (только title видно). Формулируйте коротко: «Сайт есть, а заявок нет»</td></tr>
+                <tr><th><code>pains_title</code></th><td>string</td><td>Заголовок. Пример: «Знакомая ситуация?»</td></tr>
+                <tr><th><code>pains</code></th><td>array</td><td><strong>СТРОГО 6 или 8</strong> объектов (кратно 2): <code>{title}</code> (icon и text не отображаются).<br>Формулируйте как боль, не как проблему:<br>Плохо: «Нет SEO» / Хорошо: «Вложили 200к в рекламу — 3 заявки»</td></tr>
 
                 <tr><th colspan="3" style="background:#e8f5e9;">fields → Решение</th></tr>
                 <tr><th><code>solution_title</code></th><td>string</td><td>Заголовок. Пример: «Что вы получите»</td></tr>
-                <tr><th><code>solution_items</code></th><td>array</td><td><strong>6</strong> объектов (сетка 3 колонки × 2 ряда): <code>icon</code>, <code>title</code>, <code>text</code><br>Конкретные результаты: «Рост трафика в 3 раза за 6 месяцев»</td></tr>
+                <tr><th><code>solution_items</code></th><td>array</td><td><strong>4–6</strong> штук: <code>{title, text}</code><br>Каждый пункт = результат + доказательство через цифру</td></tr>
 
                 <tr><th colspan="3" style="background:#e3f2fd;">fields → Преимущества</th></tr>
-                <tr><th><code>benefits_title</code></th><td>string</td><td>Заголовок. Пример: «Почему выбирают нас»</td></tr>
-                <tr><th><code>benefits</code></th><td>array</td><td><strong>6</strong> объектов (сетка 3 колонки × 2 ряда): <code>icon</code>, <code>title</code>, <code>text</code></td></tr>
+                <tr><th><code>benefits_title</code></th><td>string</td><td>Заголовок. Пример: «Почему мы»</td></tr>
+                <tr><th><code>benefits</code></th><td>array</td><td><strong>СТРОГО 6</strong> объектов (кратно 3, сетка 3 в ряд): <code>{icon, title, text}</code></td></tr>
 
-                <tr><th colspan="3" style="background:#fff3e0;">fields → Этапы работы</th></tr>
-                <tr><th><code>steps_title</code></th><td>string</td><td>Заголовок. Пример: «Как мы работаем»</td></tr>
-                <tr><th><code>steps</code></th><td>array</td><td><strong>4–7</strong> объектов: <code>title</code>, <code>text</code><br>4 в ряд, остальные в слайдере. Номера автоматически</td></tr>
+                <tr><th colspan="3" style="background:#fff3e0;">fields → Этапы</th></tr>
+                <tr><th><code>steps</code></th><td>array</td><td><strong>4–6</strong> шагов: <code>{title, text}</code>. Номера автоматически</td></tr>
 
                 <tr><th colspan="3" style="background:#e8f5e9;">fields → Тарифы</th></tr>
-                <tr><th><code>pricing_title</code></th><td>string</td><td>Заголовок. Пример: «Стоимость»</td></tr>
-                <tr><th><code>pricing</code></th><td>array</td><td>1–3 объекта:<br><code>name</code> — название тарифа<br><code>price</code> — цена текстом («от 30 000 ₽»)<br><code>features</code> — что входит (каждый пункт с новой строки \n)<br><code>popular</code> — true/false<br><code>btn_text</code> — текст кнопки<br></td></tr>
+                <tr><th><code>pricing</code></th><td>array</td><td>2–3 тарифа: <code>{name, price, features, popular, btn_text}</code><br><code>features</code> — каждый пункт с новой строки <code>\n</code><br>Один тариф с <code>popular: true</code></td></tr>
 
                 <tr><th colspan="3" style="background:#e3f2fd;">fields → FAQ</th></tr>
-                <tr><th><code>faq_items</code></th><td>array</td><td><strong>6–10</strong> объектов: <code>question</code>, <code>answer</code><br>Ответы можно с HTML (<code>&lt;p&gt;</code>, <code>&lt;ul&gt;</code>). Schema FAQPage генерируется автоматически</td></tr>
+                <tr><th><code>faq_items</code></th><td>array</td><td><strong>СТРОГО 6, 8 или 10</strong> вопросов (кратно 2): <code>{question, answer}</code>. Ответы 2–3 предложения, можно HTML</td></tr>
 
                 <tr><th colspan="3" style="background:#fff3e0;">fields → CTA</th></tr>
-                <tr><th><code>cta_title</code></th><td>string</td><td>Заголовок финального блока</td></tr>
-                <tr><th><code>cta_desc</code></th><td>string</td><td>Описание (1 предложение)</td></tr>
+                <tr><th><code>cta_title</code></th><td>string</td><td>Финальный призыв. Подстановка <code>{city}</code> работает</td></tr>
+                <tr><th><code>cta_desc</code></th><td>string</td><td>1 предложение</td></tr>
                 <tr><th><code>cta_btn_text</code></th><td>string</td><td>Текст кнопки</td></tr>
 
+                <tr><th colspan="3" style="background:#fce4ec;">fields → Гео-контент (для городов)</th></tr>
+                <tr><th><code>geo_subtitle</code></th><td>string</td><td>Переопределяет подзаголовок на городской странице.<br>Используйте <code>{city}</code> (предложный), <code>{city_nom}</code> (именительный), <code>{city_rod}</code> (родительный).<br>Пример: «Разрабатываем интернет-магазины в {city} от 40 000 ₽. Запуск от 2 недель.»</td></tr>
+                <tr><th><code>geo_description</code></th><td>HTML</td><td>SEO-текст для города, выводится в конце страницы с центровкой. Подстановки <code>{city}</code>, <code>{city_nom}</code>, <code>{city_rod}</code>. 2–3 абзаца</td></tr>
             </table>
         </div>
         <div>
+            <?php
+            // Fetch existing cities
+            $prompt_cities = get_terms(['taxonomy' => 'city', 'hide_empty' => false, 'orderby' => 'name']);
+            $cities_names = [];
+            $cities_json_arr = [];
+            if ($prompt_cities && !is_wp_error($prompt_cities)) {
+                foreach ($prompt_cities as $ct) {
+                    $cities_names[] = $ct->name;
+                    $cd = ['name' => $ct->name, 'slug' => $ct->slug];
+                    if (function_exists('get_field')) {
+                        $p = get_field('city_prepositional', "city_{$ct->term_id}");
+                        $g = get_field('city_genitive', "city_{$ct->term_id}");
+                        $a = get_field('city_accusative', "city_{$ct->term_id}");
+                        if ($p) $cd['prepositional'] = $p;
+                        if ($g) $cd['genitive'] = $g;
+                        if ($a) $cd['accusative'] = $a;
+                    }
+                    $cities_json_arr[] = $cd;
+                }
+            }
+            $cities_list_text = $cities_names ? implode(', ', $cities_names) : '[города не созданы]';
+            $cities_json_block = $cities_json_arr
+                ? json_encode($cities_json_arr, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
+                : "[\n        {\n          \"name\": \"Москва\",\n          \"slug\": \"moskva\",\n          \"prepositional\": \"Москве\",\n          \"genitive\": \"Москвы\",\n          \"accusative\": \"Москву\"\n        }\n      ]";
+            $has_cities = !empty($cities_json_arr);
+
+            // Fetch existing service categories
+            $srv_cats = get_terms(['taxonomy' => 'service_category', 'hide_empty' => false, 'orderby' => 'name']);
+            $cat_options = [];
+            if ($srv_cats && !is_wp_error($srv_cats)) {
+                foreach ($srv_cats as $sc) $cat_options[] = $sc->name;
+            }
+            $first_cat = $cat_options ? $cat_options[0] : 'Разработка сайтов';
+            ?>
+
+            <div style="margin-bottom:16px;padding:12px 16px;background:#f0f6ff;border:1px solid #c5d9f0;border-radius:6px;">
+                <label style="font-weight:600;font-size:13px;display:block;margin-bottom:6px;">Категория услуги для промта:</label>
+                <?php if ($cat_options) : ?>
+                    <select id="ws-prompt-cat" style="width:100%;padding:6px 10px;font-size:14px;">
+                        <?php foreach ($cat_options as $co) : ?>
+                            <option value="<?php echo esc_attr($co); ?>"><?php echo esc_html($co); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                <?php else : ?>
+                    <input type="text" id="ws-prompt-cat" value="Разработка сайтов" style="width:100%;padding:6px 10px;font-size:14px;" placeholder="Название категории">
+                <?php endif; ?>
+            </div>
+
             <div class="prompt-box">
-                <h4>📎 Промт для ИИ</h4>
-                <pre>Сгенерируй JSON для импорта продающей страницы услуги.
+                <h4>📎 Промт для ИИ <button type="button" onclick="var t=document.getElementById('ws-prompt-text');navigator.clipboard.writeText(t.textContent);this.textContent='Скопировано!';setTimeout(()=>this.textContent='Копировать',1500);" style="float:right;font-size:12px;padding:4px 12px;cursor:pointer;border:1px solid #ccc;border-radius:4px;background:#fff;">Копировать</button></h4>
+                <pre id="ws-prompt-text" style="max-height:500px;">Сгенерируй JSON для импорта продающей страницы услуги в WordPress.
 
 Услуга: [НАЗВАНИЕ УСЛУГИ]
-Целевая аудитория: владельцы бизнеса в Москве
-Тон: уверенный, экспертный, без воды и канцелярита.
-Каждый блок должен продавать: боли бьют в реальные проблемы,
-решение показывает конкретный результат, преимущества —
-почему выбрать именно нас.
+Компания: [НАЗВАНИЕ] — веб-студия / SEO-агентство
+Категория услуги: <span id="ws-cat-in-prompt"><?php echo esc_html($first_cat); ?></span>
+<?php if ($has_cities) : ?>Города для мультирегиональности: <?php echo esc_html($cities_list_text); ?>
+<?php else : ?>Города для мультирегиональности: [города не созданы — удали блок cities и geo-поля из JSON]
+<?php endif; ?>
 
-СТРОГИЕ ТРЕБОВАНИЯ ПО КОЛИЧЕСТВУ И ФОРМАТУ:
-- Боли клиента (pains): 4–6 штук, отображаются как ПИЛЮЛИ-ТЕГИ
-  (видно только title, пиши коротко: «Сайт есть, а заявок нет»)
-- Что вы получите (solution_items): 6 штук (чеклист 2 колонки,
-  заголовок + краткое описание 5–8 слов)
-- Преимущества (benefits): 6 штук (карточки с иконками, 3×2 сетка)
-- Этапы работы (steps): от 4 до 7 (4 в ряд, далее слайдер)
-- Тарифы (pricing): 2 или 3
-- FAQ (faq_items): от 6 до 10 вопросов
+ПРАВИЛА ДЛЯ ПЕРВОГО ЭКРАНА (это самое важное):
+1. title — чистое название услуги БЕЗ города (город
+   подставляется автоматически на гео-страницах).
+   Примеры: «Разработка интернет-магазинов»,
+   «SEO-продвижение сайтов»
+2. service_subtitle — ПРОДАЮЩИЙ подзаголовок, 1–2
+   предложения. Формула: [конкретная выгода] + [цифра/срок]
+   + [доказательство].
+   Пример: «Магазины на 1С-Битрикс и WooCommerce с
+   конверсией от 3%. Средний чек клиентов растёт в 2.4 раза
+   за первый квартал.»
+   ПЛОХО: «Мы создаём качественные интернет-магазины
+   с индивидуальным подходом к каждому клиенту и
+   современными технологиями...» — ЭТО ВОДА.
+3. hero_chips — 3–4 коротких факта с цифрами.
+   Хорошо: «Запуск от 14 дней», «Конверсия от 3%»,
+   «Гарантия 12 мес.»
+   Плохо: «Качественно», «Профессионально», «Быстро»
+4. hero_trust — 3 цифры доверия, реалистичные.
+<?php if ($has_cities) : ?>5. geo_subtitle — подзаголовок для городских страниц.
+   Формула: [что делаем] + в {city} + [цена/срок].
+   Пример: «Создаём интернет-магазины в {city}
+   от 40 000 ₽ и 2 недель. Интеграция с 1С, CRM, доставкой.»
+<?php endif; ?>
 
-Текст болей: формулируй от лица клиента, «У вас...», «Вы сталкиваетесь...».
-Текст решений: конкретные результаты с цифрами где возможно.
-Текст преимуществ: факты, не общие слова.
-FAQ: реальные вопросы которые задают клиенты, ответы 2-3 предложения.
+ОБЩИЕ ПРАВИЛА:
+- Тон: уверенный, экспертный, лаконичный. Ноль воды.
+- Каждое предложение должно содержать факт, цифру
+  или конкретную выгоду. Если убрать предложение и
+  смысл не теряется — оно лишнее.
+- Боли (pains): СТРОГО 6 или 8 штук (кратно 2,
+  отображаются в 2 колонки). Отображаются как теги-пилюли,
+  видно только title. Пиши как боль клиента, коротко:
+  «Вложили 200к в рекламу — 3 заявки»,
+  «Сайт на 6-м месяце — до сих пор не готов»
+- Решение (solution_items): 4–6 штук. Каждый = результат
+  + цифра. «Рост трафика ×3 за 6 месяцев»
+- Преимущества (benefits): СТРОГО 6 штук (кратно 3,
+  сетка 3 в ряд). Факты, не слоганы.
+- Тарифы (pricing): 2–3 штуки. Один с popular: true.
+  Цены реалистичные для РФ/СНГ.
+- FAQ (faq_items): СТРОГО 6, 8 или 10 штук (кратно 2,
+  отображаются в 2 колонки). Вопросы, которые реально
+  задают. Ответы — 2–3 предложения с конкретикой.
+- geo_description — SEO-текст для города, 2–3 абзаца HTML.
+  Выводится в конце страницы с центровкой. Подстановки:
+  {city}, {city_nom}, {city_rod}, {city_vin}.
 
-JSON-формат (вставь контент в эту структуру):
+JSON-формат (СТРОГО соблюдай структуру):
 
 {
   "services": [
     {
-      "title": "Название услуги (H1)",
-      "excerpt": "Краткое описание для карточки (1–2 предложения)",
+      "title": "Название услуги",
+      "excerpt": "Краткое описание для карточки",
       "menu_order": 1,
       "taxonomies": {
-        "service_category": ["Категория"]
+        "service_category": ["<span id="ws-cat-in-json"><?php echo esc_html($first_cat); ?></span>"]
       },
-      "fields": {
-        "service_icon": "ph ph-icon-name",
-        "service_subtitle": "Лид-абзац 2–3 предложения",
-        "service_cta_text": "Получить бесплатный аудит",
-        "hero_chips": [
-          {"text": "Рост трафика ×3"},
-          {"text": "Прозрачная отчётность"},
-          {"text": "Без долгих контрактов"}
-        ],
-        "hero_trust": [
-          {"value": "10+", "label": "лет опыта"},
-          {"value": "200+", "label": "проектов"},
-          {"value": "50+", "label": "в ТОП-10"}
-        ],
-        "pains_title": "Знакомые проблемы?",
-        "pains": [
-          {"icon": "", "title": "Сайт есть, а заявок нет", "text": ""},
-          {"icon": "", "title": "Срыв сроков разработки", "text": ""},
-          {"icon": "", "title": "Сложно управлять контентом", "text": ""},
-          {"icon": "", "title": "Непонятно за что платите", "text": ""},
-          {"icon": "", "title": "Нет позиций в поиске", "text": ""},
-          {"icon": "", "title": "Сайт не адаптирован под мобильные", "text": ""}
-        ],
-        "solution_title": "Что вы получите",
-        "solution_items": [
-          {"icon": "", "title": "Рост видимости в поиске", "text": "Продвигаем по коммерческим запросам"},
-          {"icon": "", "title": "Больше целевого трафика", "text": "Посетители готовые покупать"},
-          {"icon": "", "title": "Исправленный сайт", "text": "Устраняем технические проблемы"},
-          {"icon": "", "title": "Продуманная структура", "text": "SEO-логика в каждой странице"},
-          {"icon": "", "title": "Контент под запросы", "text": "Тексты помогающие ранжироваться"},
-          {"icon": "", "title": "Система для роста", "text": "План работ каждый месяц"}
-        ],
-        "benefits_title": "Почему доверяют нам",
-        "benefits": [
-          {"icon": "ph ph-star", "title": "Преимущество 1", "text": "Описание"},
-          {"icon": "ph ph-handshake", "title": "Преимущество 2", "text": "Описание"},
-          {"icon": "ph ph-user-focus", "title": "Преимущество 3", "text": "Описание"},
-          {"icon": "ph ph-target", "title": "Преимущество 4", "text": "Описание"},
-          {"icon": "ph ph-trophy", "title": "Преимущество 5", "text": "Описание"},
-          {"icon": "ph ph-graph", "title": "Преимущество 6", "text": "Описание"}
-        ],
-        "steps_title": "Как мы работаем",
-        "steps": [
-          {"title": "Шаг 1", "text": "Описание шага"},
-          {"title": "Шаг 2", "text": "Описание шага"},
-          {"title": "Шаг 3", "text": "Описание шага"},
-          {"title": "Шаг 4", "text": "Описание шага"}
-        ],
-        "pricing_title": "Стоимость",
-        "pricing": [
-          {
-            "name": "Базовый",
-            "price": "от 30 000 ₽",
-            "features": "Пункт 1\nПункт 2\nПункт 3",
-            "popular": false,
-            "btn_text": "Заказать",
-          }
-        ],
-        "faq_items": [
-          {"question": "Вопрос 1?", "answer": "Ответ на 2-3 предложения."},
-          {"question": "Вопрос 2?", "answer": "Ответ на 2-3 предложения."},
-          {"question": "Вопрос 3?", "answer": "Ответ."},
-          {"question": "Вопрос 4?", "answer": "Ответ."},
-          {"question": "Вопрос 5?", "answer": "Ответ."},
-          {"question": "Вопрос 6?", "answer": "Ответ."}
-        ],
-        "cta_title": "Готовы обсудить проект?",
-        "cta_desc": "Напишите — отвечу в течение часа",
-        "cta_btn_text": "Написать в Telegram",
-
+<?php if ($has_cities) : ?>      "cities": <?php echo esc_html($cities_json_block); ?>,
+<?php endif; ?>      "fields": {
+        "service_icon": "ph ph-...",
+        "service_subtitle": "...",
+        "service_cta_text": "...",
+        "hero_chips": [{"text": "..."}, ...],
+        "hero_trust": [{"value": "...", "label": "..."}, ...],
+<?php if ($has_cities) : ?>        "geo_subtitle": "... в {city} ...",
+        "geo_description": "<p>... {city} ...</p>",
+<?php endif; ?>        "pains_title": "...",
+        "pains": [{"icon": "", "title": "...", "text": ""}, ...],
+        "solution_title": "...",
+        "solution_items": [{"icon": "", "title": "...", "text": "..."}, ...],
+        "benefits_title": "...",
+        "benefits": [{"icon": "ph ph-...", "title": "...", "text": "..."}, ...],
+        "steps_title": "...",
+        "steps": [{"title": "...", "text": "..."}, ...],
+        "pricing_title": "...",
+        "pricing": [{"name": "...", "price": "...", "features": "...\n...", "popular": false, "btn_text": "..."}, ...],
+        "faq_items": [{"question": "...", "answer": "..."}, ...],
+        "cta_title": "...",
+        "cta_desc": "...",
+        "cta_btn_text": "..."
       }
     }
   ]
@@ -275,11 +319,29 @@ JSON-формат (вставь контент в эту структуру):
 
 Иконки Phosphor: https://phosphoricons.com
 Используй: ph ph-shopping-cart, ph ph-magnifying-glass,
-ph ph-code, ph ph-chart-line-up, ph ph-clock, ph ph-x-circle,
-ph ph-check-circle, ph ph-shield-check, ph ph-rocket,
-ph ph-handshake, ph ph-user-focus, ph ph-gear, ph ph-database,
-ph ph-chat-text, ph ph-currency-dollar, ph ph-lightning</pre>
+ph ph-code, ph ph-chart-line-up, ph ph-clock, ph ph-rocket,
+ph ph-shield-check, ph ph-handshake, ph ph-user-focus,
+ph ph-target, ph ph-trophy, ph ph-gear, ph ph-database,
+ph ph-chat-text, ph ph-currency-dollar, ph ph-lightning,
+ph ph-headset, ph ph-browser, ph ph-globe, ph ph-paint-brush</pre>
             </div>
+
+            <script>
+            (function(){
+                var sel = document.getElementById('ws-prompt-cat');
+                if (!sel) return;
+                sel.addEventListener('change', function(){
+                    var v = this.value || this.textContent;
+                    document.getElementById('ws-cat-in-prompt').textContent = v;
+                    document.getElementById('ws-cat-in-json').textContent = v;
+                });
+                sel.addEventListener('input', function(){
+                    var v = this.value;
+                    document.getElementById('ws-cat-in-prompt').textContent = v;
+                    document.getElementById('ws-cat-in-json').textContent = v;
+                });
+            })();
+            </script>
 
             <h3>Вставьте JSON и импортируйте</h3>
             <?php webseo_import_form('services', '{"services": [...]}'); ?>
@@ -295,7 +357,7 @@ ph ph-chat-text, ph ph-currency-dollar, ph ph-lightning</pre>
 function webseo_tab_portfolio(): void {
     ?>
     <h2>Импорт портфолио</h2>
-    <p>Каждый кейс — это CPT <code>portfolio</code> со страницей проекта: задача, решение, результаты, технологии.</p>
+    <p>Каждый кейс — CPT <code>portfolio</code> с продающей структурой: hero → задача/сложности → подход → решение → скриншоты → результаты → технологии → хронология → отзыв → похожие кейсы → CTA.</p>
 
     <div class="webseo-cols">
         <div>
@@ -303,54 +365,154 @@ function webseo_tab_portfolio(): void {
             <table class="field-table">
                 <tr><th colspan="3" style="background:#e8f5e9;">Основные поля</th></tr>
                 <tr><th><code>title</code></th><td>string</td><td>Название проекта. Пример: «Интернет-магазин автозапчастей»</td></tr>
-                <tr><th><code>excerpt</code></th><td>string</td><td>Краткое описание для карточки (1–2 предложения)</td></tr>
-                <tr><th><code>taxonomies.portfolio_tag</code></th><td>array</td><td>Теги: <code>["WordPress", "SEO"]</code> или <code>["OpenCart", "Интеграция"]</code></td></tr>
-                <tr><th><code>thumbnail_url</code></th><td>string</td><td>URL скриншота (загрузится автоматически). Опционально</td></tr>
+                <tr><th><code>excerpt</code></th><td>string</td><td>Краткое описание для hero и карточки (2–3 предложения, продающее)</td></tr>
+                <tr><th><code>taxonomies.portfolio_tag</code></th><td>array</td><td>Теги: <code>["WordPress", "E-commerce"]</code> или <code>["SEO", "Медицина"]</code></td></tr>
+                <tr><th><code>thumbnail_url</code></th><td>string</td><td>URL скриншота для hero (загрузится автоматически). Опционально</td></tr>
 
-                <tr><th colspan="3" style="background:#e3f2fd;">fields → Данные кейса</th></tr>
-                <tr><th><code>client</code></th><td>string</td><td>Клиент / отрасль. Пример: «Магазин автозапчастей, Москва»</td></tr>
-                <tr><th><code>task</code></th><td>HTML</td><td>Описание задачи. Можно с <code>&lt;p&gt;</code>, <code>&lt;ul&gt;</code></td></tr>
-                <tr><th><code>solution</code></th><td>HTML</td><td>Описание решения. Что сделали, какой подход выбрали</td></tr>
-                <tr><th><code>results</code></th><td>array</td><td>Измеримые результаты. Объекты:<br><code>metric</code> — что измеряли («Трафик», «Конверсия»)<br><code>before</code> — было<br><code>after</code> — стало</td></tr>
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Hero</th></tr>
+                <tr><th><code>client</code></th><td>string</td><td>Клиент / компания. Пример: «ООО «АвтоДеталь»»</td></tr>
+                <tr><th><code>niche</code></th><td>string</td><td>Ниша / отрасль. Пример: «E-commerce», «Медицина», «B2B SaaS»</td></tr>
+
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Задача</th></tr>
+                <tr><th><code>task</code></th><td>HTML</td><td>Описание задачи. Теги p, ul, li. Что хотел клиент, какие цели</td></tr>
+                <tr><th><code>challenge</code></th><td>HTML</td><td>Сложности проекта. Опционально. Что затрудняло работу</td></tr>
+
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Подход (СТРОГО 4–6 этапов)</th></tr>
+                <tr><th><code>approach</code></th><td>array</td><td>Этапы решения. Объекты:<br><code>title</code> — название этапа<br><code>text</code> — описание (2–3 предложения)</td></tr>
+
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Решение</th></tr>
+                <tr><th><code>solution</code></th><td>HTML</td><td>Подробное описание решения. HTML: p, ul, li, h3. Развёрнуто</td></tr>
+
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Результаты (СТРОГО 3–6 метрик)</th></tr>
+                <tr><th><code>results</code></th><td>array</td><td>Измеримые результаты. Объекты:<br><code>metric</code> — название<br><code>before</code> — было<br><code>after</code> — стало</td></tr>
+
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Технологии</th></tr>
                 <tr><th><code>technologies</code></th><td>array</td><td>Стек. Объекты: <code>name</code>, <code>icon</code> (CSS-класс Phosphor)</td></tr>
+
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Хронология (опционально, 3–6 пунктов)</th></tr>
+                <tr><th><code>timeline</code></th><td>array</td><td>Вехи проекта. Объекты:<br><code>period</code> — период («Неделя 1–2»)<br><code>title</code> — заголовок<br><code>text</code> — описание</td></tr>
+
+                <tr><th colspan="3" style="background:#e3f2fd;">fields → Мета</th></tr>
                 <tr><th><code>project_url</code></th><td>string</td><td>Ссылка на живой сайт (опционально)</td></tr>
             </table>
         </div>
         <div>
             <div class="prompt-box">
-                <h4>📎 Промт для ИИ</h4>
-                <pre>Сгенерируй JSON для импорта кейса портфолио в WordPress-тему.
+                <h4>📎 Промт для кейса по разработке сайта</h4>
+                <pre>Сгенерируй JSON для импорта кейса по РАЗРАБОТКЕ САЙТА в WordPress-тему.
 Проект: [ОПИСАНИЕ ПРОЕКТА]
-Формат:
 
+Правила:
+— approach: СТРОГО 4–6 этапов (аудит → проектирование → дизайн → разработка → тестирование → запуск)
+— results: СТРОГО 4–6 метрик (скорость загрузки, конверсия, мобильный трафик и т.д.)
+— challenge: описать технические или бизнес-сложности проекта
+— solution: развёрнутый HTML с подзаголовками h3
+— timeline: 4–6 ключевых вех с периодами
+— Все тексты на русском, реалистичные данные
+— Задачу, сложности и решение пиши в HTML (теги p, ul, li, h3)
+
+Формат:
 {
   "portfolio": [
     {
       "title": "Название проекта",
-      "excerpt": "Краткое описание для карточки",
+      "excerpt": "Продающее описание для карточки (2–3 предложения)",
       "taxonomies": {
-        "portfolio_tag": ["WordPress", "SEO"]
+        "portfolio_tag": ["WordPress", "E-commerce"]
       },
       "fields": {
-        "client": "Клиент / отрасль, город",
-        "task": "<p>Описание задачи клиента</p>",
-        "solution": "<p>Что сделали и как решили задачу</p>",
+        "client": "Название компании",
+        "niche": "Ниша / отрасль",
+        "task": "&lt;p&gt;Описание задачи клиента&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Цель 1&lt;/li&gt;&lt;/ul&gt;",
+        "challenge": "&lt;p&gt;Основные сложности проекта&lt;/p&gt;",
+        "approach": [
+          {"title": "Аудит и анализ", "text": "Провели полный аудит текущего сайта, проанализировали конкурентов и ЦА"},
+          {"title": "Проектирование", "text": "Создали структуру сайта, прототипы страниц, user flow"},
+          {"title": "Дизайн", "text": "Разработали уникальный UI/UX дизайн с фокусом на конверсию"},
+          {"title": "Разработка", "text": "Вёрстка, программирование, интеграция CMS и сторонних сервисов"}
+        ],
+        "solution": "&lt;h3&gt;Архитектура&lt;/h3&gt;&lt;p&gt;Описание...&lt;/p&gt;",
         "results": [
-          {"metric": "Трафик", "before": "500 визитов/мес", "after": "3 200 визитов/мес"},
-          {"metric": "Позиции в ТОП-10", "before": "3 запроса", "after": "45 запросов"}
+          {"metric": "Скорость загрузки", "before": "4.2 сек", "after": "1.1 сек"},
+          {"metric": "Конверсия", "before": "0.8%", "after": "3.2%"},
+          {"metric": "Мобильный трафик", "before": "15%", "after": "52%"},
+          {"metric": "Позиции ТОП-10", "before": "5 запросов", "after": "38 запросов"}
         ],
         "technologies": [
           {"name": "WordPress", "icon": "ph ph-globe"},
-          {"name": "PHP", "icon": "ph ph-code"}
+          {"name": "PHP", "icon": "ph ph-code"},
+          {"name": "JavaScript", "icon": "ph ph-file-js"}
+        ],
+        "timeline": [
+          {"period": "Неделя 1–2", "title": "Аудит и аналитика", "text": "Полный анализ текущего сайта и конкурентов"},
+          {"period": "Неделя 3–4", "title": "Дизайн и прототипы", "text": "UI/UX дизайн всех ключевых страниц"},
+          {"period": "Неделя 5–8", "title": "Разработка", "text": "Вёрстка, бэкенд, интеграции"},
+          {"period": "Неделя 9–10", "title": "Тестирование и запуск", "text": "QA, правки, запуск в продакшен"}
         ],
         "project_url": "https://example.com"
       }
     }
   ]
-}
+}</pre>
+            </div>
 
-Результаты должны быть реалистичными и измеримыми.
-Задачу и решение пиши в HTML (теги p, ul, li).</pre>
+            <div class="prompt-box" style="margin-top:16px;">
+                <h4>📎 Промт для SEO-кейса</h4>
+                <pre>Сгенерируй JSON для импорта SEO-кейса в WordPress-тему.
+Проект: [ОПИСАНИЕ ПРОЕКТА / НИША]
+
+Правила:
+— approach: СТРОГО 4–6 этапов (аудит → семантика → техническая оптимизация → контент → линкбилдинг → аналитика)
+— results: СТРОГО 4–6 метрик (трафик, позиции в ТОП-10, видимость, конверсия, CTR и т.д.)
+— challenge: описать SEO-проблемы (санкции, высокая конкуренция, дубли и т.д.)
+— solution: развёрнутый HTML с подзаголовками h3 (техническая, контентная, ссылочная оптимизация)
+— timeline: 4–6 ключевых вех с месячными периодами (SEO — длительный процесс)
+— Все тексты на русском, реалистичные данные
+— Задачу, сложности и решение пиши в HTML (теги p, ul, li, h3)
+
+Формат:
+{
+  "portfolio": [
+    {
+      "title": "SEO-продвижение [НИША]",
+      "excerpt": "Продающее описание результатов SEO (2–3 предложения)",
+      "taxonomies": {
+        "portfolio_tag": ["SEO", "Яндекс"]
+      },
+      "fields": {
+        "client": "Название компании",
+        "niche": "Ниша / отрасль",
+        "task": "&lt;p&gt;Задачи SEO-продвижения&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Вывести в ТОП-10&lt;/li&gt;&lt;/ul&gt;",
+        "challenge": "&lt;p&gt;SEO-проблемы: санкции, дубли, низкая скорость&lt;/p&gt;",
+        "approach": [
+          {"title": "SEO-аудит", "text": "Полный технический и контентный аудит сайта, выявление критических ошибок"},
+          {"title": "Сбор семантики", "text": "Собрали семантическое ядро из 2000+ запросов, кластеризация"},
+          {"title": "Техническая оптимизация", "text": "Исправление ошибок индексации, скорость загрузки, мобильная версия"},
+          {"title": "Контентная стратегия", "text": "Создание и оптимизация посадочных страниц, блог"}
+        ],
+        "solution": "&lt;h3&gt;Техническая оптимизация&lt;/h3&gt;&lt;p&gt;...&lt;/p&gt;&lt;h3&gt;Контент&lt;/h3&gt;&lt;p&gt;...&lt;/p&gt;",
+        "results": [
+          {"metric": "Органический трафик", "before": "1 200 визитов/мес", "after": "8 500 визитов/мес"},
+          {"metric": "Запросы в ТОП-10", "before": "12", "after": "145"},
+          {"metric": "Видимость в Яндекс", "before": "3%", "after": "34%"},
+          {"metric": "Конверсия с SEO", "before": "0.5%", "after": "2.8%"}
+        ],
+        "technologies": [
+          {"name": "Яндекс.Вебмастер", "icon": "ph ph-magnifying-glass"},
+          {"name": "Google Search Console", "icon": "ph ph-google-logo"},
+          {"name": "Ahrefs", "icon": "ph ph-chart-line-up"}
+        ],
+        "timeline": [
+          {"period": "Месяц 1", "title": "Аудит и стратегия", "text": "Технический аудит, анализ конкурентов, сбор семантики"},
+          {"period": "Месяц 2–3", "title": "Техническая оптимизация", "text": "Исправление ошибок, ускорение, структура"},
+          {"period": "Месяц 3–5", "title": "Контент и оптимизация", "text": "Создание посадочных, перелинковка, мета-теги"},
+          {"period": "Месяц 6+", "title": "Рост и масштабирование", "text": "Линкбилдинг, расширение семантики, аналитика"}
+        ],
+        "project_url": "https://example.com"
+      }
+    }
+  ]
+}</pre>
             </div>
 
             <h3>Вставьте JSON и импортируйте</h3>
@@ -510,6 +672,93 @@ function webseo_tab_testimonials(): void {
 }
 
 /* ════════════════════════════════════════════════
+   TAB: CITIES
+   ════════════════════════════════════════════════ */
+
+function webseo_tab_cities(): void {
+    ?>
+    <h2>Импорт городов</h2>
+    <p>Города — таксономия <code>city</code>, привязывается к услугам для мультирегиональных страниц (<code>/uslugi/slug/city-slug/</code>). Каждый город хранит склонения для корректной подстановки в тексты.</p>
+
+    <div class="webseo-cols">
+        <div>
+            <h3>Структура JSON</h3>
+            <table class="field-table">
+                <tr><th colspan="3" style="background:#e8f5e9;">Поля города</th></tr>
+                <tr><th><code>name</code></th><td>string</td><td><strong>Обязательно.</strong> Название в именительном падеже: «Москва», «Санкт-Петербург»</td></tr>
+                <tr><th><code>slug</code></th><td>string</td><td>Slug для URL. Если не указан — генерируется из name. Примеры: <code>moskva</code>, <code>spb</code>, <code>novosibirsk</code></td></tr>
+                <tr><th><code>prepositional</code></th><td>string</td><td><strong>Обязательно.</strong> Предложный падеж (в ком? в чём?): «Москве», «Санкт-Петербурге», «Новосибирске».<br>Используется в <code>{city}</code> — «SEO-продвижение в <u>Москве</u>»</td></tr>
+                <tr><th><code>genitive</code></th><td>string</td><td><strong>Обязательно.</strong> Родительный падеж (кого? чего?): «Москвы», «Санкт-Петербурга», «Новосибирска».<br>Используется в <code>{city_rod}</code> — «Клиенты из <u>Москвы</u>»</td></tr>
+                <tr><th><code>accusative</code></th><td>string</td><td>Винительный падеж (кого? что?): «Москву», «Санкт-Петербург», «Новосибирск».<br>Используется в <code>{city_vin}</code>. Необязательно — если совпадает с именительным</td></tr>
+            </table>
+
+            <div style="margin-top:16px;padding:12px 16px;background:#fff3e0;border-radius:6px;font-size:13px;">
+                <strong>Важно:</strong> После импорта городов привяжите их к услугам — либо через импорт услуг (поле <code>cities</code>), либо вручную в редакторе услуги (таксономия «Город» в сайдбаре).
+            </div>
+
+            <h4 style="margin-top:16px;">Переменные подстановки</h4>
+            <table class="field-table">
+                <tr><th><code>{city}</code></th><td>Предложный — «в {city}» → «в Москве»</td></tr>
+                <tr><th><code>{city_nom}</code></th><td>Именительный — «{city_nom} — мой город» → «Москва — мой город»</td></tr>
+                <tr><th><code>{city_rod}</code></th><td>Родительный — «жители {city_rod}» → «жители Москвы»</td></tr>
+                <tr><th><code>{city_vin}</code></th><td>Винительный — «выбирайте {city_vin}» → «выбирайте Москву»</td></tr>
+            </table>
+        </div>
+        <div>
+            <?php
+            $existing_cities = get_terms(['taxonomy' => 'city', 'hide_empty' => false, 'orderby' => 'name']);
+            if ($existing_cities && !is_wp_error($existing_cities) && count($existing_cities) > 0) :
+                $cities_json = [];
+                foreach ($existing_cities as $ct) {
+                    $city_data = ['name' => $ct->name, 'slug' => $ct->slug];
+                    if (function_exists('get_field')) {
+                        $prep = get_field('city_prepositional', "city_{$ct->term_id}");
+                        $gen  = get_field('city_genitive', "city_{$ct->term_id}");
+                        $acc  = get_field('city_accusative', "city_{$ct->term_id}");
+                        if ($prep) $city_data['prepositional'] = $prep;
+                        if ($gen)  $city_data['genitive'] = $gen;
+                        if ($acc)  $city_data['accusative'] = $acc;
+                    }
+                    $cities_json[] = $city_data;
+                }
+            ?>
+            <div class="prompt-box">
+                <h4>🏙 Существующие города (<?php echo count($existing_cities); ?>)</h4>
+                <p style="font-size:13px;color:#666;margin:0 0 8px;">Готовый JSON всех городов. Скопируйте, отредактируйте и импортируйте повторно для обновления склонений.</p>
+                <pre style="max-height:400px;"><?php echo esc_html(json_encode(['cities' => $cities_json], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></pre>
+            </div>
+            <?php else : ?>
+            <div class="prompt-box">
+                <h4>🏙 Городов пока нет</h4>
+                <p style="font-size:13px;color:#666;">Импортируйте первую партию через форму ниже.</p>
+            </div>
+            <?php endif; ?>
+
+            <div class="prompt-box">
+                <h4>📎 Промт для ИИ</h4>
+                <pre>Сгенерируй JSON-массив городов для импорта
+в WordPress-тему. Нужны города: [ПЕРЕЧИСЛИ ГОРОДА]
+
+Для каждого города укажи:
+- name — именительный падеж (Москва)
+- slug — транслит для URL (moskva, spb,
+  nizhniy-novgorod)
+- prepositional — предложный (Москве)
+- genitive — родительный (Москвы)
+- accusative — винительный, ТОЛЬКО если
+  отличается от именительного (Москву)
+
+Формат: {"cities": [...]}</pre>
+            </div>
+
+            <h3>Вставьте JSON и импортируйте</h3>
+            <?php webseo_import_form('cities', '{"cities": [...]}'); ?>
+        </div>
+    </div>
+    <?php
+}
+
+/* ════════════════════════════════════════════════
    TAB: PAGES
    ════════════════════════════════════════════════ */
 
@@ -523,6 +772,7 @@ function webseo_tab_pages(): void {
             <h3>Структура JSON</h3>
             <table class="field-table">
                 <tr><th><code>title</code></th><td>string</td><td>Название страницы</td></tr>
+                <tr><th><code>slug</code></th><td>string</td><td>Slug для URL (латиницей). Если не указан — генерируется из title. Пример: <code>blog</code>, <code>contacts</code></td></tr>
                 <tr><th><code>template</code></th><td>string</td><td>Шаблон: <code>page-contacts.php</code>, <code>page-about.php</code>, <code>page-thanks.php</code></td></tr>
                 <tr><th><code>content</code></th><td>HTML</td><td>Контент (для шорткодов CF7, текста «Спасибо» и т.д.)</td></tr>
                 <tr><th><code>is_front_page</code></th><td>bool</td><td>Назначить главной страницей</td></tr>
@@ -576,6 +826,7 @@ function webseo_tab_pages(): void {
     },
     {
       "title": "Блог",
+      "slug": "blog",
       "is_posts_page": true
     }
   ]
@@ -693,6 +944,7 @@ function webseo_run_import(array $data, string $type = ''): array {
 
     if (!empty($data['settings']))     $log = array_merge($log, webseo_import_settings($data['settings']));
     if (!empty($data['options']))      { foreach ($data['options'] as $k => $v) { update_field($k, $v, 'option'); $log[] = "✓ Опция: {$k}"; } }
+    if (!empty($data['cities']))       $log = array_merge($log, webseo_import_cities($data['cities']));
     if (!empty($data['pages']))        { foreach ($data['pages'] as $p)        $log = array_merge($log, webseo_import_post($p, 'page')); }
     if (!empty($data['services']))     { foreach ($data['services'] as $p)     $log = array_merge($log, webseo_import_post($p, 'service')); }
     if (!empty($data['portfolio']))    { foreach ($data['portfolio'] as $p)    $log = array_merge($log, webseo_import_post($p, 'portfolio')); }
@@ -716,17 +968,20 @@ function webseo_import_post(array $item, string $post_type): array {
         if (isset($item['content']))    $update['post_content'] = $item['content'];
         if (isset($item['excerpt']))    $update['post_excerpt']  = $item['excerpt'];
         if (isset($item['menu_order'])) $update['menu_order']    = $item['menu_order'];
+        if (!empty($item['slug']))      $update['post_name']     = sanitize_title($item['slug']);
         wp_update_post($update);
         $log[] = "↻ Обновлён {$post_type}: {$item['title']}";
     } else {
-        $post_id = wp_insert_post([
+        $post_data = [
             'post_title'   => $item['title'],
             'post_content' => $item['content'] ?? '',
             'post_excerpt'  => $item['excerpt'] ?? '',
             'post_status'  => 'publish',
             'post_type'    => $post_type,
             'menu_order'   => $item['menu_order'] ?? 0,
-        ]);
+        ];
+        if (!empty($item['slug'])) $post_data['post_name'] = sanitize_title($item['slug']);
+        $post_id = wp_insert_post($post_data);
         $log[] = "✓ Создан {$post_type}: {$item['title']}";
     }
 
@@ -748,6 +1003,31 @@ function webseo_import_post(array $item, string $post_type): array {
                 if (!is_wp_error($t)) $ids[] = (int)($t['term_id'] ?? $t);
             }
             wp_set_post_terms($post_id, $ids, $tax);
+        }
+    }
+
+    // Cities (multi-regional)
+    if (!empty($item['cities']) && $post_type === 'service' && function_exists('update_field')) {
+        $city_ids = [];
+        foreach ($item['cities'] as $city) {
+            $slug = sanitize_title($city['slug'] ?? $city['name']);
+            $t = term_exists($slug, 'city');
+            if (!$t) {
+                $t = wp_insert_term($city['name'], 'city', ['slug' => $slug]);
+            }
+            if (!is_wp_error($t)) {
+                $term_id = (int)($t['term_id'] ?? $t);
+                $city_ids[] = $term_id;
+
+                if (!empty($city['prepositional'])) update_field('city_prepositional', $city['prepositional'], "city_{$term_id}");
+                if (!empty($city['genitive']))      update_field('city_genitive', $city['genitive'], "city_{$term_id}");
+                if (!empty($city['accusative']))     update_field('city_accusative', $city['accusative'], "city_{$term_id}");
+
+                $log[] = "  → Город: {$city['name']} ({$slug})";
+            }
+        }
+        if ($city_ids) {
+            wp_set_post_terms($post_id, $city_ids, 'city');
         }
     }
 
@@ -804,6 +1084,45 @@ function webseo_import_settings(array $s): array {
     if (isset($s['permalink_structure'])) { global $wp_rewrite; $wp_rewrite->set_permalink_structure($s['permalink_structure']); $wp_rewrite->flush_rules(); $log[] = "✓ Ссылки: {$s['permalink_structure']}"; }
     if (isset($s['blogname']))        { update_option('blogname', $s['blogname']); $log[] = "✓ Название: {$s['blogname']}"; }
     if (isset($s['blogdescription'])) { update_option('blogdescription', $s['blogdescription']); $log[] = "✓ Описание: {$s['blogdescription']}"; }
+    return $log;
+}
+
+/* ── Import cities ─────────────────────────── */
+
+function webseo_import_cities(array $cities): array {
+    $log = [];
+    if (!function_exists('update_field')) {
+        $log[] = '✗ ACF Pro не активен — склонения не будут сохранены';
+    }
+
+    foreach ($cities as $city) {
+        if (empty($city['name'])) continue;
+
+        $slug = sanitize_title($city['slug'] ?? $city['name']);
+        $t = term_exists($slug, 'city');
+
+        if ($t) {
+            $term_id = (int)($t['term_id'] ?? $t);
+            wp_update_term($term_id, 'city', ['name' => $city['name']]);
+            $log[] = "↻ Обновлён город: {$city['name']} ({$slug})";
+        } else {
+            $t = wp_insert_term($city['name'], 'city', ['slug' => $slug]);
+            if (is_wp_error($t)) {
+                $log[] = "✗ Ошибка: {$city['name']} — " . $t->get_error_message();
+                continue;
+            }
+            $term_id = (int)$t['term_id'];
+            $log[] = "✓ Создан город: {$city['name']} ({$slug})";
+        }
+
+        if (function_exists('update_field')) {
+            if (!empty($city['prepositional'])) update_field('city_prepositional', $city['prepositional'], "city_{$term_id}");
+            if (!empty($city['genitive']))      update_field('city_genitive', $city['genitive'], "city_{$term_id}");
+            if (!empty($city['accusative']))     update_field('city_accusative', $city['accusative'], "city_{$term_id}");
+        }
+    }
+
+    $log[] = "— Итого: " . count($cities) . " городов обработано";
     return $log;
 }
 

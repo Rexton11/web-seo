@@ -6,19 +6,25 @@
  */
 
 get_header();
-$post_id = get_the_ID();
+$post_id  = get_the_ID();
+$geo_city = webseo_get_effective_city();
 ?>
 
 <!-- 1. HERO -->
 <?php $hero_media = get_field('hero_media'); ?>
 <?php webseo_breadcrumbs(); ?>
 <section class="service-hero<?php echo $hero_media ? ' service-hero--with-media' : ''; ?>">
-    <div class="container">
+    <div class="hero-decor">
+        <div class="hero-grid"></div>
+        <div class="hero-blob hero-blob--1"></div>
+        <div class="hero-glow"></div>
+    </div>
+    <div class="container" data-reveal="scale">
         <div class="service-hero__content">
             <?php if ($icon = get_field('service_icon')) : ?>
                 <div class="service-hero__icon"><?php echo webseo_icon($icon); ?></div>
             <?php endif; ?>
-            <h1><?php the_title(); ?></h1>
+            <h1 class="js-kinetic"><?php the_title(); ?><?php if ($geo_city) echo ' в ' . esc_html(webseo_city_name('prepositional', $geo_city)); ?></h1>
 
             <?php $chips = get_field('hero_chips'); if ($chips) : ?>
                 <div class="hero-chips">
@@ -28,13 +34,17 @@ $post_id = get_the_ID();
                 </div>
             <?php endif; ?>
 
-            <?php if ($sub = get_field('service_subtitle')) : ?>
+            <?php
+            $sub = ($geo_city && get_field('geo_subtitle'))
+                ? webseo_city_replace(get_field('geo_subtitle'), $geo_city)
+                : get_field('service_subtitle');
+            if ($sub) : ?>
                 <p class="service-hero__subtitle"><?php echo esc_html($sub); ?></p>
             <?php endif; ?>
 
             <div class="service-hero__actions">
                 <?php if ($cta = get_field('service_cta_text')) : ?>
-                    <a href="#callback" data-modal="callback" class="btn btn-primary">
+                    <a href="#callback" data-modal="callback" data-magnetic class="btn btn-primary">
                         <?php echo esc_html($cta); ?> <i class="ph-bold ph-arrow-right"></i>
                     </a>
                 <?php endif; ?>
@@ -70,7 +80,7 @@ $post_id = get_the_ID();
         </div>
         <div class="pains-pills">
             <?php foreach ($pains as $pain) : ?>
-                <span class="pain-pill">
+                <span class="pain-pill" data-reveal="scale">
                     <i class="ph-bold ph-x"></i>
                     <?php echo esc_html($pain['title']); ?>
                 </span>
@@ -87,7 +97,7 @@ $post_id = get_the_ID();
         <?php webseo_section_header('', get_field('solution_title') ?: 'Что вы получите'); ?>
         <div class="solution-checklist">
             <?php foreach ($solution as $item) : ?>
-                <div class="solution-check-item">
+                <div class="solution-check-item" data-reveal="left">
                     <div class="solution-check-icon"><i class="ph-bold ph-check"></i></div>
                     <div>
                         <h3><?php echo esc_html($item['title']); ?></h3>
@@ -107,7 +117,7 @@ $post_id = get_the_ID();
         <?php webseo_section_header('', get_field('benefits_title') ?: 'Почему мы'); ?>
         <div class="grid-3">
             <?php foreach ($benefits as $b) : ?>
-                <div class="card">
+                <div class="card" data-reveal>
                     <div class="card-icon"><?php echo webseo_icon($b['icon']); ?></div>
                     <h3><?php echo esc_html($b['title']); ?></h3>
                     <p><?php echo esc_html($b['text']); ?></p>
@@ -119,28 +129,39 @@ $post_id = get_the_ID();
 <?php endif; ?>
 
 <!-- 5. STEPS -->
-<?php if ($steps = get_field('steps')) : ?>
+<?php if ($steps = get_field('steps')) : $step_count = count($steps); ?>
 <section class="section-padding" id="steps">
     <div class="container">
         <?php webseo_section_header('', get_field('steps_title') ?: 'Как мы работаем'); ?>
-    </div>
-    <div class="container">
-        <div class="steps-wrapper">
-            <div class="steps-slider">
+        <div class="process-bar" id="processBar" data-reveal>
+            <div class="process-bar__track">
+                <div class="process-bar__line"><div class="process-bar__line-fill"></div></div>
                 <?php foreach ($steps as $i => $step) : ?>
-                    <div class="step-item">
-                        <div class="step-number"><?php echo $i + 1; ?></div>
-                        <h3><?php echo esc_html($step['title']); ?></h3>
+                    <button class="process-bar__step<?php echo $i === 0 ? ' active' : ''; ?>" data-index="<?php echo $i; ?>">
+                        <span class="process-bar__dot"><?php echo $i + 1; ?></span>
+                        <span class="process-bar__label"><?php echo esc_html(mb_strimwidth($step['title'], 0, 18, '…')); ?></span>
+                    </button>
+                <?php endforeach; ?>
+            </div>
+            <div class="process-bar__content">
+                <?php foreach ($steps as $i => $step) : ?>
+                    <div class="process-bar__panel<?php echo $i === 0 ? ' active' : ''; ?>" data-panel="<?php echo $i; ?>">
+                        <div class="process-bar__panel-header">
+                            <div class="process-bar__panel-num"><?php echo $i + 1; ?></div>
+                            <h3><?php echo esc_html($step['title']); ?></h3>
+                        </div>
                         <p><?php echo esc_html($step['text']); ?></p>
                     </div>
                 <?php endforeach; ?>
-            </div>
-            <?php if (count($steps) > 4) : ?>
-                <div class="slider-arrows">
-                    <button class="slider-arrow" data-dir="-1" data-slider=".steps-slider"><i class="ph-bold ph-arrow-left"></i></button>
-                    <button class="slider-arrow" data-dir="1" data-slider=".steps-slider"><i class="ph-bold ph-arrow-right"></i></button>
+                <div class="process-bar__progress">
+                    <span class="process-bar__counter">Этап <strong>1</strong> из <strong><?php echo $step_count; ?></strong></span>
+                    <div class="process-bar__timer"><div class="process-bar__timer-fill"></div></div>
+                    <div class="process-bar__nav">
+                        <button data-pb-dir="-1" disabled aria-label="Предыдущий"><i class="ph-bold ph-arrow-left"></i></button>
+                        <button data-pb-dir="1" aria-label="Следующий"><i class="ph-bold ph-arrow-right"></i></button>
+                    </div>
                 </div>
-            <?php endif; ?>
+            </div>
         </div>
     </div>
 </section>
@@ -175,7 +196,7 @@ if ($cases) :
         <?php webseo_section_header('', get_field('pricing_title') ?: 'Стоимость'); ?>
         <div class="pricing-grid">
             <?php foreach ($pricing as $plan) : ?>
-                <div class="pricing-card<?php echo $plan['popular'] ? ' pricing-card--popular' : ''; ?>">
+                <div class="pricing-card<?php echo $plan['popular'] ? ' pricing-card--popular' : ''; ?>" data-reveal>
                     <?php if ($plan['popular']) : ?>
                         <span class="pricing-badge">Популярный</span>
                     <?php endif; ?>
@@ -189,7 +210,7 @@ if ($cases) :
                             <li><i class="ph ph-check"></i> <?php echo esc_html($feature); ?></li>
                         <?php endif; endforeach; ?>
                     </ul>
-                    <a href="#callback" data-modal="callback" data-plan="<?php echo esc_attr($plan['name']); ?>" class="btn btn-primary pricing-btn">
+                    <a href="#callback" data-modal="callback" data-plan="<?php echo esc_attr($plan['name']); ?>" data-magnetic class="btn btn-primary pricing-btn">
                         <?php echo esc_html($plan['btn_text'] ?: 'Заказать'); ?>
                     </a>
                 </div>
@@ -202,7 +223,8 @@ if ($cases) :
 <!-- 8. TESTIMONIALS -->
 <?php
 $testimonials = webseo_get_testimonials($post_id);
-if ($testimonials) :
+$parsed_reviews = webseo_get_parsed_reviews();
+if ($testimonials || $parsed_reviews) :
 ?>
 <section class="section-padding bg-gray" id="testimonials">
     <div class="container">
@@ -211,6 +233,10 @@ if ($testimonials) :
         <div class="testimonials-slider">
             <?php foreach ($testimonials as $t) :
                 set_query_var('card_post', $t);
+                get_template_part('parts/card', 'testimonial');
+            endforeach; ?>
+            <?php foreach ($parsed_reviews as $pr) :
+                set_query_var('card_post', $pr);
                 get_template_part('parts/card', 'testimonial');
             endforeach; ?>
         </div>
@@ -265,11 +291,31 @@ if ($quiz_id) :
 </section>
 <?php endif; ?>
 
+<!-- GEO CONTENT -->
+<?php if ($geo_city && ($geo_desc = get_field('geo_description'))) : ?>
+<section class="section-padding" id="geo-content">
+    <div class="container">
+        <div class="geo-content geo-content--centered" data-reveal>
+            <h2><?php the_title(); ?> в <?php echo esc_html(webseo_city_name('prepositional', $geo_city)); ?></h2>
+            <div class="geo-content__text">
+                <?php echo wp_kses_post(webseo_city_replace($geo_desc, $geo_city)); ?>
+            </div>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
+
 <!-- 11. CTA -->
 <?php
+$cta_title = get_field('cta_title') ?: 'Готовы обсудить проект?';
+$cta_text  = get_field('cta_desc');
+if ($geo_city) {
+    $cta_title = webseo_city_replace($cta_title, $geo_city);
+    if ($cta_text) $cta_text = webseo_city_replace($cta_text, $geo_city);
+}
 set_query_var('cta_data', [
-    'title'    => get_field('cta_title') ?: 'Готовы обсудить проект?',
-    'text'     => get_field('cta_desc'),
+    'title'    => $cta_title,
+    'text'     => $cta_text,
     'btn_text' => get_field('cta_btn_text') ?: 'Оставить заявку',
 ]);
 get_template_part('parts/section', 'cta');

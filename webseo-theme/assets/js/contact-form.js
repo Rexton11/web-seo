@@ -16,12 +16,15 @@
         var email   = form.querySelector('[name="email"]');
         var message = form.querySelector('[name="message"]');
         var honey   = form.querySelector('[name="website"]');
+        var consentWrap = document.getElementById('contactConsent');
+        var consentBox  = document.getElementById('contactConsentCheck');
 
         // Reset
         msg.hidden = true;
         form.querySelectorAll('.form-input--error').forEach(function (el) {
             el.classList.remove('form-input--error');
         });
+        if (consentWrap) consentWrap.classList.remove('form-consent--error');
 
         // Validate
         if (!name.value.trim()) {
@@ -32,6 +35,11 @@
         if (!phone.value.trim() && !email.value.trim()) {
             phone.classList.add('form-input--error');
             phone.focus();
+            return;
+        }
+        if (consentBox && !consentBox.checked) {
+            consentWrap.classList.add('form-consent--error');
+            consentBox.focus();
             return;
         }
 
@@ -62,6 +70,7 @@
                 phone.value = '';
                 email.value = '';
                 message.value = '';
+                if (consentBox) consentBox.checked = false;
             } else {
                 msg.className = 'form-message form-message--error';
                 msg.textContent = data.data.message || 'Ошибка отправки';

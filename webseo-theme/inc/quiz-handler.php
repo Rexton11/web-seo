@@ -63,6 +63,22 @@ function webseo_quiz_submit(): void {
 
     $sent = wp_mail($to, $subject, $body, $headers);
 
+    $crm_message = "Квиз: {$quiz_title}\n";
+    if ($steps && is_array($answers)) {
+        foreach ($answers as $i => $answer) {
+            $question = $steps[$i]['question'] ?? "Вопрос " . ($i + 1);
+            $val = is_array($answer) ? implode(', ', array_map('sanitize_text_field', $answer)) : sanitize_text_field($answer);
+            $crm_message .= "{$question}: {$val}\n";
+        }
+    }
+    webseo_send_to_crm([
+        'name'    => $name,
+        'phone'   => $phone,
+        'email'   => $email,
+        'message' => trim($crm_message),
+        'source'  => home_url('/'),
+    ]);
+
     if ($sent) {
         $success_msg = get_field('success_message', $quiz_id) ?: 'Спасибо! Мы свяжемся с вами в ближайшее время.';
         wp_send_json_success(['message' => $success_msg]);

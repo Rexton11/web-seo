@@ -120,7 +120,7 @@ $cta_url   = webseo_option('header_cta_url');
             <?php
             $mob_cats = get_terms(['taxonomy' => 'service_category', 'hide_empty' => true, 'orderby' => 'menu_order']);
             if ($mob_cats && !is_wp_error($mob_cats)) :
-                foreach ($mob_cats as $ci => $mcat) :
+                foreach ($mob_cats as $mcat) :
             ?>
                 <button class="mob-link mob-link--arrow" data-goto="cat-<?php echo $mcat->slug; ?>">
                     <?php echo esc_html($mcat->name); ?>
@@ -133,14 +133,16 @@ $cta_url   = webseo_option('header_cta_url');
         <!-- Level 2: Services per category -->
         <?php if ($mob_cats && !is_wp_error($mob_cats)) :
             foreach ($mob_cats as $mcat) :
-                $mob_services = get_posts(['post_type' => 'service', 'posts_per_page' => 15, 'orderby' => 'menu_order', 'order' => 'ASC', 'tax_query' => [['taxonomy' => 'service_category', 'terms' => $mcat->term_id]]]);
+                $mob_services = get_posts(['post_type' => 'service', 'posts_per_page' => 30, 'orderby' => 'menu_order', 'order' => 'ASC', 'tax_query' => [['taxonomy' => 'service_category', 'terms' => $mcat->term_id]]]);
         ?>
             <div class="mob-level" data-level="cat-<?php echo $mcat->slug; ?>">
                 <button class="mob-back" data-goto="1"><i class="ph-bold ph-arrow-left"></i> Услуги</button>
                 <div class="mob-level__title"><?php echo esc_html($mcat->name); ?></div>
-                <?php foreach ($mob_services as $ms) : ?>
-                    <a href="<?php echo get_permalink($ms); ?>" class="mob-link"><?php echo esc_html($ms->post_title); ?></a>
-                <?php endforeach; ?>
+                <div class="mob-mega-scroll">
+                    <?php foreach ($mob_services as $ms) : ?>
+                        <a href="<?php echo get_permalink($ms); ?>" class="mob-link"><?php echo esc_html($ms->post_title); ?></a>
+                    <?php endforeach; ?>
+                </div>
             </div>
         <?php endforeach; endif; ?>
     </nav>

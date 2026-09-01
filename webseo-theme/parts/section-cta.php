@@ -4,7 +4,7 @@ if (!$data || empty($data['title'])) return;
 $tg = webseo_option('telegram');
 ?>
 <section class="cta-section">
-    <div class="container">
+    <div class="container" data-reveal="scale">
         <div class="cta-icons">
             <div class="cta-icon"><i class="ph ph-rocket"></i></div>
             <div class="cta-icon"><i class="ph ph-chart-line-up"></i></div>
@@ -15,7 +15,7 @@ $tg = webseo_option('telegram');
             <p><?php echo esc_html($data['text']); ?></p>
         <?php endif; ?>
         <div class="cta-buttons">
-            <a href="#callback" data-modal="callback" class="btn btn-primary">
+            <a href="#callback" data-modal="callback" data-magnetic class="btn btn-primary">
                 <?php echo esc_html($data['btn_text'] ?? 'Оставить заявку'); ?> <i class="ph-bold ph-arrow-right"></i>
             </a>
             <?php if ($tg) : ?>
