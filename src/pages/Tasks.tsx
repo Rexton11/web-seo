@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '../AuthContext';
 import { useSettings } from '../SettingsContext';
 import { Task, Project, TaskColumn } from '../types';
@@ -6,17 +6,17 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus, Search, Inbox, ListTodo, FolderOpen, LayoutGrid, List, ChevronRight, ChevronDown,
   Flag, Calendar, Trash2, Check, X, MoreHorizontal, GripVertical, Clock,
-  AlertCircle, Folder, FolderPlus, Archive, FileText, Copy, ExternalLink
+  AlertCircle, Folder, FolderPlus, Archive, FileText, Copy, ExternalLink, AlignLeft
 } from 'lucide-react';
 import { format, isPast, isToday, isTomorrow, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
 const PRIORITY_CONFIG = [
-  { value: 0, label: 'Без приоритета', color: 'text-slate-300', bg: '' },
-  { value: 1, label: 'Низкий', color: 'text-blue-400', bg: 'bg-blue-50' },
-  { value: 2, label: 'Средний', color: 'text-amber-500', bg: 'bg-amber-50' },
-  { value: 3, label: 'Высокий', color: 'text-orange-500', bg: 'bg-orange-50' },
-  { value: 4, label: 'Срочный', color: 'text-red-500', bg: 'bg-red-50' },
+  { value: 0, label: 'Без приоритета', color: 'text-slate-300', bg: '', flagColor: '' },
+  { value: 1, label: 'Низкий', color: 'text-blue-400', bg: 'bg-blue-50', flagColor: 'text-blue-400' },
+  { value: 2, label: 'Средний', color: 'text-amber-500', bg: 'bg-amber-50', flagColor: 'text-amber-500' },
+  { value: 3, label: 'Высокий', color: 'text-orange-500', bg: 'bg-orange-50', flagColor: 'text-orange-500' },
+  { value: 4, label: 'Срочный', color: 'text-red-500', bg: 'bg-red-50', flagColor: 'text-red-500' },
 ];
 
 const DEFAULT_COLUMNS: TaskColumn[] = [
@@ -41,13 +41,13 @@ export default function Tasks() {
   const [search, setSearch] = useState('');
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
-  const [editingTask, setEditingTask] = useState<string | null>(null);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectColor, setNewProjectColor] = useState('#3b82f6');
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [templates, setTemplates] = useState<any[]>([]);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const COLUMNS: TaskColumn[] = settings?.taskColumns?.sort((a: TaskColumn, b: TaskColumn) => a.order - b.order) || DEFAULT_COLUMNS;
 
@@ -101,6 +101,8 @@ export default function Tasks() {
     return result;
   }, [parentTasks, filter, search]);
 
+  const selectedTask = useMemo(() => selectedTaskId ? tasks.find(t => t.id === selectedTaskId) || null : null, [selectedTaskId, tasks]);
+
   const createTask = async (overrides: Partial<Task> = {}) => {
     if (!newTitle.trim() && !overrides.title) return;
     const token = await getToken();
@@ -124,6 +126,21 @@ export default function Tasks() {
     }
   };
 
+  const createSubtask = async (overrides: Partial<Task>) => {
+    const token = await getToken();
+    const body: any = { title: 'Подзадача', status: 'inbox', ...overrides };
+    const res = await fetch('/api/tasks', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      const t = await res.json();
+      t.tags = t.tags || [];
+      setTasks(prev => [...prev, t]);
+    }
+  };
+
   const updateTask = async (id: string, updates: Partial<Task>) => {
     const token = await getToken();
     setTasks(tasks.map(t => t.id === id ? { ...t, ...updates } : t));
@@ -139,6 +156,7 @@ export default function Tasks() {
     const token = await getToken();
     await fetch(`/api/tasks/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     setTasks(tasks.filter(t => t.id !== id && t.parentId !== id));
+    if (selectedTaskId === id) setSelectedTaskId(null);
   };
 
   const toggleComplete = async (task: Task) => {
@@ -325,47 +343,58 @@ export default function Tasks() {
           </div>
         )}
 
-        {/* Content */}
-        <div className="flex-1 overflow-auto">
-          {view === 'list' ? (
-            <ListView
-              tasks={filteredTasks}
-              subtasksMap={subtasksMap}
+        {/* Content area with optional right panel */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Task list / kanban */}
+          <div className="flex-1 overflow-auto">
+            {view === 'list' ? (
+              <ListView
+                tasks={filteredTasks}
+                subtasksMap={subtasksMap}
+                projects={projects}
+                columns={COLUMNS}
+                expandedTasks={expandedTasks}
+                setExpandedTasks={setExpandedTasks}
+                updateTask={updateTask}
+                deleteTask={deleteTask}
+                toggleComplete={toggleComplete}
+                getDueDateLabel={getDueDateLabel}
+                navigate={navigate}
+                selectedTaskId={selectedTaskId}
+                onSelectTask={(id: string) => setSelectedTaskId(selectedTaskId === id ? null : id)}
+                createTask={createSubtask}
+              />
+            ) : (
+              <KanbanView
+                tasks={filteredTasks}
+                columns={COLUMNS}
+                updateTask={updateTask}
+                handleDragStart={handleDragStart}
+                handleDrop={handleDrop}
+                toggleComplete={toggleComplete}
+                getDueDateLabel={getDueDateLabel}
+                projects={projects}
+                navigate={navigate}
+                selectedTaskId={selectedTaskId}
+                onSelectTask={(id: string) => setSelectedTaskId(selectedTaskId === id ? null : id)}
+              />
+            )}
+          </div>
+
+          {/* Right detail panel */}
+          {selectedTask && (
+            <TaskDetailPanel
+              task={selectedTask}
+              subtasks={subtasksMap[selectedTask.id] || []}
               projects={projects}
               columns={COLUMNS}
-              expandedTasks={expandedTasks}
-              setExpandedTasks={setExpandedTasks}
               updateTask={updateTask}
               deleteTask={deleteTask}
               toggleComplete={toggleComplete}
               getDueDateLabel={getDueDateLabel}
               navigate={navigate}
-              createTask={async (overrides) => {
-                const token = await getToken();
-                const body: any = { title: 'Подзадача', status: 'inbox', ...overrides };
-                const res = await fetch('/api/tasks', {
-                  method: 'POST',
-                  headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                  body: JSON.stringify(body),
-                });
-                if (res.ok) {
-                  const t = await res.json();
-                  t.tags = t.tags || [];
-                  setTasks(prev => [...prev, t]);
-                }
-              }}
-            />
-          ) : (
-            <KanbanView
-              tasks={filteredTasks}
-              columns={COLUMNS}
-              updateTask={updateTask}
-              handleDragStart={handleDragStart}
-              handleDrop={handleDrop}
-              toggleComplete={toggleComplete}
-              getDueDateLabel={getDueDateLabel}
-              projects={projects}
-              navigate={navigate}
+              onClose={() => setSelectedTaskId(null)}
+              createSubtask={createSubtask}
             />
           )}
         </div>
@@ -438,13 +467,240 @@ export default function Tasks() {
   );
 }
 
-function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExpandedTasks, updateTask, deleteTask, toggleComplete, getDueDateLabel, navigate, createTask }: any) {
+function TaskDetailPanel({ task, subtasks, projects, columns, updateTask, deleteTask, toggleComplete, getDueDateLabel, navigate, onClose, createSubtask }: any) {
+  const [title, setTitle] = useState(task.title);
+  const [description, setDescription] = useState(task.description || '');
+  const [addingSubtask, setAddingSubtask] = useState(false);
+  const [subtaskTitle, setSubtaskTitle] = useState('');
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  const lastCol = columns.length > 0 ? columns[columns.length - 1].id : 'done';
+  const isDone = task.status === lastCol;
+  const priority = PRIORITY_CONFIG.find((p: any) => p.value === task.priority) || PRIORITY_CONFIG[0];
+  const project = projects.find((p: any) => p.id === task.projectId);
+
+  useEffect(() => {
+    setTitle(task.title);
+    setDescription(task.description || '');
+  }, [task.id, task.title, task.description]);
+
+  const saveTitle = () => {
+    if (title.trim() && title.trim() !== task.title) {
+      updateTask(task.id, { title: title.trim() });
+    }
+  };
+
+  const saveDescription = () => {
+    if (description !== (task.description || '')) {
+      updateTask(task.id, { description: description });
+    }
+  };
+
+  const handleAddSubtask = async () => {
+    if (!subtaskTitle.trim()) return;
+    await createSubtask({ title: subtaskTitle.trim(), parentId: task.id, status: 'inbox' });
+    setSubtaskTitle('');
+    setAddingSubtask(false);
+  };
+
+  return (
+    <div className="w-96 border-l border-slate-200 bg-white flex flex-col flex-shrink-0 overflow-hidden">
+      {/* Panel header */}
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <button onClick={() => toggleComplete(task)}
+            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isDone ? 'bg-green-500 border-green-500' : 'border-slate-300 hover:border-blue-500'}`}>
+            {isDone && <Check className="w-3 h-3 text-white" />}
+          </button>
+          <span className="text-xs text-slate-400 font-medium">
+            {columns.find((c: TaskColumn) => c.id === task.status)?.label || task.status}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          {task.dealId && (
+            <button onClick={() => navigate(`/deal/${task.dealId}`)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-md transition-colors" title="Связанная сделка">
+              <ExternalLink className="w-4 h-4" />
+            </button>
+          )}
+          <button onClick={() => deleteTask(task.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors">
+            <Trash2 className="w-4 h-4" />
+          </button>
+          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Title */}
+        <div className="px-5 pt-4 pb-2">
+          <input
+            ref={titleRef}
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            onBlur={saveTitle}
+            onKeyDown={e => { if (e.key === 'Enter') { saveTitle(); (e.target as HTMLInputElement).blur(); } }}
+            className={`w-full text-lg font-bold border-none outline-none bg-transparent resize-none ${isDone ? 'line-through text-slate-400' : 'text-slate-800'}`}
+          />
+        </div>
+
+        {/* Properties */}
+        <div className="px-5 py-3 space-y-3">
+          {/* Due date */}
+          <div className="flex items-center gap-3">
+            <Calendar className="w-4 h-4 text-slate-400 flex-shrink-0" />
+            <span className="text-sm text-slate-500 w-20 flex-shrink-0">Когда</span>
+            <div className="flex-1 flex items-center gap-2">
+              <input
+                type="date"
+                value={task.dueDate || ''}
+                onChange={e => updateTask(task.id, { dueDate: e.target.value || null } as any)}
+                className="text-sm border border-slate-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:border-blue-400 flex-1"
+              />
+              {task.dueDate && (() => {
+                const dl = getDueDateLabel(task.dueDate);
+                return <span className={`text-xs px-2 py-0.5 rounded ${dl.className}`}>{dl.text}</span>;
+              })()}
+            </div>
+          </div>
+
+          {/* Priority */}
+          <div className="flex items-center gap-3">
+            <Flag className={`w-4 h-4 flex-shrink-0 ${task.priority > 0 ? priority.color : 'text-slate-400'}`} fill={task.priority > 0 ? 'currentColor' : 'none'} />
+            <span className="text-sm text-slate-500 w-20 flex-shrink-0">Приоритет</span>
+            <select
+              value={task.priority}
+              onChange={e => updateTask(task.id, { priority: parseInt(e.target.value) })}
+              className="text-sm border border-slate-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:border-blue-400 flex-1"
+            >
+              {PRIORITY_CONFIG.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+            </select>
+          </div>
+
+          {/* Status */}
+          <div className="flex items-center gap-3">
+            <ListTodo className="w-4 h-4 text-slate-400 flex-shrink-0" />
+            <span className="text-sm text-slate-500 w-20 flex-shrink-0">Статус</span>
+            <select
+              value={task.status}
+              onChange={e => {
+                const isLast = columns.length > 0 && e.target.value === columns[columns.length - 1].id;
+                updateTask(task.id, { status: e.target.value, completedAt: isLast ? new Date().toISOString() as any : null });
+              }}
+              className="text-sm border border-slate-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:border-blue-400 flex-1"
+            >
+              {columns.map((c: TaskColumn) => <option key={c.id} value={c.id}>{c.label}</option>)}
+            </select>
+          </div>
+
+          {/* Project */}
+          <div className="flex items-center gap-3">
+            <Folder className="w-4 h-4 text-slate-400 flex-shrink-0" />
+            <span className="text-sm text-slate-500 w-20 flex-shrink-0">Проект</span>
+            <select
+              value={task.projectId || ''}
+              onChange={e => updateTask(task.id, { projectId: e.target.value || null } as any)}
+              className="text-sm border border-slate-200 rounded-md px-2 py-1 bg-white focus:outline-none focus:border-blue-400 flex-1"
+            >
+              <option value="">Без проекта</option>
+              {projects.filter((p: any) => !p.archived).map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="mx-5 border-t border-slate-100" />
+
+        {/* Description */}
+        <div className="px-5 py-4">
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            onBlur={saveDescription}
+            rows={4}
+            placeholder="Описание задачи..."
+            className="w-full text-sm text-slate-700 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400 resize-y bg-slate-50"
+          />
+        </div>
+
+        {/* Divider */}
+        <div className="mx-5 border-t border-slate-100" />
+
+        {/* Subtasks */}
+        <div className="px-5 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-semibold text-slate-700">Подзадачи</span>
+            <button onClick={() => { setAddingSubtask(true); setSubtaskTitle(''); }}
+              className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1 font-medium">
+              <Plus className="w-3.5 h-3.5" /> Добавить
+            </button>
+          </div>
+
+          {subtasks.length === 0 && !addingSubtask && (
+            <p className="text-xs text-slate-400 py-2">Нет подзадач</p>
+          )}
+
+          <div className="space-y-1">
+            {subtasks.map((sub: Task) => {
+              const subDone = sub.status === lastCol;
+              const subPriority = PRIORITY_CONFIG.find(p => p.value === sub.priority) || PRIORITY_CONFIG[0];
+              return (
+                <div key={sub.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-slate-50 group">
+                  <button onClick={() => toggleComplete(sub)}
+                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${subDone ? 'bg-green-500 border-green-500' : 'border-slate-300 hover:border-blue-500'}`}>
+                    {subDone && <Check className="w-2.5 h-2.5 text-white" />}
+                  </button>
+                  <span className={`flex-1 text-sm ${subDone ? 'line-through text-slate-400' : 'text-slate-700'}`}>{sub.title}</span>
+                  {sub.priority > 0 && <Flag className={`w-3 h-3 ${subPriority.color}`} fill="currentColor" />}
+                  <button onClick={() => deleteTask(sub.id)}
+                    className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-300 hover:text-red-500">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              );
+            })}
+
+            {addingSubtask && (
+              <div className="flex items-center gap-2 py-1">
+                <div className="w-4 h-4 rounded-full border-2 border-slate-200 flex-shrink-0" />
+                <input
+                  autoFocus
+                  value={subtaskTitle}
+                  onChange={e => setSubtaskTitle(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleAddSubtask(); if (e.key === 'Escape') setAddingSubtask(false); }}
+                  onBlur={() => { if (subtaskTitle.trim()) handleAddSubtask(); else setAddingSubtask(false); }}
+                  placeholder="Новая подзадача..."
+                  className="flex-1 text-sm border-none outline-none bg-transparent"
+                />
+              </div>
+            )}
+          </div>
+
+          {subtasks.length > 0 && (
+            <div className="mt-3 flex items-center gap-2">
+              <div className="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-green-500 h-full rounded-full transition-all"
+                  style={{ width: `${(subtasks.filter((s: Task) => s.status === lastCol).length / subtasks.length) * 100}%` }}
+                />
+              </div>
+              <span className="text-xs text-slate-400">
+                {subtasks.filter((s: Task) => s.status === lastCol).length}/{subtasks.length}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExpandedTasks, updateTask, deleteTask, toggleComplete, getDueDateLabel, navigate, selectedTaskId, onSelectTask, createTask }: any) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [addingSubtask, setAddingSubtask] = useState<string | null>(null);
   const [subtaskTitle, setSubtaskTitle] = useState('');
-  const [openDescId, setOpenDescId] = useState<string | null>(null);
-  const [descText, setDescText] = useState('');
 
   const lastCol = columns.length > 0 ? columns[columns.length - 1].id : 'done';
 
@@ -491,36 +747,37 @@ function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExp
     const isExpanded = expandedTasks.has(task.id);
     const project = projects.find((p: any) => p.id === task.projectId);
     const completedSubs = subs.filter((s: any) => s.status === lastCol).length;
+    const isSelected = selectedTaskId === task.id;
 
     return (
       <div key={task.id}>
-        <div className={`group flex items-center gap-2 px-6 py-2.5 border-b border-slate-100 hover:bg-slate-50 transition-colors ${isSubtask ? 'pl-14' : ''} ${isDone ? 'opacity-60' : ''}`}>
+        <div
+          onClick={() => onSelectTask(task.id)}
+          className={`group flex items-center gap-2 px-6 py-2.5 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer ${isSubtask ? 'pl-14' : ''} ${isDone ? 'opacity-60' : ''} ${isSelected ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''}`}
+        >
           {!isSubtask && hasSubtasks && (
-            <button onClick={() => toggleExpand(task.id)} className="p-0.5 text-slate-400 hover:text-slate-600">
+            <button onClick={(e) => { e.stopPropagation(); toggleExpand(task.id); }} className="p-0.5 text-slate-400 hover:text-slate-600">
               {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
             </button>
           )}
           {!isSubtask && !hasSubtasks && <div className="w-4.5" />}
 
-          <button onClick={() => toggleComplete(task)}
+          <button onClick={(e) => { e.stopPropagation(); toggleComplete(task); }}
             className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isDone ? 'bg-green-500 border-green-500' : 'border-slate-300 hover:border-blue-500'}`}>
             {isDone && <Check className="w-3 h-3 text-white" />}
           </button>
 
           {editingId === task.id ? (
             <input autoFocus value={editTitle} onChange={e => setEditTitle(e.target.value)}
+              onClick={e => e.stopPropagation()}
               onKeyDown={e => { if (e.key === 'Enter') saveEdit(task.id); if (e.key === 'Escape') setEditingId(null); }}
               onBlur={() => saveEdit(task.id)}
               className="flex-1 px-2 py-0.5 text-sm border border-blue-300 rounded focus:outline-none" />
           ) : (
-            <span onDoubleClick={() => startEdit(task)}
-              onClick={() => {
-                if (openDescId === task.id) { setOpenDescId(null); }
-                else { setOpenDescId(task.id); setDescText(task.description || ''); }
-              }}
-              className={`flex-1 text-sm cursor-pointer ${isDone ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+            <span onDoubleClick={(e) => { e.stopPropagation(); startEdit(task); }}
+              className={`flex-1 text-sm ${isDone ? 'line-through text-slate-400' : 'text-slate-800'}`}>
               {task.title}
-              {task.description && <FileText className="w-3 h-3 inline ml-1 text-slate-300" />}
+              {task.description && <AlignLeft className="w-3 h-3 inline ml-1.5 text-slate-300" />}
             </span>
           )}
 
@@ -529,7 +786,7 @@ function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExp
           )}
 
           {task.dealId && (
-            <button onClick={() => navigate(`/deal/${task.dealId}`)} className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-0.5" title="Связанная сделка">
+            <button onClick={(e) => { e.stopPropagation(); navigate(`/deal/${task.dealId}`); }} className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-0.5" title="Связанная сделка">
               <ExternalLink className="w-3 h-3" />
             </button>
           )}
@@ -547,50 +804,18 @@ function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExp
             <Flag className={`w-3.5 h-3.5 ${priority.color}`} fill="currentColor" />
           )}
 
-          {/* Priority selector */}
-          <select value={task.priority} onChange={e => updateTask(task.id, { priority: parseInt(e.target.value) })}
-            className="opacity-0 group-hover:opacity-100 text-xs border-none bg-transparent cursor-pointer focus:outline-none w-6 text-slate-400">
-            {PRIORITY_CONFIG.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-          </select>
-
-          {/* Status selector */}
-          <select value={task.status} onChange={e => {
-            const isLast = columns.length > 0 && e.target.value === columns[columns.length - 1].id;
-            updateTask(task.id, { status: e.target.value, completedAt: isLast ? new Date().toISOString() as any : null });
-          }}
-            className="opacity-0 group-hover:opacity-100 text-xs border border-slate-200 rounded px-1.5 py-0.5 bg-white cursor-pointer focus:outline-none">
-            {columns.map((c: TaskColumn) => <option key={c.id} value={c.id}>{c.label}</option>)}
-          </select>
-
-          {/* Date picker */}
-          <input type="date" value={task.dueDate || ''} onChange={e => updateTask(task.id, { dueDate: e.target.value || null } as any)}
-            className="opacity-0 group-hover:opacity-100 text-xs border border-slate-200 rounded px-1 py-0.5 bg-white cursor-pointer focus:outline-none w-8 text-slate-400" />
-
           {!isSubtask && (
-            <button onClick={() => { setAddingSubtask(task.id); setSubtaskTitle(''); }}
+            <button onClick={(e) => { e.stopPropagation(); setAddingSubtask(task.id); setSubtaskTitle(''); }}
               className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-blue-500" title="Добавить подзадачу">
               <Plus className="w-3.5 h-3.5" />
             </button>
           )}
 
-          <button onClick={() => deleteTask(task.id)}
+          <button onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}
             className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-red-500">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
-
-        {openDescId === task.id && (
-          <div className="px-6 py-3 bg-slate-50 border-b border-slate-100" style={{ paddingLeft: isSubtask ? '3.5rem' : '1.5rem' }}>
-            <textarea
-              value={descText}
-              onChange={e => setDescText(e.target.value)}
-              onBlur={() => { if (descText !== (task.description || '')) updateTask(task.id, { description: descText }); }}
-              rows={3}
-              placeholder="Описание задачи..."
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400 resize-y bg-white"
-            />
-          </div>
-        )}
 
         {isExpanded && subs.map((sub: any) => renderTask(sub, true))}
 
@@ -626,7 +851,7 @@ function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExp
   );
 }
 
-function KanbanView({ tasks, columns, updateTask, handleDragStart, handleDrop, toggleComplete, getDueDateLabel, projects, navigate }: any) {
+function KanbanView({ tasks, columns, updateTask, handleDragStart, handleDrop, toggleComplete, getDueDateLabel, projects, navigate, selectedTaskId, onSelectTask }: any) {
   const lastCol = columns.length > 0 ? columns[columns.length - 1].id : 'done';
 
   return (
@@ -648,12 +873,14 @@ function KanbanView({ tasks, columns, updateTask, handleDragStart, handleDrop, t
                 const isDone = task.status === lastCol;
                 const priority = PRIORITY_CONFIG.find((p: any) => p.value === task.priority) || PRIORITY_CONFIG[0];
                 const project = projects.find((p: any) => p.id === task.projectId);
+                const isSelected = selectedTaskId === task.id;
 
                 return (
                   <div key={task.id} draggable onDragStart={e => handleDragStart(e, task.id)}
-                    className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:shadow hover:border-blue-300 cursor-grab active:cursor-grabbing transition-all">
+                    onClick={() => onSelectTask(task.id)}
+                    className={`bg-white p-3 rounded-lg border shadow-sm hover:shadow hover:border-blue-300 cursor-grab active:cursor-grabbing transition-all ${isSelected ? 'border-blue-500 ring-1 ring-blue-200' : 'border-slate-200'}`}>
                     <div className="flex items-start gap-2 mb-1">
-                      <button onClick={() => toggleComplete(task)}
+                      <button onClick={(e) => { e.stopPropagation(); toggleComplete(task); }}
                         className={`w-4.5 h-4.5 mt-0.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isDone ? 'bg-green-500 border-green-500' : 'border-slate-300 hover:border-blue-500'}`}>
                         {isDone && <Check className="w-2.5 h-2.5 text-white" />}
                       </button>
@@ -674,7 +901,7 @@ function KanbanView({ tasks, columns, updateTask, handleDragStart, handleDrop, t
                         return <span className={`text-[10px] px-1.5 py-0.5 rounded ${dl.className}`}><Calendar className="w-2.5 h-2.5 inline mr-0.5" />{dl.text}</span>;
                       })()}
                       {task.dealId && (
-                        <button onClick={() => navigate(`/deal/${task.dealId}`)}
+                        <button onClick={(e) => { e.stopPropagation(); navigate(`/deal/${task.dealId}`); }}
                           className="text-[10px] text-blue-500 hover:text-blue-600 flex items-center gap-0.5">
                           <ExternalLink className="w-2.5 h-2.5" /> Сделка
                         </button>
