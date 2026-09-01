@@ -1,0 +1,59 @@
+{
+  "collections": [
+    {
+      "name": "users",
+      "description": "User profiles",
+      "document": {
+        "uid": "string",
+        "email": "string",
+        "createdAt": "timestamp"
+      },
+      "rules": {
+        "read": "request.auth.uid == documentId",
+        "create": "request.auth.uid == documentId",
+        "update": "request.auth.uid == documentId",
+        "delete": "false"
+      }
+    },
+    {
+      "name": "deals",
+      "description": "CRM Deals / Leads",
+      "document": {
+        "id": "string",
+        "userId": "string",
+        "clientName": "string",
+        "projectType": "string",
+        "status": "string",
+        "amount": "number",
+        "createdAt": "timestamp",
+        "updatedAt": "timestamp",
+        "currentSituation": "string",
+        "businessGoals": "string",
+        "growthPoints": "string",
+        "cpData": "string",
+        "contractDetails": {
+          "companyName": "string",
+          "inn": "string",
+          "directorName": "string",
+          "date": "timestamp"
+        },
+        "actDetails": {
+          "actNumber": "string",
+          "date": "timestamp",
+          "isSigned": "boolean"
+        }
+      },
+      "rules": {
+        "read": "request.auth != null && request.auth.uid == resource.data.userId",
+        "create": "request.auth != null && request.auth.uid == request.resource.data.userId",
+        "update": "request.auth != null && request.auth.uid == resource.data.userId",
+        "delete": "request.auth != null && request.auth.uid == resource.data.userId"
+      },
+      "indexes": [
+        {
+          "fields": ["userId", "createdAt"]
+        }
+      ]
+    }
+  ]
+}

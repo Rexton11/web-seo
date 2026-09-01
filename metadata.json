@@ -1,0 +1,6 @@
+{
+  "name": "Генератор КП",
+  "description": "Инструмент для создания персонализированных коммерческих предложений на основе вводных данных.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
