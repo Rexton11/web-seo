@@ -23,6 +23,7 @@ export default function ArticleView() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [contentCopied, setContentCopied] = useState(false);
   const [markdownCopied, setMarkdownCopied] = useState(false);
+  const checkboxCountRef = useRef(0);
 
   const getToken = async () => user ? await user.getIdToken() : '';
 
@@ -66,6 +67,25 @@ export default function ArticleView() {
     navigator.clipboard.writeText(link);
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  const toggleCheckbox = async (checkboxIndex: number) => {
+    if (!article) return;
+    const content = article.content || '';
+    let count = 0;
+    const newContent = content.replace(/- \[([ x])\]/g, (match, state) => {
+      if (count++ === checkboxIndex) {
+        return state === 'x' ? '- [ ]' : '- [x]';
+      }
+      return match;
+    });
+    setArticle({ ...article, content: newContent });
+    const token = await getToken();
+    await fetch(`/api/kb/articles/${id}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: newContent }),
+    });
   };
 
   const handleCopyContent = () => {
@@ -159,6 +179,7 @@ export default function ArticleView() {
         </div>
 
         {/* Content */}
+        {(() => { checkboxCountRef.current = 0; return null; })()}
         <div ref={contentRef} className="prose prose-slate max-w-none mb-12">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
@@ -182,7 +203,15 @@ export default function ArticleView() {
               },
               input({ type, checked, ...props }: any) {
                 if (type === 'checkbox') {
-                  return <input type="checkbox" checked={checked} readOnly className="mr-2 rounded" />;
+                  const idx = checkboxCountRef.current++;
+                  return (
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleCheckbox(idx)}
+                      className="mr-2 rounded cursor-pointer accent-blue-500"
+                    />
+                  );
                 }
                 return <input {...props} />;
               },

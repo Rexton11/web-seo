@@ -49,6 +49,7 @@ export default function ArticleEditor() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const checkboxCountRef = useRef(0);
 
   const getToken = async () => user ? await user.getIdToken() : '';
 
@@ -126,6 +127,17 @@ export default function ArticleEditor() {
     await fetch(`/api/attachments/${attId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
     fetchAttachments();
   };
+
+  const toggleCheckbox = useCallback((checkboxIndex: number) => {
+    let count = 0;
+    const newContent = content.replace(/- \[([ x])\]/g, (match, state) => {
+      if (count++ === checkboxIndex) {
+        return state === 'x' ? '- [ ]' : '- [x]';
+      }
+      return match;
+    });
+    setContent(newContent);
+  }, [content]);
 
   const handleCopyLink = () => {
     const link = `${window.location.origin}/kb/${user?.uid}/${slug}`;
@@ -439,6 +451,7 @@ export default function ArticleEditor() {
         <div className="flex-1 overflow-y-auto">
           {preview ? (
             <div className="prose prose-slate max-w-none p-8">
+              {(() => { checkboxCountRef.current = 0; return null; })()}
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
@@ -461,7 +474,15 @@ export default function ArticleEditor() {
                   },
                   input({ type, checked, ...props }: any) {
                     if (type === 'checkbox') {
-                      return <input type="checkbox" checked={checked} readOnly className="mr-2 rounded" />;
+                      const idx = checkboxCountRef.current++;
+                      return (
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleCheckbox(idx)}
+                          className="mr-2 rounded cursor-pointer accent-blue-500"
+                        />
+                      );
                     }
                     return <input {...props} />;
                   },
