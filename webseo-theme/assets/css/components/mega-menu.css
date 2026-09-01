@@ -10,8 +10,8 @@
 .mega-menu__cat i{font-size:.75rem;opacity:.4}
 .mega-menu__all{margin-top:auto;padding:16px 20px;font-size:.85rem;font-weight:600;color:var(--text-muted);text-decoration:none;border-top:1px solid var(--border-color);display:flex;align-items:center;gap:6px;transition:color .2s;flex-shrink:0}
 .mega-menu__all:hover{color:var(--text-main)}
-.mega-menu__services{flex:1;padding:16px;position:relative;overflow-y:auto;scrollbar-width:thin}
-.mega-menu__panel{display:none;gap:6px;flex-wrap:wrap}
+.mega-menu__services{flex:1;min-height:0;padding:16px;position:relative;overflow-y:auto;scrollbar-width:thin}
+.mega-menu__panel{display:none;gap:6px;flex-wrap:wrap;align-content:flex-start}
 .mega-menu__panel.active{display:flex}
 .mega-menu__link{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--radius-sm);text-decoration:none;transition:background .2s;width:calc(50% - 3px);flex-shrink:0}
 .mega-menu__link:hover{background:var(--bg-secondary)}
