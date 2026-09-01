@@ -5,7 +5,7 @@ import fs from 'fs';
 import multer from 'multer';
 import { GoogleGenAI } from '@google/genai';
 import { ProxyAgent, fetch as undiciFetch } from 'undici';
-import { eq, and, desc, or } from 'drizzle-orm';
+import { eq, and, desc, or, like, sql, asc } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import { getAuth } from 'firebase-admin/auth';
 import { db } from './src/db/index.js';
@@ -423,10 +423,11 @@ async function startServer() {
   // Attachments
   apiRouter.get('/attachments', requireAuth, requireDb, async (req: any, res: any) => {
     try {
-      const { dealId, clientId } = req.query;
+      const { dealId, clientId, articleId } = req.query;
       let conditions = [eq(schema.attachments.userId, req.user.uid)];
       if (dealId) conditions.push(eq(schema.attachments.dealId, dealId as string));
       if (clientId) conditions.push(eq(schema.attachments.clientId, clientId as string));
+      if (articleId) conditions.push(eq(schema.attachments.articleId, articleId as string));
       const result = await db!.select().from(schema.attachments)
         .where(and(...conditions))
         .orderBy(desc(schema.attachments.createdAt));
@@ -446,6 +447,7 @@ async function startServer() {
         userId: req.user.uid,
         dealId: req.body.dealId || null,
         clientId: req.body.clientId || null,
+        articleId: req.body.articleId || null,
         filename: req.file.filename,
         originalName: req.file.originalname,
         mimeType: req.file.mimetype || null,
@@ -490,6 +492,209 @@ async function startServer() {
       res.sendFile(filePath);
     } catch (e: any) {
       console.error('GET /attachments/:id/download error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // KB Categories CRUD
+  apiRouter.get('/kb/categories', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const result = await db!.select().from(schema.kbCategories)
+        .where(eq(schema.kbCategories.userId, req.user.uid))
+        .orderBy(asc(schema.kbCategories.order));
+      res.json(result);
+    } catch (e: any) {
+      console.error('GET /kb/categories error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.post('/kb/categories', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const id = uuidv4();
+      const category = {
+        id,
+        userId: req.user.uid,
+        name: req.body.name || 'Новая категория',
+        slug: req.body.slug || id,
+        icon: req.body.icon || 'FileText',
+        isPublic: req.body.isPublic ?? false,
+        order: req.body.order ?? 0,
+      };
+      await db!.insert(schema.kbCategories).values(category);
+      res.json(category);
+    } catch (e: any) {
+      console.error('POST /kb/categories error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.put('/kb/categories/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const safeFields: any = {};
+      const allowedKeys = ['name', 'slug', 'icon', 'isPublic', 'order'];
+      for (const key of allowedKeys) {
+        if (req.body[key] !== undefined) safeFields[key] = req.body[key];
+      }
+      await db!.update(schema.kbCategories).set(safeFields)
+        .where(and(eq(schema.kbCategories.id, req.params.id), eq(schema.kbCategories.userId, req.user.uid)));
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error('PUT /kb/categories/:id error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.delete('/kb/categories/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      await db!.delete(schema.kbArticles).where(and(
+        eq(schema.kbArticles.categoryId, req.params.id),
+        eq(schema.kbArticles.userId, req.user.uid)
+      ));
+      await db!.delete(schema.kbCategories).where(and(
+        eq(schema.kbCategories.id, req.params.id),
+        eq(schema.kbCategories.userId, req.user.uid)
+      ));
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error('DELETE /kb/categories/:id error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // KB Articles CRUD
+  apiRouter.get('/kb/articles', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const { categoryId, tag, q } = req.query;
+      let conditions = [eq(schema.kbArticles.userId, req.user.uid)];
+      if (categoryId) conditions.push(eq(schema.kbArticles.categoryId, categoryId as string));
+      let result = await db!.select().from(schema.kbArticles)
+        .where(and(...conditions))
+        .orderBy(desc(schema.kbArticles.isPinned), desc(schema.kbArticles.updatedAt));
+
+      if (q) {
+        const search = (q as string).toLowerCase();
+        result = result.filter((a: any) =>
+          a.title.toLowerCase().includes(search) ||
+          (a.content && a.content.toLowerCase().includes(search))
+        );
+      }
+      if (tag) {
+        result = result.filter((a: any) => {
+          const tags = typeof a.tags === 'string' ? JSON.parse(a.tags) : (a.tags || []);
+          return tags.includes(tag);
+        });
+      }
+      res.json(result);
+    } catch (e: any) {
+      console.error('GET /kb/articles error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.get('/kb/articles/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const result = await db!.select().from(schema.kbArticles).where(and(
+        eq(schema.kbArticles.id, req.params.id),
+        eq(schema.kbArticles.userId, req.user.uid)
+      ));
+      if (result.length === 0) return res.status(404).json({ error: 'Not found' });
+      res.json(result[0]);
+    } catch (e: any) {
+      console.error('GET /kb/articles/:id error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.post('/kb/articles', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const id = uuidv4();
+      const article = {
+        id,
+        userId: req.user.uid,
+        categoryId: req.body.categoryId || null,
+        title: req.body.title || 'Новая статья',
+        slug: req.body.slug || id,
+        content: req.body.content || null,
+        tags: req.body.tags || null,
+        isPublic: req.body.isPublic ?? false,
+        isPinned: req.body.isPinned ?? false,
+        views: 0,
+      };
+      await db!.insert(schema.kbArticles).values(article);
+      res.json(article);
+    } catch (e: any) {
+      console.error('POST /kb/articles error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.put('/kb/articles/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const safeFields: any = {};
+      const allowedKeys = ['categoryId', 'title', 'slug', 'content', 'tags', 'isPublic', 'isPinned'];
+      for (const key of allowedKeys) {
+        if (req.body[key] !== undefined) safeFields[key] = req.body[key];
+      }
+      await db!.update(schema.kbArticles).set(safeFields)
+        .where(and(eq(schema.kbArticles.id, req.params.id), eq(schema.kbArticles.userId, req.user.uid)));
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error('PUT /kb/articles/:id error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.delete('/kb/articles/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      await db!.delete(schema.attachments).where(eq(schema.attachments.articleId, req.params.id));
+      await db!.delete(schema.kbArticles).where(and(
+        eq(schema.kbArticles.id, req.params.id),
+        eq(schema.kbArticles.userId, req.user.uid)
+      ));
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error('DELETE /kb/articles/:id error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Public KB endpoints (no auth)
+  apiRouter.get('/kb/public/:userId', requireDb, async (req: any, res: any) => {
+    try {
+      const userId = req.params.userId;
+      const categories = await db!.select().from(schema.kbCategories)
+        .where(and(eq(schema.kbCategories.userId, userId), eq(schema.kbCategories.isPublic, true)))
+        .orderBy(asc(schema.kbCategories.order));
+      const articles = await db!.select().from(schema.kbArticles)
+        .where(and(eq(schema.kbArticles.userId, userId), eq(schema.kbArticles.isPublic, true)))
+        .orderBy(desc(schema.kbArticles.isPinned), desc(schema.kbArticles.updatedAt));
+      const settingsResult = await db!.select().from(schema.settings).where(eq(schema.settings.userId, userId));
+      const agencyName = settingsResult.length > 0 ? (settingsResult[0] as any).agencyName : null;
+      res.json({ categories, articles, agencyName });
+    } catch (e: any) {
+      console.error('GET /kb/public/:userId error:', e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.get('/kb/public/:userId/:slug', requireDb, async (req: any, res: any) => {
+    try {
+      const { userId, slug } = req.params;
+      const result = await db!.select().from(schema.kbArticles).where(and(
+        eq(schema.kbArticles.userId, userId),
+        eq(schema.kbArticles.slug, slug),
+        eq(schema.kbArticles.isPublic, true)
+      ));
+      if (result.length === 0) return res.status(404).json({ error: 'Not found' });
+      await db!.update(schema.kbArticles)
+        .set({ views: sql`views + 1` })
+        .where(eq(schema.kbArticles.id, result[0].id));
+      const settingsResult = await db!.select().from(schema.settings).where(eq(schema.settings.userId, userId));
+      const agencyName = settingsResult.length > 0 ? (settingsResult[0] as any).agencyName : null;
+      res.json({ ...result[0], agencyName });
+    } catch (e: any) {
+      console.error('GET /kb/public/:userId/:slug error:', e);
       res.status(500).json({ error: e.message });
     }
   });

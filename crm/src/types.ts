@@ -44,11 +44,38 @@ export interface Attachment {
   userId: string;
   dealId?: string;
   clientId?: string;
+  articleId?: string;
   filename: string;
   originalName: string;
   mimeType?: string;
   size: number;
   createdAt: string;
+}
+
+export interface KBCategory {
+  id: string;
+  userId: string;
+  name: string;
+  slug: string;
+  icon?: string;
+  isPublic: boolean;
+  order: number;
+  createdAt: string;
+}
+
+export interface KBArticle {
+  id: string;
+  userId: string;
+  categoryId?: string;
+  title: string;
+  slug: string;
+  content: string;
+  tags: string[];
+  isPublic: boolean;
+  isPinned: boolean;
+  views: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AgencySettings {

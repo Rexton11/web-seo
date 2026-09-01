@@ -71,11 +71,38 @@ export const attachments = mysqlTable('attachments', {
   userId: varchar('user_id', { length: 255 }).notNull(),
   dealId: varchar('deal_id', { length: 255 }),
   clientId: varchar('client_id', { length: 255 }),
+  articleId: varchar('article_id', { length: 255 }),
   filename: varchar('filename', { length: 255 }).notNull(),
   originalName: varchar('original_name', { length: 500 }).notNull(),
   mimeType: varchar('mime_type', { length: 100 }),
   size: int('size').default(0),
   createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const kbCategories = mysqlTable('kb_categories', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  slug: varchar('slug', { length: 255 }).notNull(),
+  icon: varchar('icon', { length: 50 }),
+  isPublic: boolean('is_public').default(false),
+  order: int('order').default(0),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const kbArticles = mysqlTable('kb_articles', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull(),
+  categoryId: varchar('category_id', { length: 255 }),
+  title: varchar('title', { length: 500 }).notNull(),
+  slug: varchar('slug', { length: 500 }).notNull(),
+  content: text('content'),
+  tags: json('tags'),
+  isPublic: boolean('is_public').default(false),
+  isPinned: boolean('is_pinned').default(false),
+  views: int('views').default(0),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
 
 export const activities = mysqlTable('activities', {
