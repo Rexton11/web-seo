@@ -90,7 +90,7 @@ export default function PublicArticle() {
                   }
                   return <code className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-sm" {...props}>{children}</code>;
                 },
-                input({ type, checked, ...props }: any) {
+                input({ type, checked, disabled, ...props }: any) {
                   if (type === 'checkbox') {
                     return <input type="checkbox" checked={checked} readOnly className="mr-2 rounded" />;
                   }

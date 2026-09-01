@@ -49,7 +49,9 @@ export default function ArticleEditor() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const checkboxCountRef = useRef(0);
+  const initialLoadRef = useRef(true);
 
   const getToken = async () => user ? await user.getIdToken() : '';
 
@@ -145,6 +147,33 @@ export default function ArticleEditor() {
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);
   };
+
+  useEffect(() => {
+    if (id === 'new' || initialLoadRef.current) return;
+    if (!title && !content) return;
+    setAutoSaveStatus('idle');
+    const timer = setTimeout(async () => {
+      setAutoSaveStatus('saving');
+      const token = await getToken();
+      const articleSlug = slug || slugify(title) || `article-${Date.now()}`;
+      await fetch(`/api/kb/articles/${id}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content, categoryId: categoryId || null, tags, isPublic, isPinned, slug: articleSlug }),
+      });
+      setSlug(articleSlug);
+      setAutoSaveStatus('saved');
+      setTimeout(() => setAutoSaveStatus('idle'), 2000);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [title, content, categoryId, tags, isPublic, isPinned]);
+
+  useEffect(() => {
+    if (initialLoadRef.current && (title || content)) {
+      const timer = setTimeout(() => { initialLoadRef.current = false; }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [title, content]);
 
   const insertAtCursor = useCallback((before: string, after: string = '', placeholder: string = '') => {
     const ta = textareaRef.current;
@@ -374,6 +403,12 @@ export default function ArticleEditor() {
             {preview ? <Edit3 className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             {preview ? 'Редактор' : 'Предпросмотр'}
           </button>
+          {autoSaveStatus === 'saved' && (
+            <span className="text-xs text-green-500 flex items-center gap-1"><Check className="w-3 h-3" /> Автосохранено</span>
+          )}
+          {autoSaveStatus === 'saving' && (
+            <span className="text-xs text-slate-400">Сохранение...</span>
+          )}
           <button onClick={handleSave} disabled={saving}
             className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-colors">
             {saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
@@ -472,7 +507,7 @@ export default function ArticleEditor() {
                     }
                     return <code className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-sm" {...props}>{children}</code>;
                   },
-                  input({ type, checked, ...props }: any) {
+                  input({ type, checked, disabled, ...props }: any) {
                     if (type === 'checkbox') {
                       const idx = checkboxCountRef.current++;
                       return (

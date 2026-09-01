@@ -201,7 +201,7 @@ export default function ArticleView() {
                 }
                 return <code className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-sm" {...props}>{children}</code>;
               },
-              input({ type, checked, ...props }: any) {
+              input({ type, checked, disabled, ...props }: any) {
                 if (type === 'checkbox') {
                   const idx = checkboxCountRef.current++;
                   return (
