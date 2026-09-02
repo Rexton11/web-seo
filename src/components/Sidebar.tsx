@@ -20,7 +20,7 @@ export default function Sidebar() {
   const crmTitle = settings?.crmTitle || 'B2B CRM';
 
   return (
-    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col h-full">
+    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col h-full no-print">
       <div className="p-6 flex items-center gap-3 border-b border-slate-800">
         {settings?.crmFavicon ? (
           <img src={settings.crmFavicon} alt="" className="w-8 h-8 rounded-lg object-contain" />

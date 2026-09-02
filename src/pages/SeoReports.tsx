@@ -679,7 +679,7 @@ function ReportView({ report, projects, onBack, onRegenerate, generating, onUpda
           {subtitle && <span className="text-xs text-slate-400 ml-2 hidden sm:inline">{subtitle}</span>}
         </div>
       </button>
-      {expanded.has(id) && <div className="px-5 pb-5 pt-1">{children}</div>}
+      <div className={`px-5 pb-5 pt-1 ${expanded.has(id) ? '' : 'hidden print:block'}`}>{children}</div>
     </div>
   );
 
@@ -722,9 +722,13 @@ function ReportView({ report, projects, onBack, onRegenerate, generating, onUpda
     <div className="h-full overflow-y-auto bg-white">
       <style>{`
         @media print {
-          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; }
           .no-print { display: none !important; }
           .print\\:break-inside-avoid { break-inside: avoid; }
+          .flex.h-screen { display: block !important; height: auto !important; overflow: visible !important; }
+          .flex-1.overflow-y-auto { overflow: visible !important; height: auto !important; }
+          .hidden.print\\:block { display: block !important; }
+          @page { margin: 10mm 8mm; }
         }
       `}</style>
 
