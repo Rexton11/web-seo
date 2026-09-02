@@ -1235,6 +1235,7 @@ async function startServer() {
       const state = Buffer.from(JSON.stringify({ uid: req.user.uid })).toString('base64url');
       const scopes = [
         'https://www.googleapis.com/auth/webmasters.readonly',
+        'https://www.googleapis.com/auth/webmasters',
       ].join(' ');
       const url = `https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=${encodeURIComponent(s.googleClientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&access_type=offline&prompt=consent&state=${state}`;
       res.json({ url });
@@ -1757,7 +1758,7 @@ async function startServer() {
           });
           const sitesData = await sitesRes.json() as any;
           const sites = (sitesData.siteEntry || []) as any[];
-          _debug.gscAvailableSites = sites.map((s: any) => s.siteUrl);
+          _debug.gscAvailableSites = sites.map((s: any) => ({ url: s.siteUrl, permission: s.permissionLevel }));
           const storedUrl = gscConn.siteUrl;
           if (storedUrl) {
             const domain = storedUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
@@ -1783,7 +1784,10 @@ async function startServer() {
           data.prevGsc = prev;
         } catch (e: any) {
           _debug.gscDataError = e.message;
-          if (e.message.includes('401') || e.message.includes('403') || e.message.includes('invalid_grant') || e.message.includes('UNAUTHENTICATED') || e.message.includes('permission')) {
+          if (e.message.includes('permission')) {
+            _debug.gscPermissionError = true;
+            _debug.gscAction = 'Ошибка прав. Проверьте: 1) В Google Cloud Console включён "Google Search Console API" (APIs & Services → Enable APIs) 2) У вас есть права Owner/Full User на сайт в GSC 3) Попробуйте удалить подключение и подключить заново';
+          } else if (e.message.includes('401') || e.message.includes('403') || e.message.includes('invalid_grant') || e.message.includes('UNAUTHENTICATED')) {
             _debug.gscTokenExpired = true;
             _debug.gscAction = 'Токен истёк. Нужно переподключить Google Search Console.';
           }
