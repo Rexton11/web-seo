@@ -1568,7 +1568,7 @@ async function startServer() {
     const ymUserId = userData.user_id;
     const encodedHost = encodeURIComponent(hostId);
 
-    const [historyRes, topRes, summaryRes, indexingSamplesRes] = await Promise.all([
+    const [historyRes, topRes, summaryRes] = await Promise.all([
       globalThis.fetch(
         `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/search-queries/all/history?query_indicator=TOTAL_SHOWS&query_indicator=TOTAL_CLICKS&query_indicator=AVG_SHOW_POSITION&date_from=${from}&date_to=${to}`,
         { headers: { Authorization: `OAuth ${accessToken}` } }
@@ -1581,14 +1581,10 @@ async function startServer() {
         `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/summary`,
         { headers: { Authorization: `OAuth ${accessToken}` } }
       ),
-      globalThis.fetch(
-        `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/indexing/samples?limit=1&offset=0&filter=SEARCHABLE`,
-        { headers: { Authorization: `OAuth ${accessToken}` } }
-      ),
     ]);
 
-    const [history, top, summary, indexingSamples] = await Promise.all([
-      historyRes.json() as any, topRes.json() as any, summaryRes.json() as any, indexingSamplesRes.json() as any,
+    const [history, top, summary] = await Promise.all([
+      historyRes.json() as any, topRes.json() as any, summaryRes.json() as any,
     ]);
 
     const indicators = history.indicators || {};
@@ -1597,11 +1593,8 @@ async function startServer() {
     const positions = (indicators.AVG_SHOW_POSITION || []).filter((d: any) => d.value);
     const avgPosition = positions.length > 0 ? positions.reduce((s: number, d: any) => s + d.value, 0) / positions.length : 0;
 
-    let indexed = summary.searchable_count || summary.sqi || 0;
-    let excluded = summary.excluded_count || 0;
-    if (indexed === 0 && indexingSamples.count !== undefined) {
-      indexed = indexingSamples.count || 0;
-    }
+    const indexed = summary.searchable_pages_count || 0;
+    const excluded = summary.excluded_pages_count || 0;
 
     return {
       totalClicks, totalImpressions,
@@ -1740,16 +1733,26 @@ async function startServer() {
       _debug.gscConn = gscConn ? { id: gscConn.id, siteUrl: gscConn.siteUrl, hasToken: !!gscConn.accessToken, hasRefresh: !!gscConn.refreshToken, expires: gscConn.tokenExpiresAt } : null;
       const gscToken = gscConn ? await getGSCAccessToken(gscConn) : null;
       _debug.gscTokenObtained = !!gscToken;
-      let gscSiteUrl = gscConn?.siteUrl;
-      if (gscConn && gscToken && !gscSiteUrl) {
+      let gscSiteUrl: string | null = null;
+      if (gscConn && gscToken) {
         try {
           const sitesRes = await globalThis.fetch('https://www.googleapis.com/webmasters/v3/sites', {
             headers: { Authorization: `Bearer ${gscToken}` },
           });
           const sitesData = await sitesRes.json() as any;
-          _debug.gscSitesResponse = JSON.stringify(sitesData).slice(0, 500);
-          const sites = sitesData.siteEntry || [];
-          if (sites.length > 0) gscSiteUrl = sites[0].siteUrl;
+          const sites = (sitesData.siteEntry || []) as any[];
+          _debug.gscAvailableSites = sites.map((s: any) => s.siteUrl);
+          const storedUrl = gscConn.siteUrl;
+          if (storedUrl) {
+            const domain = storedUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+            gscSiteUrl = sites.find((s: any) => s.siteUrl === storedUrl)?.siteUrl
+              || sites.find((s: any) => s.siteUrl === `sc-domain:${domain}`)?.siteUrl
+              || sites.find((s: any) => s.siteUrl.includes(domain))?.siteUrl
+              || null;
+          }
+          if (!gscSiteUrl && sites.length > 0) {
+            gscSiteUrl = sites[0].siteUrl;
+          }
         } catch (e: any) { _debug.gscSitesError = e.message; }
       }
       _debug.gscSiteUrl = gscSiteUrl;
