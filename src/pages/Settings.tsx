@@ -16,6 +16,7 @@ export default function Settings() {
   });
   const [brandingForm, setBrandingForm] = useState({ crmTitle: '', crmFavicon: '' });
   const [telegramForm, setTelegramForm] = useState({ telegramBotToken: '', telegramChatId: '' });
+  const [googleForm, setGoogleForm] = useState({ googleClientId: '', googleClientSecret: '' });
   const [testingTelegram, setTestingTelegram] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [templatesForm, setTemplatesForm] = useState({
@@ -48,6 +49,7 @@ export default function Settings() {
       setScriptsForm(settings.stageScripts || []);
       setBrandingForm({ crmTitle: settings.crmTitle || '', crmFavicon: settings.crmFavicon || '' });
       setTelegramForm({ telegramBotToken: settings.telegramBotToken || '', telegramChatId: settings.telegramChatId || '' });
+      setGoogleForm({ googleClientId: (settings as any).googleClientId || '', googleClientSecret: (settings as any).googleClientSecret || '' });
       setNotificationsEnabled('Notification' in window && Notification.permission === 'granted');
       setServicesForm(settings.services || []);
       setTaskColumnsForm(settings.taskColumns || [
@@ -560,6 +562,40 @@ export default function Settings() {
                    <li>Сообщение и все остальные данные формы сохраняются в поле «Текущая ситуация»</li>
                    <li>В ленте активности создается запись «Заявка получена с сайта»</li>
                  </ul>
+               </div>
+
+               {/* Google OAuth */}
+               <div className="mt-8 border-t border-slate-200 pt-8">
+                 <h2 className="text-lg font-bold text-slate-800 mb-2">Google Search Console (OAuth)</h2>
+                 <p className="text-sm text-slate-500 mb-4">Для авторизации через Google в разделе SEO Отчёты заполните Client ID и Client Secret из Google Cloud Console.</p>
+                 <div className="bg-blue-50 border border-blue-100 rounded-lg p-5 mb-4">
+                   <h4 className="font-semibold text-blue-900 mb-2">Как получить</h4>
+                   <ol className="list-decimal list-inside text-sm text-blue-800 space-y-1">
+                     <li>Откройте <a href="https://console.cloud.google.com" target="_blank" rel="noopener" className="underline font-medium">Google Cloud Console</a></li>
+                     <li>Создайте проект или выберите существующий</li>
+                     <li>APIs & Services → Library → включите <strong>Google Search Console API</strong></li>
+                     <li>APIs & Services → Credentials → Create Credentials → <strong>OAuth client ID</strong></li>
+                     <li>Application type: <strong>Web application</strong></li>
+                     <li>Authorized redirect URIs: <code className="bg-blue-100 px-1 rounded text-xs">https://crm.weboptics.ru/api/google/callback</code></li>
+                     <li>Скопируйте Client ID и Client Secret сюда</li>
+                   </ol>
+                 </div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                   <div>
+                     <label className="block text-sm font-medium text-slate-700 mb-1">Google Client ID</label>
+                     <input type="text" value={googleForm.googleClientId} onChange={e => setGoogleForm({...googleForm, googleClientId: e.target.value})}
+                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none" placeholder="xxx.apps.googleusercontent.com" />
+                   </div>
+                   <div>
+                     <label className="block text-sm font-medium text-slate-700 mb-1">Google Client Secret</label>
+                     <input type="password" value={googleForm.googleClientSecret} onChange={e => setGoogleForm({...googleForm, googleClientSecret: e.target.value})}
+                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none" placeholder="GOCSPX-..." />
+                   </div>
+                 </div>
+                 <button onClick={() => handleSave(googleForm)} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors flex items-center gap-2">
+                   <Save className="w-4 h-4" />
+                   {saving ? 'Сохранение...' : 'Сохранить Google OAuth'}
+                 </button>
                </div>
             </div>
           )}

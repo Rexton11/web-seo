@@ -327,7 +327,8 @@ async function startServer() {
         'bankAccount', 'bankName', 'bik', 'contractTemplate', 'actTemplate',
         'kanbanColumns', 'taskColumns', 'geminiProxy', 'stageScripts', 'services',
         'crmTitle', 'crmFavicon', 'telegramBotToken', 'telegramChatId',
-        'yandexClientId', 'yandexClientSecret'
+        'yandexClientId', 'yandexClientSecret',
+        'googleClientId', 'googleClientSecret'
       ];
       for (const key of allowedKeys) {
         if (req.body[key] !== undefined) {
@@ -1223,6 +1224,102 @@ async function startServer() {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // ---- Google OAuth ----
+  apiRouter.get('/google/auth-url', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const settingsResult = await db!.select().from(schema.settings).where(eq(schema.settings.userId, req.user.uid));
+      const s = settingsResult[0] as any;
+      if (!s?.googleClientId) return res.status(400).json({ error: 'Google Client ID не настроен в Настройках' });
+      const redirectUri = `${req.protocol}://${req.get('host')}/api/google/callback`;
+      const state = Buffer.from(JSON.stringify({ uid: req.user.uid })).toString('base64url');
+      const scopes = [
+        'https://www.googleapis.com/auth/webmasters.readonly',
+      ].join(' ');
+      const url = `https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=${encodeURIComponent(s.googleClientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&access_type=offline&prompt=consent&state=${state}`;
+      res.json({ url });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  apiRouter.get('/google/callback', async (req: any, res: any) => {
+    try {
+      const { code, state } = req.query;
+      if (!code || !state) return res.status(400).send('Missing code or state');
+      const { uid } = JSON.parse(Buffer.from(state as string, 'base64url').toString());
+      if (!uid) return res.status(400).send('Invalid state');
+
+      const settingsResult = await db!.select().from(schema.settings).where(eq(schema.settings.userId, uid));
+      const s = settingsResult[0] as any;
+      if (!s?.googleClientId || !s?.googleClientSecret) return res.status(400).send('Google OAuth не настроен');
+
+      const redirectUri = `${req.protocol}://${req.get('host')}/api/google/callback`;
+      const tokenRes = await globalThis.fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `grant_type=authorization_code&code=${encodeURIComponent(code as string)}&client_id=${encodeURIComponent(s.googleClientId)}&client_secret=${encodeURIComponent(s.googleClientSecret)}&redirect_uri=${encodeURIComponent(redirectUri)}`,
+      });
+      const tokenData = await tokenRes.json() as any;
+      if (tokenData.error) return res.status(400).send(`Ошибка: ${tokenData.error_description || tokenData.error}`);
+
+      const existing = await db!.select().from(schema.seoConnections)
+        .where(and(eq(schema.seoConnections.userId, uid), eq(schema.seoConnections.service, 'google_search_console')));
+      const mainConn = (existing as any[]).find(c => !c.projectId);
+
+      const expiresAt = tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000) : null;
+
+      if (mainConn) {
+        await db!.update(schema.seoConnections).set({
+          accessToken: tokenData.access_token,
+          refreshToken: tokenData.refresh_token || mainConn.refreshToken,
+          tokenExpiresAt: expiresAt,
+        }).where(eq(schema.seoConnections.id, mainConn.id));
+      } else {
+        await db!.insert(schema.seoConnections).values({
+          id: uuidv4(), userId: uid, service: 'google_search_console',
+          accessToken: tokenData.access_token,
+          refreshToken: tokenData.refresh_token || null,
+          tokenExpiresAt: expiresAt,
+        });
+      }
+
+      res.send('<html><body><script>window.close(); window.opener && window.opener.postMessage("gsc_connected","*");</script><p>Google Search Console подключён! Можете закрыть это окно.</p></body></html>');
+    } catch (e: any) {
+      console.error('Google callback error:', e);
+      res.status(500).send(`Ошибка: ${e.message}`);
+    }
+  });
+
+  async function refreshGoogleToken(conn: any) {
+    const userId = conn.userId;
+    const settingsResult = await db!.select().from(schema.settings).where(eq(schema.settings.userId, userId));
+    const s = settingsResult[0] as any;
+    if (!s?.googleClientId || !s?.googleClientSecret || !conn.refreshToken) return null;
+
+    const tokenRes = await globalThis.fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(conn.refreshToken)}&client_id=${encodeURIComponent(s.googleClientId)}&client_secret=${encodeURIComponent(s.googleClientSecret)}`,
+    });
+    const tokenData = await tokenRes.json() as any;
+    if (tokenData.error) { console.error('Google token refresh error:', tokenData); return null; }
+
+    const expiresAt = tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000) : null;
+    await db!.update(schema.seoConnections).set({
+      accessToken: tokenData.access_token,
+      tokenExpiresAt: expiresAt,
+    }).where(eq(schema.seoConnections.id, conn.id));
+
+    return tokenData.access_token;
+  }
+
+  async function getGSCAccessToken(conn: any): Promise<string | null> {
+    if (!conn?.accessToken) return null;
+    if (conn.tokenExpiresAt && new Date(conn.tokenExpiresAt) < new Date(Date.now() + 60000)) {
+      const newToken = await refreshGoogleToken(conn);
+      return newToken || conn.accessToken;
+    }
+    return conn.accessToken;
+  }
+
   // ---- Yandex Webmaster API proxy ----
   apiRouter.get('/yandex/webmaster/hosts', requireAuth, requireDb, async (req: any, res: any) => {
     try {
@@ -1357,8 +1454,10 @@ async function startServer() {
     try {
       const conn = await getYandexConnection(req.user.uid, 'google_search_console');
       if (!conn) return res.status(400).json({ error: 'Google Search Console not connected' });
+      const token = await getGSCAccessToken(conn);
+      if (!token) return res.status(400).json({ error: 'Google token expired and refresh failed' });
       const sitesRes = await globalThis.fetch('https://www.googleapis.com/webmasters/v3/sites', {
-        headers: { Authorization: `Bearer ${conn.accessToken}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await sitesRes.json() as any;
       res.json({ sites: (data.siteEntry || []).map((s: any) => ({ siteUrl: s.siteUrl, permissionLevel: s.permissionLevel })) });
@@ -1623,11 +1722,12 @@ async function startServer() {
       }
 
       const gscConn = await getYandexConnection(req.user.uid, 'google_search_console', report.projectId || undefined);
-      if (gscConn && gscConn.siteUrl && gscConn.accessToken) {
+      const gscToken = gscConn ? await getGSCAccessToken(gscConn) : null;
+      if (gscConn && gscConn.siteUrl && gscToken) {
         try {
           const [current, prev] = await Promise.all([
-            fetchGSCData(gscConn.accessToken, gscConn.siteUrl, from, to),
-            fetchGSCData(gscConn.accessToken, gscConn.siteUrl, prevFrom, prevTo),
+            fetchGSCData(gscToken, gscConn.siteUrl, from, to),
+            fetchGSCData(gscToken, gscConn.siteUrl, prevFrom, prevTo),
           ]);
           data.gsc = current;
           data.prevGsc = prev;

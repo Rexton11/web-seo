@@ -154,6 +154,8 @@ export interface AgencySettings {
   telegramChatId?: string;
   yandexClientId?: string;
   yandexClientSecret?: string;
+  googleClientId?: string;
+  googleClientSecret?: string;
 }
 
 export interface SeoConnection {

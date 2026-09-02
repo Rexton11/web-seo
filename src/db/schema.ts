@@ -30,6 +30,8 @@ export const settings = mysqlTable('settings', {
   telegramChatId: varchar('telegram_chat_id', { length: 100 }),
   yandexClientId: varchar('yandex_client_id', { length: 255 }),
   yandexClientSecret: varchar('yandex_client_secret', { length: 500 }),
+  googleClientId: varchar('google_client_id', { length: 255 }),
+  googleClientSecret: varchar('google_client_secret', { length: 500 }),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
 
