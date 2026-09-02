@@ -1259,6 +1259,7 @@ async function startServer() {
         body: `grant_type=authorization_code&code=${encodeURIComponent(code as string)}&client_id=${encodeURIComponent(s.googleClientId)}&client_secret=${encodeURIComponent(s.googleClientSecret)}&redirect_uri=${encodeURIComponent(redirectUri)}`,
       });
       const tokenData = await tokenRes.json() as any;
+      console.log('Google OAuth token response keys:', Object.keys(tokenData), 'has_refresh:', !!tokenData.refresh_token, 'expires_in:', tokenData.expires_in);
       if (tokenData.error) return res.status(400).send(`Ошибка: ${tokenData.error_description || tokenData.error}`);
 
       const existing = await db!.select().from(schema.seoConnections)
@@ -1282,7 +1283,9 @@ async function startServer() {
         });
       }
 
-      res.send('<html><body><script>window.close(); window.opener && window.opener.postMessage("gsc_connected","*");</script><p>Google Search Console подключён! Можете закрыть это окно.</p></body></html>');
+      const hasRefresh = !!tokenData.refresh_token;
+      const warning = hasRefresh ? '' : '<p style="color:orange">⚠️ Google не вернул refresh_token. Токен истечёт через 1 час. Проверьте настройки приложения в Google Cloud Console (статус публикации).</p>';
+      res.send(`<html><body><script>window.close(); window.opener && window.opener.postMessage("gsc_connected","*");</script><p>Google Search Console подключён!</p>${warning}<p>Можете закрыть это окно.</p></body></html>`);
     } catch (e: any) {
       console.error('Google callback error:', e);
       res.status(500).send(`Ошибка: ${e.message}`);
@@ -1314,9 +1317,18 @@ async function startServer() {
 
   async function getGSCAccessToken(conn: any): Promise<string | null> {
     if (!conn?.accessToken) return null;
-    if (conn.tokenExpiresAt && new Date(conn.tokenExpiresAt) < new Date(Date.now() + 60000)) {
+    const isExpired = !conn.tokenExpiresAt || new Date(conn.tokenExpiresAt) < new Date(Date.now() + 60000);
+    if (isExpired && conn.refreshToken) {
       const newToken = await refreshGoogleToken(conn);
       return newToken || conn.accessToken;
+    }
+    if (isExpired && !conn.refreshToken) {
+      const testRes = await globalThis.fetch('https://www.googleapis.com/webmasters/v3/sites', {
+        headers: { Authorization: `Bearer ${conn.accessToken}` },
+      });
+      if (testRes.status === 401 || testRes.status === 403) {
+        return null;
+      }
     }
     return conn.accessToken;
   }
@@ -1733,6 +1745,10 @@ async function startServer() {
       _debug.gscConn = gscConn ? { id: gscConn.id, siteUrl: gscConn.siteUrl, hasToken: !!gscConn.accessToken, hasRefresh: !!gscConn.refreshToken, expires: gscConn.tokenExpiresAt } : null;
       const gscToken = gscConn ? await getGSCAccessToken(gscConn) : null;
       _debug.gscTokenObtained = !!gscToken;
+      if (gscConn && !gscToken) {
+        _debug.gscTokenExpired = true;
+        _debug.gscAction = 'Токен истёк и нет refresh_token. Удалите подключение GSC и подключите заново.';
+      }
       let gscSiteUrl: string | null = null;
       if (gscConn && gscToken) {
         try {
@@ -1767,7 +1783,7 @@ async function startServer() {
           data.prevGsc = prev;
         } catch (e: any) {
           _debug.gscDataError = e.message;
-          if (e.message.includes('401') || e.message.includes('403') || e.message.includes('invalid_grant') || e.message.includes('UNAUTHENTICATED')) {
+          if (e.message.includes('401') || e.message.includes('403') || e.message.includes('invalid_grant') || e.message.includes('UNAUTHENTICATED') || e.message.includes('permission')) {
             _debug.gscTokenExpired = true;
             _debug.gscAction = 'Токен истёк. Нужно переподключить Google Search Console.';
           }
