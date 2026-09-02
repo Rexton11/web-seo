@@ -16,6 +16,7 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  app.set('trust proxy', 1);
   app.use(express.json());
 
   const uploadsDir = path.join(process.cwd(), 'uploads');
@@ -1230,7 +1231,7 @@ async function startServer() {
       const settingsResult = await db!.select().from(schema.settings).where(eq(schema.settings.userId, req.user.uid));
       const s = settingsResult[0] as any;
       if (!s?.googleClientId) return res.status(400).json({ error: 'Google Client ID не настроен в Настройках' });
-      const redirectUri = `${req.protocol}://${req.get('host')}/api/google/callback`;
+      const redirectUri = `${process.env.APP_URL || `${req.protocol}://${req.get('host')}`}/api/google/callback`;
       const state = Buffer.from(JSON.stringify({ uid: req.user.uid })).toString('base64url');
       const scopes = [
         'https://www.googleapis.com/auth/webmasters.readonly',
@@ -1251,7 +1252,7 @@ async function startServer() {
       const s = settingsResult[0] as any;
       if (!s?.googleClientId || !s?.googleClientSecret) return res.status(400).send('Google OAuth не настроен');
 
-      const redirectUri = `${req.protocol}://${req.get('host')}/api/google/callback`;
+      const redirectUri = `${process.env.APP_URL || `${req.protocol}://${req.get('host')}`}/api/google/callback`;
       const tokenRes = await globalThis.fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
