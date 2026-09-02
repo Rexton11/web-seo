@@ -1480,8 +1480,10 @@ async function startServer() {
     ]);
 
     const [queryData, pageData] = await Promise.all([queryRes.json() as any, pageRes.json() as any]);
-    console.log('GSC API queryRes status:', queryRes.status, 'rows:', queryData.rows?.length || 0, queryData.error ? `error: ${JSON.stringify(queryData.error)}` : '');
-    console.log('GSC API pageRes status:', pageRes.status, 'rows:', pageData.rows?.length || 0, pageData.error ? `error: ${JSON.stringify(pageData.error)}` : '');
+
+    if (queryData.error) {
+      throw new Error(`GSC API error: ${queryData.error.message || queryData.error.code || JSON.stringify(queryData.error)}`);
+    }
 
     const queries = (queryData.rows || []).map((r: any) => ({
       query: r.keys?.[0] || '', clicks: r.clicks || 0, impressions: r.impressions || 0,
@@ -1566,7 +1568,7 @@ async function startServer() {
     const ymUserId = userData.user_id;
     const encodedHost = encodeURIComponent(hostId);
 
-    const [historyRes, topRes, summaryRes] = await Promise.all([
+    const [historyRes, topRes, summaryRes, indexingSamplesRes] = await Promise.all([
       globalThis.fetch(
         `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/search-queries/all/history?query_indicator=TOTAL_SHOWS&query_indicator=TOTAL_CLICKS&query_indicator=AVG_SHOW_POSITION&date_from=${from}&date_to=${to}`,
         { headers: { Authorization: `OAuth ${accessToken}` } }
@@ -1579,10 +1581,14 @@ async function startServer() {
         `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/summary`,
         { headers: { Authorization: `OAuth ${accessToken}` } }
       ),
+      globalThis.fetch(
+        `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/indexing/samples?limit=1&offset=0&filter=SEARCHABLE`,
+        { headers: { Authorization: `OAuth ${accessToken}` } }
+      ),
     ]);
 
-    const [history, top, summary] = await Promise.all([
-      historyRes.json() as any, topRes.json() as any, summaryRes.json() as any,
+    const [history, top, summary, indexingSamples] = await Promise.all([
+      historyRes.json() as any, topRes.json() as any, summaryRes.json() as any, indexingSamplesRes.json() as any,
     ]);
 
     const indicators = history.indicators || {};
@@ -1590,6 +1596,12 @@ async function startServer() {
     const totalImpressions = (indicators.TOTAL_SHOWS || []).reduce((s: number, d: any) => s + (d.value || 0), 0);
     const positions = (indicators.AVG_SHOW_POSITION || []).filter((d: any) => d.value);
     const avgPosition = positions.length > 0 ? positions.reduce((s: number, d: any) => s + d.value, 0) / positions.length : 0;
+
+    let indexed = summary.searchable_count || summary.sqi || 0;
+    let excluded = summary.excluded_count || 0;
+    if (indexed === 0 && indexingSamples.count !== undefined) {
+      indexed = indexingSamples.count || 0;
+    }
 
     return {
       totalClicks, totalImpressions,
@@ -1601,10 +1613,8 @@ async function startServer() {
         ctr: q.indicators?.TOTAL_SHOWS > 0 ? Math.round((q.indicators?.TOTAL_CLICKS / q.indicators?.TOTAL_SHOWS) * 10000) / 100 : 0,
         position: Math.round((q.indicators?.AVG_SHOW_POSITION || 0) * 10) / 10,
       })),
-      indexing: {
-        indexed: summary.searchable_count || 0,
-        excluded: summary.excluded_count || 0,
-      },
+      indexing: { indexed, excluded },
+      _summaryRaw: summary,
     };
   }
 
@@ -1752,7 +1762,13 @@ async function startServer() {
           _debug.gscData = { clicks: current.totalClicks, impressions: current.totalImpressions, queries: current.queries?.length };
           data.gsc = current;
           data.prevGsc = prev;
-        } catch (e: any) { _debug.gscDataError = e.message; }
+        } catch (e: any) {
+          _debug.gscDataError = e.message;
+          if (e.message.includes('401') || e.message.includes('403') || e.message.includes('invalid_grant') || e.message.includes('UNAUTHENTICATED')) {
+            _debug.gscTokenExpired = true;
+            _debug.gscAction = 'Токен истёк. Нужно переподключить Google Search Console.';
+          }
+        }
       } else {
         _debug.gscSkipReason = { conn: !!gscConn, siteUrl: !!gscSiteUrl, token: !!gscToken };
       }
