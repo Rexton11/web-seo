@@ -1352,6 +1352,56 @@ async function startServer() {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // ---- Google Search Console API proxy ----
+  apiRouter.get('/google/search-console/sites', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const conn = await getYandexConnection(req.user.uid, 'google_search_console');
+      if (!conn) return res.status(400).json({ error: 'Google Search Console not connected' });
+      const sitesRes = await globalThis.fetch('https://www.googleapis.com/webmasters/v3/sites', {
+        headers: { Authorization: `Bearer ${conn.accessToken}` },
+      });
+      const data = await sitesRes.json() as any;
+      res.json({ sites: (data.siteEntry || []).map((s: any) => ({ siteUrl: s.siteUrl, permissionLevel: s.permissionLevel })) });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  async function fetchGSCData(accessToken: string, siteUrl: string, from: string, to: string) {
+    const [queryRes, pageRes] = await Promise.all([
+      globalThis.fetch(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startDate: from, endDate: to, dimensions: ['query'], rowLimit: 50 }),
+      }),
+      globalThis.fetch(`https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startDate: from, endDate: to, dimensions: ['page'], rowLimit: 20 }),
+      }),
+    ]);
+
+    const [queryData, pageData] = await Promise.all([queryRes.json() as any, pageRes.json() as any]);
+
+    const queries = (queryData.rows || []).map((r: any) => ({
+      query: r.keys?.[0] || '', clicks: r.clicks || 0, impressions: r.impressions || 0,
+      ctr: Math.round((r.ctr || 0) * 10000) / 100,
+      position: Math.round((r.position || 0) * 10) / 10,
+    }));
+
+    const totalClicks = queries.reduce((s: number, q: any) => s + q.clicks, 0);
+    const totalImpressions = queries.reduce((s: number, q: any) => s + q.impressions, 0);
+    const avgPosition = queries.length > 0 ? Math.round(queries.reduce((s: number, q: any) => s + q.position, 0) / queries.length * 10) / 10 : 0;
+
+    return {
+      totalClicks, totalImpressions,
+      avgCtr: totalImpressions > 0 ? Math.round((totalClicks / totalImpressions) * 10000) / 100 : 0,
+      avgPosition,
+      queries,
+      pages: (pageData.rows || []).map((r: any) => ({
+        url: r.keys?.[0] || '', clicks: r.clicks || 0, impressions: r.impressions || 0,
+      })),
+    };
+  }
+
   // ---- SEO Reports CRUD ----
   apiRouter.get('/seo-reports', requireAuth, requireDb, async (req: any, res: any) => {
     try {
@@ -1420,7 +1470,7 @@ async function startServer() {
         { headers: { Authorization: `OAuth ${accessToken}` } }
       ),
       globalThis.fetch(
-        `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/search-queries/popular?order_by=TOTAL_CLICKS&date_from=${from}&date_to=${to}`,
+        `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/search-queries/popular?order_by=TOTAL_CLICKS&query_indicator=TOTAL_CLICKS&query_indicator=TOTAL_SHOWS&query_indicator=AVG_SHOW_POSITION&date_from=${from}&date_to=${to}`,
         { headers: { Authorization: `OAuth ${accessToken}` } }
       ),
       globalThis.fetch(
@@ -1458,28 +1508,38 @@ async function startServer() {
 
   async function fetchMetricaData(accessToken: string, counterId: string, from: string, to: string) {
     const cId = counterId;
-    const [summaryRes, sourcesRes, topPagesRes, searchRes] = await Promise.all([
+    const headers = { Authorization: `OAuth ${accessToken}` };
+    const [summaryRes, sourcesRes, topPagesRes, searchRes, devicesRes, geoRes] = await Promise.all([
       globalThis.fetch(
         `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:visits,ym:s:pageviews,ym:s:users,ym:s:bounceRate,ym:s:avgVisitDurationSeconds&date1=${from}&date2=${to}`,
-        { headers: { Authorization: `OAuth ${accessToken}` } }
+        { headers }
       ),
       globalThis.fetch(
         `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:visits&dimensions=ym:s:lastTrafficSource&date1=${from}&date2=${to}&limit=10`,
-        { headers: { Authorization: `OAuth ${accessToken}` } }
+        { headers }
       ),
       globalThis.fetch(
         `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:pageviews&dimensions=ym:s:startURL&date1=${from}&date2=${to}&sort=-ym:s:pageviews&limit=20`,
-        { headers: { Authorization: `OAuth ${accessToken}` } }
+        { headers }
       ),
       globalThis.fetch(
         `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:visits&dimensions=ym:s:searchEngine&date1=${from}&date2=${to}&limit=10`,
-        { headers: { Authorization: `OAuth ${accessToken}` } }
+        { headers }
+      ),
+      globalThis.fetch(
+        `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:visits&dimensions=ym:s:deviceCategory&date1=${from}&date2=${to}`,
+        { headers }
+      ),
+      globalThis.fetch(
+        `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:visits&dimensions=ym:s:regionCity&date1=${from}&date2=${to}&sort=-ym:s:visits&limit=15`,
+        { headers }
       ),
     ]);
 
-    const [smry, srcs, tPages, sEngines] = await Promise.all([
+    const [smry, srcs, tPages, sEngines, devs, geo] = await Promise.all([
       summaryRes.json() as any, sourcesRes.json() as any,
       topPagesRes.json() as any, searchRes.json() as any,
+      devicesRes.json() as any, geoRes.json() as any,
     ]);
 
     const totals = smry.data?.[0]?.metrics || [];
@@ -1503,6 +1563,16 @@ async function startServer() {
       searchEngines: (sEngines.data || []).map((d: any) => ({
         name: d.dimensions?.[0]?.name || 'Unknown',
         visits: Math.round(d.metrics?.[0] || 0),
+      })),
+      devices: (devs.data || []).map((d: any) => ({
+        name: d.dimensions?.[0]?.name || 'Unknown',
+        visits: Math.round(d.metrics?.[0] || 0),
+        percentage: totalVisits > 0 ? Math.round((d.metrics?.[0] || 0) / totalVisits * 10000) / 100 : 0,
+      })),
+      geography: (geo.data || []).map((d: any) => ({
+        city: d.dimensions?.[0]?.name || 'Unknown',
+        visits: Math.round(d.metrics?.[0] || 0),
+        percentage: totalVisits > 0 ? Math.round((d.metrics?.[0] || 0) / totalVisits * 10000) / 100 : 0,
       })),
     };
   }
@@ -1550,6 +1620,18 @@ async function startServer() {
           data.metrica = current;
           data.prevMetrica = prev;
         } catch (e) { console.error('Metrica data error:', e); }
+      }
+
+      const gscConn = await getYandexConnection(req.user.uid, 'google_search_console', report.projectId || undefined);
+      if (gscConn && gscConn.siteUrl && gscConn.accessToken) {
+        try {
+          const [current, prev] = await Promise.all([
+            fetchGSCData(gscConn.accessToken, gscConn.siteUrl, from, to),
+            fetchGSCData(gscConn.accessToken, gscConn.siteUrl, prevFrom, prevTo),
+          ]);
+          data.gsc = current;
+          data.prevGsc = prev;
+        } catch (e) { console.error('GSC data error:', e); }
       }
 
       if (report.projectId && !data.tasks) {
