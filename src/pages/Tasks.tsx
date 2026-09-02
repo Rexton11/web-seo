@@ -849,7 +849,10 @@ function TaskDetailPanel({ task, subtasks, projects, columns, updateTask, delete
       try {
         const idToken = await user.getIdToken();
         const res = await fetch(`/api/attachments?taskId=${task.id}`, { headers: { 'Authorization': `Bearer ${idToken}` } });
-        if (res.ok) setAttachments(await res.json());
+        if (res.ok) {
+          const data = await res.json();
+          setAttachments(data.filter((a: any) => a.taskId === task.id));
+        }
       } catch {}
     };
     loadAttachments();
