@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '../AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Plus, Trash2, BarChart3, Globe, TrendingUp, Search,
-  Eye, ArrowUpRight, FileText, RefreshCw,
+  ArrowLeft, Plus, Trash2, BarChart3, Globe, TrendingUp, TrendingDown, Search,
+  Eye, ArrowUpRight, ArrowDownRight, FileText, RefreshCw,
   Link2, CheckCircle2, XCircle, ChevronDown, ChevronRight,
-  Loader2, Key, Unlink
+  Loader2, Unlink, GripVertical, Pencil, X, Check
 } from 'lucide-react';
 
 type Tab = 'reports' | 'connections';
@@ -92,8 +92,8 @@ export default function SeoReports() {
     });
     if (res.ok) {
       await fetchAll();
-      if (service === 'yandex_webmaster') { setWmToken(''); }
-      if (service === 'yandex_metrica') { setMcToken(''); }
+      if (service === 'yandex_webmaster') setWmToken('');
+      if (service === 'yandex_metrica') setMcToken('');
     }
   };
 
@@ -161,7 +161,6 @@ export default function SeoReports() {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           service: type === 'webmaster' ? 'yandex_webmaster' : 'yandex_metrica',
-          accessToken: conn.accessToken === '***' ? undefined : conn.accessToken,
           [type === 'webmaster' ? 'hostId' : 'counterId']: hostOrCounterId,
           projectId,
         }),
@@ -217,7 +216,11 @@ export default function SeoReports() {
     await fetch(`/api/seo-reports/${id}/generate`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
     await fetchAll();
     const repRes = await fetch(`/api/seo-reports/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-    if (repRes.ok) setViewReport(await repRes.json());
+    if (repRes.ok) {
+      const r = await repRes.json();
+      setViewReport(r);
+      setReports(prev => prev.map(p => p.id === id ? r : p));
+    }
     setGenerating(null);
   };
 
@@ -229,6 +232,15 @@ export default function SeoReports() {
     await fetchAll();
   };
 
+  const updateReportData = async (id: string, data: any) => {
+    const token = await getToken();
+    await fetch(`/api/seo-reports/${id}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data }),
+    });
+  };
+
   if (loading) return (
     <div className="flex items-center justify-center h-full">
       <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent" />
@@ -236,7 +248,17 @@ export default function SeoReports() {
   );
 
   if (viewReport) {
-    return <ReportView report={viewReport} projects={projects} onBack={() => setViewReport(null)} onRegenerate={() => generateReport(viewReport.id)} generating={generating === viewReport.id} />;
+    return <ReportView
+      report={viewReport}
+      projects={projects}
+      onBack={() => setViewReport(null)}
+      onRegenerate={() => generateReport(viewReport.id)}
+      generating={generating === viewReport.id}
+      onUpdateData={(data) => {
+        setViewReport({ ...viewReport, data });
+        updateReportData(viewReport.id, data);
+      }}
+    />;
   }
 
   const activeProjects = projects.filter(p => !p.archived);
@@ -259,7 +281,6 @@ export default function SeoReports() {
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-lg w-fit">
           {([
             { id: 'connections' as Tab, label: 'Подключения и проекты', icon: Link2 },
@@ -272,14 +293,11 @@ export default function SeoReports() {
           ))}
         </div>
 
-        {/* Tab: Connections & Project Bindings */}
         {tab === 'connections' && (
           <div className="space-y-6">
-            {/* Step 1: Connect tokens */}
             <div>
               <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Шаг 1 — Подключите токены</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Webmaster token */}
                 <div className="border border-slate-200 rounded-xl p-5">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -321,7 +339,6 @@ export default function SeoReports() {
                   )}
                 </div>
 
-                {/* Metrica token */}
                 <div className="border border-slate-200 rounded-xl p-5">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -366,16 +383,15 @@ export default function SeoReports() {
 
               {!wmConn && !mcConn && (
                 <p className="text-xs text-slate-400 mt-3">
-                  Получите токен в <a href="https://oauth.yandex.ru" target="_blank" rel="noopener" className="text-blue-500 hover:underline">oauth.yandex.ru</a> → ваше приложение → отладочный токен. Можно использовать один токен для обоих сервисов, если приложению выданы права на Вебмастер и Метрику.
+                  Получите токен в <a href="https://oauth.yandex.ru" target="_blank" rel="noopener" className="text-blue-500 hover:underline">oauth.yandex.ru</a> — ваше приложение — отладочный токен. Можно использовать один токен для обоих сервисов.
                 </p>
               )}
             </div>
 
-            {/* Step 2: Bind sites/counters to projects */}
             {(wmConn || mcConn) && (
               <div>
                 <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Шаг 2 — Привяжите сайты к проектам</h2>
-                <p className="text-xs text-slate-400 mb-4">Для каждого проекта выберите сайт из Вебмастера и/или счётчик из Метрики. При генерации отчёта данные будут тянуться из привязанных источников.</p>
+                <p className="text-xs text-slate-400 mb-4">Для каждого проекта выберите сайт из Вебмастера и/или счётчик из Метрики.</p>
 
                 {activeProjects.length === 0 ? (
                   <div className="text-center py-8 text-slate-400 border border-dashed border-slate-200 rounded-xl">
@@ -393,7 +409,6 @@ export default function SeoReports() {
                             <span className="font-semibold text-slate-800 text-sm">{project.name}</span>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {/* Webmaster binding */}
                             {wmConn && (
                               <div>
                                 <label className="block text-xs text-slate-500 mb-1">
@@ -402,11 +417,8 @@ export default function SeoReports() {
                                 <select
                                   value={wmBind?.hostId || ''}
                                   onChange={e => {
-                                    if (e.target.value) {
-                                      assignToProject(e.target.value, project.id, 'webmaster');
-                                    } else if (wmBind) {
-                                      saveProjectBinding(wmBind.id, 'projectId', '');
-                                    }
+                                    if (e.target.value) assignToProject(e.target.value, project.id, 'webmaster');
+                                    else if (wmBind) saveProjectBinding(wmBind.id, 'projectId', '');
                                   }}
                                   className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
                                 >
@@ -417,7 +429,6 @@ export default function SeoReports() {
                                 </select>
                               </div>
                             )}
-                            {/* Metrica binding */}
                             {mcConn && (
                               <div>
                                 <label className="block text-xs text-slate-500 mb-1">
@@ -426,11 +437,8 @@ export default function SeoReports() {
                                 <select
                                   value={mcBind?.counterId || ''}
                                   onChange={e => {
-                                    if (e.target.value) {
-                                      assignToProject(e.target.value, project.id, 'metrica');
-                                    } else if (mcBind) {
-                                      saveProjectBinding(mcBind.id, 'projectId', '');
-                                    }
+                                    if (e.target.value) assignToProject(e.target.value, project.id, 'metrica');
+                                    else if (mcBind) saveProjectBinding(mcBind.id, 'projectId', '');
                                   }}
                                   className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
                                 >
@@ -452,7 +460,6 @@ export default function SeoReports() {
           </div>
         )}
 
-        {/* Tab: Reports */}
         {tab === 'reports' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -479,7 +486,7 @@ export default function SeoReports() {
                       {activeProjects.map(p => {
                         const { wmBind, mcBind } = getProjectBindings(p.id);
                         const hasBind = wmBind?.hostId || mcBind?.counterId;
-                        return <option key={p.id} value={p.id}>{p.name} {hasBind ? '✓' : '(нет привязок)'}</option>;
+                        return <option key={p.id} value={p.id}>{p.name} {hasBind ? '' : '(нет привязок)'}</option>;
                       })}
                     </select>
                   </div>
@@ -561,60 +568,156 @@ export default function SeoReports() {
   );
 }
 
-function ReportView({ report, projects, onBack, onRegenerate, generating }: { report: Report; projects: Project[]; onBack: () => void; onRegenerate: () => void; generating: boolean }) {
+// --- Delta helpers ---
+function delta(curr: number, prev: number): { value: number; pct: number; positive: boolean } {
+  const d = curr - prev;
+  const pct = prev > 0 ? Math.round((d / prev) * 100) : curr > 0 ? 100 : 0;
+  return { value: d, pct, positive: d >= 0 };
+}
+
+function DeltaBadge({ curr, prev, invert, suffix = '' }: { curr: number; prev: number; invert?: boolean; suffix?: string }) {
+  if (prev === 0 && curr === 0) return null;
+  const d = delta(curr, prev);
+  const isGood = invert ? !d.positive : d.positive;
+  if (d.value === 0) return <span className="text-[11px] text-slate-400 ml-1">0%</span>;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium ml-1.5 ${isGood ? 'text-green-600' : 'text-red-500'}`}>
+      {d.positive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+      {d.positive ? '+' : ''}{d.pct}%{suffix}
+    </span>
+  );
+}
+
+function formatDuration(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.round(sec % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+// --- Report View ---
+function ReportView({ report, projects, onBack, onRegenerate, generating, onUpdateData }: {
+  report: Report; projects: Project[]; onBack: () => void; onRegenerate: () => void;
+  generating: boolean; onUpdateData: (data: any) => void;
+}) {
   const d = report.data || {};
   const wm = d.webmaster;
   const mc = d.metrica;
-  const tasks = d.tasks;
+  const pwm = d.prevWebmaster;
+  const pmc = d.prevMetrica;
+  const tasks = d.tasks || [];
   const project = projects.find(p => p.id === report.projectId);
 
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['overview', 'queries', 'traffic', 'sources', 'pages', 'tasks', 'indexing', 'search-engines']));
-  const toggleSection = (s: string) => {
-    const next = new Set(expandedSections);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(['overview', 'queries', 'traffic', 'sources', 'pages', 'tasks', 'indexing', 'search-engines']));
+  const toggle = (s: string) => {
+    const next = new Set(expanded);
     if (next.has(s)) next.delete(s); else next.add(s);
-    setExpandedSections(next);
+    setExpanded(next);
   };
 
-  const Section = ({ id, title, icon: Icon, children }: { id: string; title: string; icon: any; children: React.ReactNode }) => (
+  const [editingTask, setEditingTask] = useState<number | null>(null);
+  const [editText, setEditText] = useState('');
+  const [newTask, setNewTask] = useState('');
+  const taskInputRef = useRef<HTMLInputElement>(null);
+
+  const updateTasks = (newTasks: any[]) => {
+    onUpdateData({ ...d, tasks: newTasks });
+  };
+
+  const addTask = () => {
+    if (!newTask.trim()) return;
+    updateTasks([...tasks, { title: newTask.trim(), status: 'todo', done: false }]);
+    setNewTask('');
+    taskInputRef.current?.focus();
+  };
+
+  const removeTask = (i: number) => {
+    updateTasks(tasks.filter((_: any, idx: number) => idx !== i));
+  };
+
+  const toggleTask = (i: number) => {
+    const updated = tasks.map((t: any, idx: number) =>
+      idx === i ? { ...t, done: !t.done, status: t.done ? 'todo' : 'done', completedAt: t.done ? null : new Date().toISOString() } : t
+    );
+    updateTasks(updated);
+  };
+
+  const startEdit = (i: number) => {
+    setEditingTask(i);
+    setEditText(tasks[i].title);
+  };
+
+  const saveEdit = () => {
+    if (editingTask === null) return;
+    if (editText.trim()) {
+      const updated = tasks.map((t: any, idx: number) =>
+        idx === editingTask ? { ...t, title: editText.trim() } : t
+      );
+      updateTasks(updated);
+    }
+    setEditingTask(null);
+  };
+
+  const Section = ({ id, title, icon: Icon, count, children }: { id: string; title: string; icon: any; count?: number; children: React.ReactNode }) => (
     <div className="border border-slate-200 rounded-xl overflow-hidden">
-      <button onClick={() => toggleSection(id)} className="w-full flex items-center gap-2 px-5 py-3 bg-slate-50 hover:bg-slate-100 transition-colors">
-        {expandedSections.has(id) ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+      <button onClick={() => toggle(id)} className="w-full flex items-center gap-2 px-5 py-3.5 hover:bg-slate-50 transition-colors">
+        {expanded.has(id) ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
         <Icon className="w-4 h-4 text-slate-500" />
         <span className="text-sm font-semibold text-slate-700">{title}</span>
+        {count !== undefined && <span className="text-xs text-slate-400 ml-1">({count})</span>}
       </button>
-      {expandedSections.has(id) && <div className="p-5">{children}</div>}
+      {expanded.has(id) && <div className="px-5 pb-5 pt-1">{children}</div>}
     </div>
   );
 
-  const StatCard = ({ label, value, sub, color = 'blue' }: { label: string; value: string | number; sub?: string; color?: string }) => {
+  const StatCard = ({ label, value, prev: prevVal, color = 'blue', invert, suffix = '' }: {
+    label: string; value: number; prev?: number; color?: string; invert?: boolean; suffix?: string;
+  }) => {
     const bgColors: Record<string, string> = {
       blue: 'bg-blue-50', sky: 'bg-sky-50', emerald: 'bg-emerald-50', amber: 'bg-amber-50',
       purple: 'bg-purple-50', indigo: 'bg-indigo-50', teal: 'bg-teal-50', rose: 'bg-rose-50',
       green: 'bg-green-50', red: 'bg-red-50',
     };
+    const formatted = suffix === '%' ? `${value}%` : suffix === 'с' ? formatDuration(value) : value.toLocaleString('ru');
     return (
       <div className={`${bgColors[color] || 'bg-slate-50'} rounded-xl p-4`}>
-        <p className="text-xs text-slate-500 mb-1">{label}</p>
-        <p className="text-2xl font-bold text-slate-800">{typeof value === 'number' ? value.toLocaleString('ru') : value}</p>
-        {sub && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
+        <p className="text-[11px] text-slate-500 mb-1 uppercase tracking-wider">{label}</p>
+        <div className="flex items-baseline">
+          <p className="text-2xl font-bold text-slate-800">{formatted}</p>
+          {prevVal !== undefined && <DeltaBadge curr={value} prev={prevVal} invert={invert} />}
+        </div>
+        {prevVal !== undefined && prevVal > 0 && (
+          <p className="text-[11px] text-slate-400 mt-1">
+            Пред. период: {suffix === '%' ? `${prevVal}%` : suffix === 'с' ? formatDuration(prevVal) : prevVal.toLocaleString('ru')}
+          </p>
+        )}
       </div>
     );
   };
 
+  const periodLabel = d.dateFrom && d.dateTo
+    ? `${d.dateFrom} — ${d.dateTo}`
+    : report.dateFrom && report.dateTo
+      ? `${report.dateFrom} — ${report.dateTo}`
+      : '';
+
+  const prevPeriodLabel = d.prevDateFrom && d.prevDateTo ? `${d.prevDateFrom} — ${d.prevDateTo}` : '';
+
   return (
     <div className="h-full overflow-y-auto bg-white">
       <div className="max-w-4xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <button onClick={onBack} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg">
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
               <h1 className="text-2xl font-bold text-slate-900">{report.title}</h1>
-              <div className="flex items-center gap-2 mt-1">
-                {project && <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: project.color + '20', color: project.color }}>{project.name}</span>}
-                {report.dateFrom && report.dateTo && <span className="text-xs text-slate-400">{report.dateFrom} — {report.dateTo}</span>}
-                {d.generatedAt && <span className="text-xs text-slate-400">Обновлён: {new Date(d.generatedAt).toLocaleString('ru')}</span>}
+              <div className="flex items-center gap-3 mt-1 flex-wrap">
+                {project && <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: project.color + '20', color: project.color }}>{project.name}</span>}
+                {periodLabel && <span className="text-xs text-slate-500">{periodLabel}</span>}
+                {prevPeriodLabel && <span className="text-xs text-slate-400">vs {prevPeriodLabel}</span>}
+                {d.generatedAt && <span className="text-xs text-slate-400">{new Date(d.generatedAt).toLocaleString('ru')}</span>}
               </div>
             </div>
           </div>
@@ -626,136 +729,211 @@ function ReportView({ report, projects, onBack, onRegenerate, generating }: { re
         </div>
 
         <div className="space-y-4">
+          {/* Overview with comparison */}
           {(wm || mc) && (
             <Section id="overview" title="Обзор" icon={TrendingUp}>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {wm && (
-                  <>
-                    <StatCard label="Клики (Яндекс)" value={wm.totalClicks || 0} color="blue" />
-                    <StatCard label="Показы (Яндекс)" value={wm.totalImpressions || 0} color="sky" />
-                    <StatCard label="CTR" value={`${wm.avgCtr || 0}%`} color="emerald" />
-                    <StatCard label="Ср. позиция" value={wm.avgPosition || 0} color="amber" />
-                  </>
-                )}
-                {mc && (
-                  <>
-                    <StatCard label="Визиты" value={mc.visits || 0} color="purple" />
-                    <StatCard label="Просмотры" value={mc.pageviews || 0} color="indigo" />
-                    <StatCard label="Посетители" value={mc.users || 0} color="teal" />
-                    <StatCard label="Отказы" value={`${mc.bounceRate || 0}%`} color="rose" />
-                  </>
-                )}
+              {wm && (
+                <>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Яндекс Вебмастер</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                    <StatCard label="Клики" value={wm.totalClicks || 0} prev={pwm?.totalClicks} color="blue" />
+                    <StatCard label="Показы" value={wm.totalImpressions || 0} prev={pwm?.totalImpressions} color="sky" />
+                    <StatCard label="CTR" value={wm.avgCtr || 0} prev={pwm?.avgCtr} color="emerald" suffix="%" />
+                    <StatCard label="Ср. позиция" value={wm.avgPosition || 0} prev={pwm?.avgPosition} color="amber" invert />
+                  </div>
+                </>
+              )}
+              {mc && (
+                <>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Яндекс Метрика</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <StatCard label="Визиты" value={mc.visits || 0} prev={pmc?.visits} color="purple" />
+                    <StatCard label="Просмотры" value={mc.pageviews || 0} prev={pmc?.pageviews} color="indigo" />
+                    <StatCard label="Посетители" value={mc.users || 0} prev={pmc?.users} color="teal" />
+                    <StatCard label="Отказы" value={mc.bounceRate || 0} prev={pmc?.bounceRate} color="rose" suffix="%" invert />
+                  </div>
+                  {mc.avgDuration !== undefined && (
+                    <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <StatCard label="Ср. время на сайте" value={mc.avgDuration || 0} prev={pmc?.avgDuration} color="blue" suffix="с" />
+                    </div>
+                  )}
+                </>
+              )}
+            </Section>
+          )}
+
+          {/* Indexing */}
+          {wm?.indexing && (
+            <Section id="indexing" title="Индексация" icon={Globe}>
+              <div className="grid grid-cols-2 gap-3">
+                <StatCard label="В поиске" value={wm.indexing.indexed} prev={pwm?.indexing?.indexed} color="green" />
+                <StatCard label="Исключено" value={wm.indexing.excluded} prev={pwm?.indexing?.excluded} color="red" invert />
               </div>
             </Section>
           )}
 
+          {/* Queries table */}
           {wm?.queries && wm.queries.length > 0 && (
-            <Section id="queries" title={`Топ запросов (${wm.queries.length})`} icon={Search}>
+            <Section id="queries" title="Топ поисковых запросов" icon={Search} count={wm.queries.length}>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-xs text-slate-500 border-b border-slate-100">
-                      <th className="pb-2 pr-4">#</th>
-                      <th className="pb-2 pr-4">Запрос</th>
-                      <th className="pb-2 pr-4 text-right">Клики</th>
-                      <th className="pb-2 pr-4 text-right">Показы</th>
-                      <th className="pb-2 pr-4 text-right">CTR</th>
+                    <tr className="text-left text-[11px] text-slate-500 uppercase tracking-wider border-b border-slate-100">
+                      <th className="pb-2 pr-3 w-8">#</th>
+                      <th className="pb-2 pr-3">Запрос</th>
+                      <th className="pb-2 pr-3 text-right">Клики</th>
+                      <th className="pb-2 pr-3 text-right">Показы</th>
+                      <th className="pb-2 pr-3 text-right">CTR</th>
                       <th className="pb-2 text-right">Позиция</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {wm.queries.map((q: any, i: number) => (
-                      <tr key={i} className="border-b border-slate-50 hover:bg-slate-50">
-                        <td className="py-2 pr-4 text-xs text-slate-400">{i + 1}</td>
-                        <td className="py-2 pr-4 text-slate-700 max-w-[300px] truncate">{q.query}</td>
-                        <td className="py-2 pr-4 text-right font-medium">{q.clicks}</td>
-                        <td className="py-2 pr-4 text-right text-slate-500">{q.impressions}</td>
-                        <td className="py-2 pr-4 text-right text-slate-500">{q.ctr}%</td>
-                        <td className="py-2 text-right">
-                          <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${q.position <= 3 ? 'bg-green-100 text-green-700' : q.position <= 10 ? 'bg-blue-100 text-blue-700' : q.position <= 30 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
-                            {q.position}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {wm.queries.map((q: any, i: number) => {
+                      const prevQ = pwm?.queries?.find((pq: any) => pq.query === q.query);
+                      return (
+                        <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50">
+                          <td className="py-2.5 pr-3 text-xs text-slate-400">{i + 1}</td>
+                          <td className="py-2.5 pr-3 text-slate-700 max-w-[280px] truncate font-medium">{q.query}</td>
+                          <td className="py-2.5 pr-3 text-right">
+                            <span className="font-medium">{q.clicks}</span>
+                            {prevQ && <DeltaBadge curr={q.clicks} prev={prevQ.clicks} />}
+                          </td>
+                          <td className="py-2.5 pr-3 text-right text-slate-500">{q.impressions}</td>
+                          <td className="py-2.5 pr-3 text-right text-slate-500">{q.ctr}%</td>
+                          <td className="py-2.5 text-right">
+                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${q.position <= 3 ? 'bg-green-100 text-green-700' : q.position <= 10 ? 'bg-blue-100 text-blue-700' : q.position <= 30 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                              {q.position}
+                            </span>
+                            {prevQ && prevQ.position !== q.position && (
+                              <span className={`text-[10px] ml-1 ${q.position < prevQ.position ? 'text-green-600' : 'text-red-500'}`}>
+                                {q.position < prevQ.position ? `+${Math.round(prevQ.position - q.position)}` : `-${Math.round(q.position - prevQ.position)}`}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             </Section>
           )}
 
-          {wm?.indexing && (
-            <Section id="indexing" title="Индексация" icon={Globe}>
-              <div className="grid grid-cols-2 gap-3">
-                <StatCard label="В поиске" value={wm.indexing.indexed} color="green" />
-                <StatCard label="Исключено" value={wm.indexing.excluded} color="red" />
-              </div>
-            </Section>
-          )}
-
+          {/* Traffic sources */}
           {mc?.sources && mc.sources.length > 0 && (
-            <Section id="sources" title="Источники трафика" icon={ArrowUpRight}>
-              <div className="space-y-2">
-                {mc.sources.map((s: any, i: number) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <span className="text-sm text-slate-700 w-40 truncate">{s.name}</span>
-                    <div className="flex-1 bg-slate-100 rounded-full h-5 overflow-hidden">
-                      <div className="h-full bg-blue-500 rounded-full flex items-center justify-end pr-2 text-[10px] text-white font-medium"
-                        style={{ width: `${Math.max(s.percentage, 5)}%` }}>
-                        {s.percentage}%
+            <Section id="sources" title="Источники трафика" icon={ArrowUpRight} count={mc.sources.length}>
+              <div className="space-y-2.5">
+                {mc.sources.map((s: any, i: number) => {
+                  const prevS = pmc?.sources?.find((ps: any) => ps.name === s.name);
+                  return (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="text-sm text-slate-700 w-36 truncate font-medium">{s.name}</span>
+                      <div className="flex-1 bg-slate-100 rounded-full h-6 overflow-hidden relative">
+                        {prevS && prevS.percentage > 0 && (
+                          <div className="absolute h-full bg-slate-200 rounded-full" style={{ width: `${Math.max(prevS.percentage, 3)}%` }} />
+                        )}
+                        <div className="relative h-full bg-blue-500 rounded-full flex items-center justify-end pr-2 text-[10px] text-white font-medium transition-all"
+                          style={{ width: `${Math.max(s.percentage, 3)}%` }}>
+                          {s.percentage > 8 ? `${s.percentage}%` : ''}
+                        </div>
+                      </div>
+                      <div className="w-24 text-right">
+                        <span className="text-sm font-medium text-slate-700">{s.visits.toLocaleString('ru')}</span>
+                        {prevS && <DeltaBadge curr={s.visits} prev={prevS.visits} />}
                       </div>
                     </div>
-                    <span className="text-sm text-slate-500 w-16 text-right">{s.visits}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </Section>
           )}
 
+          {/* Search engines */}
           {mc?.searchEngines && mc.searchEngines.length > 0 && (
-            <Section id="search-engines" title="Поисковые системы" icon={Search}>
+            <Section id="search-engines" title="Поисковые системы" icon={Search} count={mc.searchEngines.length}>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {mc.searchEngines.map((se: any, i: number) => (
-                  <div key={i} className="bg-slate-50 rounded-lg p-3">
-                    <p className="text-sm font-medium text-slate-700">{se.name}</p>
-                    <p className="text-xl font-bold text-slate-800">{se.visits.toLocaleString('ru')}</p>
-                  </div>
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {mc?.topPages && mc.topPages.length > 0 && (
-            <Section id="pages" title={`Топ страниц (${mc.topPages.length})`} icon={FileText}>
-              <div className="space-y-1.5">
-                {mc.topPages.map((p: any, i: number) => (
-                  <div key={i} className="flex items-center gap-2 py-1.5 text-sm">
-                    <span className="text-xs text-slate-400 w-6">{i + 1}.</span>
-                    <span className="flex-1 text-slate-700 truncate text-xs">{p.url}</span>
-                    <span className="text-slate-500 font-medium">{p.views.toLocaleString('ru')}</span>
-                  </div>
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {tasks && tasks.length > 0 && (
-            <Section id="tasks" title={`Выполненные работы (${tasks.length})`} icon={CheckCircle2}>
-              <div className="space-y-1">
-                {tasks.map((t: any, i: number) => (
-                  <div key={i} className="flex items-center gap-2 py-1.5">
-                    <div className={`w-4 h-4 rounded-[3px] border-2 flex items-center justify-center ${t.status === 'done' || t.completedAt ? 'bg-green-500 border-green-500' : 'border-slate-300'}`}>
-                      {(t.status === 'done' || t.completedAt) && <span className="text-white text-[10px]">✓</span>}
+                {mc.searchEngines.map((se: any, i: number) => {
+                  const prevSE = pmc?.searchEngines?.find((pse: any) => pse.name === se.name);
+                  return (
+                    <div key={i} className="bg-slate-50 rounded-xl p-4">
+                      <p className="text-sm font-medium text-slate-600 mb-1">{se.name}</p>
+                      <div className="flex items-baseline">
+                        <p className="text-xl font-bold text-slate-800">{se.visits.toLocaleString('ru')}</p>
+                        {prevSE && <DeltaBadge curr={se.visits} prev={prevSE.visits} />}
+                      </div>
+                      {prevSE && prevSE.visits > 0 && (
+                        <p className="text-[11px] text-slate-400 mt-0.5">Было: {prevSE.visits.toLocaleString('ru')}</p>
+                      )}
                     </div>
-                    <span className={`text-sm ${t.completedAt ? 'text-slate-500' : 'text-slate-700'}`}>{t.title}</span>
-                    {t.completedAt && <span className="text-xs text-slate-400">{new Date(t.completedAt).toLocaleDateString('ru')}</span>}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </Section>
           )}
 
-          {!wm && !mc && (
+          {/* Top pages */}
+          {mc?.topPages && mc.topPages.length > 0 && (
+            <Section id="pages" title="Топ страниц" icon={FileText} count={mc.topPages.length}>
+              <div className="space-y-1">
+                {mc.topPages.map((p: any, i: number) => {
+                  const prevP = pmc?.topPages?.find((pp: any) => pp.url === p.url);
+                  return (
+                    <div key={i} className="flex items-center gap-2 py-2 border-b border-slate-50 last:border-0">
+                      <span className="text-xs text-slate-400 w-6 text-right">{i + 1}.</span>
+                      <span className="flex-1 text-slate-700 truncate text-xs">{p.url}</span>
+                      <span className="text-sm text-slate-700 font-medium">{p.views.toLocaleString('ru')}</span>
+                      {prevP && <DeltaBadge curr={p.views} prev={prevP.views} />}
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
+
+          {/* Editable tasks */}
+          <Section id="tasks" title="Выполненные работы" icon={CheckCircle2} count={tasks.length}>
+            <div className="space-y-1 mb-3">
+              {tasks.length === 0 && (
+                <p className="text-sm text-slate-400 py-2">Нет задач. Добавьте вручную или нажмите "Обновить данные" для загрузки из проекта.</p>
+              )}
+              {tasks.map((t: any, i: number) => (
+                <div key={i} className="flex items-center gap-2 py-1.5 group">
+                  <button onClick={() => toggleTask(i)}
+                    className={`w-4 h-4 rounded-[3px] border-2 flex-shrink-0 flex items-center justify-center transition-colors ${t.done ? 'bg-green-500 border-green-500' : 'border-slate-300 hover:border-green-400'}`}>
+                    {t.done && <span className="text-white text-[10px]">&#10003;</span>}
+                  </button>
+                  {editingTask === i ? (
+                    <div className="flex-1 flex items-center gap-1">
+                      <input value={editText} onChange={e => setEditText(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingTask(null); }}
+                        className="flex-1 px-2 py-1 border border-blue-300 rounded text-sm focus:outline-none" autoFocus />
+                      <button onClick={saveEdit} className="p-1 text-green-600 hover:bg-green-50 rounded"><Check className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setEditingTask(null)} className="p-1 text-slate-400 hover:bg-slate-100 rounded"><X className="w-3.5 h-3.5" /></button>
+                    </div>
+                  ) : (
+                    <>
+                      <span className={`flex-1 text-sm ${t.done ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{t.title}</span>
+                      {t.completedAt && <span className="text-[11px] text-slate-400">{new Date(t.completedAt).toLocaleDateString('ru')}</span>}
+                      <button onClick={() => startEdit(i)} className="p-1 text-slate-300 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"><Pencil className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => removeTask(i)} className="p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-3.5 h-3.5" /></button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+              <input ref={taskInputRef} value={newTask} onChange={e => setNewTask(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') addTask(); }}
+                placeholder="Добавить работу..."
+                className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400" />
+              <button onClick={addTask} disabled={!newTask.trim()}
+                className="px-3 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 disabled:opacity-50">
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          </Section>
+
+          {!wm && !mc && tasks.length === 0 && (
             <div className="text-center py-12 text-slate-400">
               <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-40" />
               <p className="mb-2">Нет данных</p>

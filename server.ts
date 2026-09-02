@@ -1406,6 +1406,107 @@ async function startServer() {
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  async function fetchWebmasterData(accessToken: string, hostId: string, from: string, to: string) {
+    const userIdRes = await globalThis.fetch('https://api.webmaster.yandex.net/v4/user', {
+      headers: { Authorization: `OAuth ${accessToken}` },
+    });
+    const userData = await userIdRes.json() as any;
+    const ymUserId = userData.user_id;
+    const encodedHost = encodeURIComponent(hostId);
+
+    const [historyRes, topRes, summaryRes] = await Promise.all([
+      globalThis.fetch(
+        `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/search-queries/all/history?query_indicator=TOTAL_SHOWS&query_indicator=TOTAL_CLICKS&query_indicator=AVG_SHOW_POSITION&date_from=${from}&date_to=${to}`,
+        { headers: { Authorization: `OAuth ${accessToken}` } }
+      ),
+      globalThis.fetch(
+        `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/search-queries/popular?order_by=TOTAL_CLICKS&date_from=${from}&date_to=${to}`,
+        { headers: { Authorization: `OAuth ${accessToken}` } }
+      ),
+      globalThis.fetch(
+        `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/summary`,
+        { headers: { Authorization: `OAuth ${accessToken}` } }
+      ),
+    ]);
+
+    const [history, top, summary] = await Promise.all([
+      historyRes.json() as any, topRes.json() as any, summaryRes.json() as any,
+    ]);
+
+    const indicators = history.indicators || {};
+    const totalClicks = (indicators.TOTAL_CLICKS || []).reduce((s: number, d: any) => s + (d.value || 0), 0);
+    const totalImpressions = (indicators.TOTAL_SHOWS || []).reduce((s: number, d: any) => s + (d.value || 0), 0);
+    const positions = (indicators.AVG_SHOW_POSITION || []).filter((d: any) => d.value);
+    const avgPosition = positions.length > 0 ? positions.reduce((s: number, d: any) => s + d.value, 0) / positions.length : 0;
+
+    return {
+      totalClicks, totalImpressions,
+      avgCtr: totalImpressions > 0 ? Math.round((totalClicks / totalImpressions) * 10000) / 100 : 0,
+      avgPosition: Math.round(avgPosition * 10) / 10,
+      queries: (top.queries || []).slice(0, 50).map((q: any) => ({
+        query: q.query_text, clicks: q.indicators?.TOTAL_CLICKS || 0,
+        impressions: q.indicators?.TOTAL_SHOWS || 0,
+        ctr: q.indicators?.TOTAL_SHOWS > 0 ? Math.round((q.indicators?.TOTAL_CLICKS / q.indicators?.TOTAL_SHOWS) * 10000) / 100 : 0,
+        position: Math.round((q.indicators?.AVG_SHOW_POSITION || 0) * 10) / 10,
+      })),
+      indexing: {
+        indexed: summary.searchable_count || 0,
+        excluded: summary.excluded_count || 0,
+      },
+    };
+  }
+
+  async function fetchMetricaData(accessToken: string, counterId: string, from: string, to: string) {
+    const cId = counterId;
+    const [summaryRes, sourcesRes, topPagesRes, searchRes] = await Promise.all([
+      globalThis.fetch(
+        `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:visits,ym:s:pageviews,ym:s:users,ym:s:bounceRate,ym:s:avgVisitDurationSeconds&date1=${from}&date2=${to}`,
+        { headers: { Authorization: `OAuth ${accessToken}` } }
+      ),
+      globalThis.fetch(
+        `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:visits&dimensions=ym:s:lastTrafficSource&date1=${from}&date2=${to}&limit=10`,
+        { headers: { Authorization: `OAuth ${accessToken}` } }
+      ),
+      globalThis.fetch(
+        `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:pageviews&dimensions=ym:s:startURL&date1=${from}&date2=${to}&sort=-ym:s:pageviews&limit=20`,
+        { headers: { Authorization: `OAuth ${accessToken}` } }
+      ),
+      globalThis.fetch(
+        `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:visits&dimensions=ym:s:searchEngine&date1=${from}&date2=${to}&limit=10`,
+        { headers: { Authorization: `OAuth ${accessToken}` } }
+      ),
+    ]);
+
+    const [smry, srcs, tPages, sEngines] = await Promise.all([
+      summaryRes.json() as any, sourcesRes.json() as any,
+      topPagesRes.json() as any, searchRes.json() as any,
+    ]);
+
+    const totals = smry.data?.[0]?.metrics || [];
+    const totalVisits = totals[0] || 0;
+
+    return {
+      visits: Math.round(totals[0] || 0),
+      pageviews: Math.round(totals[1] || 0),
+      users: Math.round(totals[2] || 0),
+      bounceRate: Math.round((totals[3] || 0) * 100) / 100,
+      avgDuration: Math.round(totals[4] || 0),
+      sources: (srcs.data || []).map((d: any) => ({
+        name: d.dimensions?.[0]?.name || 'Unknown',
+        visits: Math.round(d.metrics?.[0] || 0),
+        percentage: totalVisits > 0 ? Math.round((d.metrics?.[0] || 0) / totalVisits * 10000) / 100 : 0,
+      })),
+      topPages: (tPages.data || []).map((d: any) => ({
+        url: d.dimensions?.[0]?.name || '',
+        views: Math.round(d.metrics?.[0] || 0),
+      })),
+      searchEngines: (sEngines.data || []).map((d: any) => ({
+        name: d.dimensions?.[0]?.name || 'Unknown',
+        visits: Math.round(d.metrics?.[0] || 0),
+      })),
+    };
+  }
+
   apiRouter.post('/seo-reports/:id/generate', requireAuth, requireDb, async (req: any, res: any) => {
     try {
       const reportRows = await db!.select().from(schema.seoReports)
@@ -1419,121 +1520,45 @@ async function startServer() {
       const from = report.dateFrom || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
       const to = report.dateTo || new Date().toISOString().slice(0, 10);
 
-      const data: any = { generatedAt: new Date().toISOString() };
+      const periodMs = new Date(to).getTime() - new Date(from).getTime();
+      const prevTo = new Date(new Date(from).getTime() - 86400000).toISOString().slice(0, 10);
+      const prevFrom = new Date(new Date(from).getTime() - periodMs - 86400000).toISOString().slice(0, 10);
+
+      const existingData = report.data || {};
+      const data: any = { generatedAt: new Date().toISOString(), dateFrom: from, dateTo: to, prevDateFrom: prevFrom, prevDateTo: prevTo };
+      if (existingData.tasks) data.tasks = existingData.tasks;
 
       const wmConn = await getYandexConnection(req.user.uid, 'yandex_webmaster', report.projectId || undefined);
-      if (wmConn && wmConn.hostId) {
+      if (wmConn && wmConn.hostId && wmConn.accessToken) {
         try {
-          const userIdRes = await globalThis.fetch('https://api.webmaster.yandex.net/v4/user', {
-            headers: { Authorization: `OAuth ${wmConn.accessToken}` },
-          });
-          const userData = await userIdRes.json() as any;
-          const ymUserId = userData.user_id;
-          const encodedHost = encodeURIComponent(wmConn.hostId);
-
-          const [historyRes, topRes, summaryRes] = await Promise.all([
-            globalThis.fetch(
-              `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/search-queries/all/history?query_indicator=TOTAL_SHOWS&query_indicator=TOTAL_CLICKS&query_indicator=AVG_SHOW_POSITION&date_from=${from}&date_to=${to}`,
-              { headers: { Authorization: `OAuth ${wmConn.accessToken}` } }
-            ),
-            globalThis.fetch(
-              `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/search-queries/popular?order_by=TOTAL_CLICKS&date_from=${from}&date_to=${to}`,
-              { headers: { Authorization: `OAuth ${wmConn.accessToken}` } }
-            ),
-            globalThis.fetch(
-              `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/summary`,
-              { headers: { Authorization: `OAuth ${wmConn.accessToken}` } }
-            ),
+          const [current, prev] = await Promise.all([
+            fetchWebmasterData(wmConn.accessToken, wmConn.hostId, from, to),
+            fetchWebmasterData(wmConn.accessToken, wmConn.hostId, prevFrom, prevTo),
           ]);
-
-          const [history, top, summary] = await Promise.all([
-            historyRes.json() as any, topRes.json() as any, summaryRes.json() as any
-          ]);
-
-          const indicators = history.indicators || {};
-          const totalClicks = (indicators.TOTAL_CLICKS || []).reduce((s: number, d: any) => s + (d.value || 0), 0);
-          const totalImpressions = (indicators.TOTAL_SHOWS || []).reduce((s: number, d: any) => s + (d.value || 0), 0);
-          const positions = (indicators.AVG_SHOW_POSITION || []).filter((d: any) => d.value);
-          const avgPosition = positions.length > 0 ? positions.reduce((s: number, d: any) => s + d.value, 0) / positions.length : 0;
-
-          data.webmaster = {
-            totalClicks, totalImpressions,
-            avgCtr: totalImpressions > 0 ? Math.round((totalClicks / totalImpressions) * 10000) / 100 : 0,
-            avgPosition: Math.round(avgPosition * 10) / 10,
-            queries: (top.queries || []).slice(0, 50).map((q: any) => ({
-              query: q.query_text, clicks: q.indicators?.TOTAL_CLICKS || 0,
-              impressions: q.indicators?.TOTAL_SHOWS || 0,
-              ctr: q.indicators?.TOTAL_SHOWS > 0 ? Math.round((q.indicators?.TOTAL_CLICKS / q.indicators?.TOTAL_SHOWS) * 10000) / 100 : 0,
-              position: Math.round((q.indicators?.AVG_SHOW_POSITION || 0) * 10) / 10,
-            })),
-            indexing: {
-              indexed: summary.searchable_count || 0,
-              excluded: summary.excluded_count || 0,
-            },
-          };
+          data.webmaster = current;
+          data.prevWebmaster = prev;
         } catch (e) { console.error('Webmaster data error:', e); }
       }
 
       const mcConn = await getYandexConnection(req.user.uid, 'yandex_metrica', report.projectId || undefined);
-      if (mcConn && mcConn.counterId) {
+      if (mcConn && mcConn.counterId && mcConn.accessToken) {
         try {
-          const cId = mcConn.counterId;
-          const [summaryRes, sourcesRes, topPagesRes, searchRes] = await Promise.all([
-            globalThis.fetch(
-              `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:visits,ym:s:pageviews,ym:s:users,ym:s:bounceRate,ym:s:avgVisitDurationSeconds&date1=${from}&date2=${to}`,
-              { headers: { Authorization: `OAuth ${mcConn.accessToken}` } }
-            ),
-            globalThis.fetch(
-              `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:visits&dimensions=ym:s:lastTrafficSource&date1=${from}&date2=${to}&limit=10`,
-              { headers: { Authorization: `OAuth ${mcConn.accessToken}` } }
-            ),
-            globalThis.fetch(
-              `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:pageviews&dimensions=ym:s:startURL&date1=${from}&date2=${to}&sort=-ym:s:pageviews&limit=20`,
-              { headers: { Authorization: `OAuth ${mcConn.accessToken}` } }
-            ),
-            globalThis.fetch(
-              `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:visits&dimensions=ym:s:searchEngine&date1=${from}&date2=${to}&limit=10`,
-              { headers: { Authorization: `OAuth ${mcConn.accessToken}` } }
-            ),
+          const [current, prev] = await Promise.all([
+            fetchMetricaData(mcConn.accessToken, mcConn.counterId, from, to),
+            fetchMetricaData(mcConn.accessToken, mcConn.counterId, prevFrom, prevTo),
           ]);
-
-          const [smry, srcs, tPages, sEngines] = await Promise.all([
-            summaryRes.json() as any, sourcesRes.json() as any,
-            topPagesRes.json() as any, searchRes.json() as any,
-          ]);
-
-          const totals = smry.data?.[0]?.metrics || [];
-          const totalVisits = totals[0] || 0;
-
-          data.metrica = {
-            visits: Math.round(totals[0] || 0),
-            pageviews: Math.round(totals[1] || 0),
-            users: Math.round(totals[2] || 0),
-            bounceRate: Math.round((totals[3] || 0) * 100) / 100,
-            avgDuration: Math.round(totals[4] || 0),
-            sources: (srcs.data || []).map((d: any) => ({
-              name: d.dimensions?.[0]?.name || 'Unknown',
-              visits: Math.round(d.metrics?.[0] || 0),
-              percentage: totalVisits > 0 ? Math.round((d.metrics?.[0] || 0) / totalVisits * 10000) / 100 : 0,
-            })),
-            topPages: (tPages.data || []).map((d: any) => ({
-              url: d.dimensions?.[0]?.name || '',
-              views: Math.round(d.metrics?.[0] || 0),
-            })),
-            searchEngines: (sEngines.data || []).map((d: any) => ({
-              name: d.dimensions?.[0]?.name || 'Unknown',
-              visits: Math.round(d.metrics?.[0] || 0),
-            })),
-          };
+          data.metrica = current;
+          data.prevMetrica = prev;
         } catch (e) { console.error('Metrica data error:', e); }
       }
 
-      if (report.projectId) {
+      if (report.projectId && !data.tasks) {
         try {
           const projectTasks = await db!.select().from(schema.tasks)
             .where(and(eq(schema.tasks.userId, req.user.uid), eq(schema.tasks.projectId, report.projectId)));
           data.tasks = projectTasks.map((t: any) => ({
-            title: t.title, status: t.status, completedAt: t.completedAt?.toISOString() || null,
+            title: t.title, status: t.status, done: t.status === 'done' || !!t.completedAt,
+            completedAt: t.completedAt?.toISOString() || null,
           }));
         } catch (e) { console.error('Tasks fetch error:', e); }
       }
@@ -1550,18 +1575,17 @@ async function startServer() {
   });
 
   async function getYandexConnection(userId: string, service: string, projectId?: string) {
-    if (projectId) {
-      const projectRows = await db!.select().from(schema.seoConnections)
-        .where(and(
-          eq(schema.seoConnections.userId, userId),
-          eq(schema.seoConnections.service, service),
-          eq(schema.seoConnections.projectId, projectId),
-        ));
-      if (projectRows.length > 0) return projectRows[0];
-    }
-    const rows = await db!.select().from(schema.seoConnections)
+    const allConns = await db!.select().from(schema.seoConnections)
       .where(and(eq(schema.seoConnections.userId, userId), eq(schema.seoConnections.service, service)));
-    return rows.length > 0 ? rows[0] : null;
+    if (allConns.length === 0) return null;
+    const mainConn = (allConns as any[]).find(c => c.accessToken && !c.projectId) || (allConns as any[]).find(c => c.accessToken);
+    if (projectId) {
+      const projectConn = (allConns as any[]).find(c => c.projectId === projectId);
+      if (projectConn) {
+        return { ...projectConn, accessToken: projectConn.accessToken || mainConn?.accessToken };
+      }
+    }
+    return mainConn || allConns[0];
   }
 
   // Vite middleware for development
