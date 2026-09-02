@@ -609,6 +609,25 @@ function fmtDur(sec: number): string {
 
 function fmtNum(n: number) { return n.toLocaleString('ru'); }
 
+function Hint({ children }: { children: React.ReactNode }) {
+  return <p className="text-xs text-slate-400 mt-2 leading-relaxed print:text-[10px]">{children}</p>;
+}
+
+function Tip({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mt-3 bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 print:bg-white print:border-slate-200">
+      <p className="text-xs text-blue-700 leading-relaxed print:text-slate-600">{children}</p>
+    </div>
+  );
+}
+
+function positionLabel(pos: number): { text: string; color: string } {
+  if (pos <= 3) return { text: 'Топ-3', color: 'text-green-600' };
+  if (pos <= 10) return { text: 'Первая страница', color: 'text-blue-600' };
+  if (pos <= 30) return { text: 'Страницы 2-3', color: 'text-amber-600' };
+  return { text: 'Далеко от топа', color: 'text-slate-500' };
+}
+
 // ---- Report View ----
 function ReportView({ report, projects, onBack, onRegenerate, generating, onUpdateData }: {
   report: Report; projects: Project[]; onBack: () => void; onRegenerate: () => void;
@@ -625,8 +644,9 @@ function ReportView({ report, projects, onBack, onRegenerate, generating, onUpda
   const project = projects.find(p => p.id === report.projectId);
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set([
-    'overview', 'queries', 'gsc-queries', 'traffic', 'sources', 'pages',
-    'tasks', 'indexing', 'search-engines', 'devices', 'geography',
+    'summary', 'visibility', 'traffic', 'queries', 'gsc-queries',
+    'sources', 'devices', 'geography', 'pages', 'gsc-pages',
+    'tasks', 'indexing', 'search-engines',
   ]));
   const toggle = (s: string) => {
     const next = new Set(expanded);
@@ -648,20 +668,23 @@ function ReportView({ report, projects, onBack, onRegenerate, generating, onUpda
 
   const handlePrint = () => window.print();
 
-  const Section = ({ id, title, icon: Icon, count, children }: { id: string; title: string; icon: any; count?: number; children: React.ReactNode }) => (
+  const Section = ({ id, title, subtitle, icon: Icon, count, children }: { id: string; title: string; subtitle?: string; icon: any; count?: number; children: React.ReactNode }) => (
     <div className="border border-slate-200 rounded-xl overflow-hidden print:border-slate-300 print:break-inside-avoid">
-      <button onClick={() => toggle(id)} className="w-full flex items-center gap-2 px-5 py-3.5 hover:bg-slate-50 transition-colors print:py-2">
-        {expanded.has(id) ? <ChevronDown className="w-4 h-4 text-slate-400 print:hidden" /> : <ChevronRight className="w-4 h-4 text-slate-400 print:hidden" />}
-        <Icon className="w-4 h-4 text-slate-500" />
-        <span className="text-sm font-semibold text-slate-700">{title}</span>
-        {count !== undefined && <span className="text-xs text-slate-400 ml-1">({count})</span>}
+      <button onClick={() => toggle(id)} className="w-full flex items-center gap-2 px-5 py-3.5 hover:bg-slate-50 transition-colors print:py-2 text-left">
+        {expanded.has(id) ? <ChevronDown className="w-4 h-4 text-slate-400 print:hidden flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-slate-400 print:hidden flex-shrink-0" />}
+        <Icon className="w-4 h-4 text-slate-500 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-semibold text-slate-700">{title}</span>
+          {count !== undefined && <span className="text-xs text-slate-400 ml-1">({count})</span>}
+          {subtitle && <span className="text-xs text-slate-400 ml-2 hidden sm:inline">{subtitle}</span>}
+        </div>
       </button>
       {expanded.has(id) && <div className="px-5 pb-5 pt-1">{children}</div>}
     </div>
   );
 
-  const StatCard = ({ label, value, prev: prevVal, color = 'blue', invert, isSec, isPct }: {
-    label: string; value: number; prev?: number; color?: string; invert?: boolean; isSec?: boolean; isPct?: boolean;
+  const StatCard = ({ label, value, prev: prevVal, color = 'blue', invert, isSec, isPct, hint }: {
+    label: string; value: number; prev?: number; color?: string; invert?: boolean; isSec?: boolean; isPct?: boolean; hint?: string;
   }) => {
     const bgColors: Record<string, string> = {
       blue: 'bg-blue-50', sky: 'bg-sky-50', emerald: 'bg-emerald-50', amber: 'bg-amber-50',
@@ -677,8 +700,9 @@ function ReportView({ report, projects, onBack, onRegenerate, generating, onUpda
           {prevVal !== undefined && <DeltaBadge curr={value} prev={prevVal} invert={invert} />}
         </div>
         {prevVal !== undefined && prevVal > 0 && (
-          <p className="text-[11px] text-slate-400 mt-1">Пред.: {fmt(prevVal)}</p>
+          <p className="text-[11px] text-slate-400 mt-1">Было: {fmt(prevVal)}</p>
         )}
+        {hint && <p className="text-[10px] text-slate-400 mt-1.5 leading-snug">{hint}</p>}
       </div>
     );
   };
@@ -687,10 +711,15 @@ function ReportView({ report, projects, onBack, onRegenerate, generating, onUpda
   const prevPeriodLabel = d.prevDateFrom && d.prevDateTo ? `${d.prevDateFrom} — ${d.prevDateTo}` : '';
 
   const deviceIcons: Record<string, any> = { 'desktop': Monitor, 'mobile': Smartphone, 'tablet': Tablet };
+  const deviceNames: Record<string, string> = { 'desktop': 'Компьютеры', 'mobile': 'Телефоны', 'tablet': 'Планшеты' };
+
+  const totalClicks = (wm?.totalClicks || 0) + (gsc?.totalClicks || 0);
+  const prevTotalClicks = (pwm?.totalClicks || 0) + (pgsc?.totalClicks || 0);
+  const totalImpressions = (wm?.totalImpressions || 0) + (gsc?.totalImpressions || 0);
+  const prevTotalImpressions = (pwm?.totalImpressions || 0) + (pgsc?.totalImpressions || 0);
 
   return (
     <div className="h-full overflow-y-auto bg-white">
-      {/* Print styles */}
       <style>{`
         @media print {
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -701,7 +730,7 @@ function ReportView({ report, projects, onBack, onRegenerate, generating, onUpda
 
       <div className="max-w-4xl mx-auto px-6 py-8 print:px-4 print:py-4">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8 print:mb-4">
+        <div className="flex items-center justify-between mb-6 print:mb-4">
           <div className="flex items-center gap-3">
             <button onClick={onBack} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg no-print">
               <ArrowLeft className="w-5 h-5" />
@@ -718,7 +747,7 @@ function ReportView({ report, projects, onBack, onRegenerate, generating, onUpda
           <div className="flex items-center gap-2 no-print">
             <button onClick={handlePrint}
               className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50">
-              <Printer className="w-4 h-4" /> PDF / Печать
+              <Printer className="w-4 h-4" /> PDF
             </button>
             <button onClick={onRegenerate} disabled={generating}
               className="flex items-center gap-1.5 px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 disabled:opacity-50">
@@ -729,102 +758,202 @@ function ReportView({ report, projects, onBack, onRegenerate, generating, onUpda
         </div>
 
         <div className="space-y-4 print:space-y-3">
-          {/* ---- Overview ---- */}
+
+          {/* ==== SUMMARY for business owner ==== */}
           {(wm || mc || gsc) && (
-            <Section id="overview" title="Обзор" icon={TrendingUp}>
+            <Section id="summary" title="Краткие итоги" subtitle="Главное за период" icon={TrendingUp}>
+              <div className="bg-gradient-to-br from-slate-50 to-blue-50/50 rounded-xl p-5 mb-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                  <div className="text-center">
+                    <p className="text-3xl font-bold text-slate-800">{fmtNum(totalClicks)}</p>
+                    <p className="text-xs text-slate-500 mt-1">переходов из поиска</p>
+                    {prevTotalClicks > 0 && <DeltaBadge curr={totalClicks} prev={prevTotalClicks} />}
+                  </div>
+                  <div className="text-center">
+                    <p className="text-3xl font-bold text-slate-800">{fmtNum(totalImpressions)}</p>
+                    <p className="text-xs text-slate-500 mt-1">раз вас видели в поиске</p>
+                    {prevTotalImpressions > 0 && <DeltaBadge curr={totalImpressions} prev={prevTotalImpressions} />}
+                  </div>
+                  {mc && (
+                    <>
+                      <div className="text-center">
+                        <p className="text-3xl font-bold text-slate-800">{fmtNum(mc.users || 0)}</p>
+                        <p className="text-xs text-slate-500 mt-1">уникальных посетителей</p>
+                        {pmc?.users > 0 && <DeltaBadge curr={mc.users || 0} prev={pmc.users} />}
+                      </div>
+                      <div className="text-center">
+                        <p className="text-3xl font-bold text-slate-800">{fmtDur(mc.avgDuration || 0)}</p>
+                        <p className="text-xs text-slate-500 mt-1">среднее время на сайте</p>
+                        {pmc?.avgDuration > 0 && <DeltaBadge curr={mc.avgDuration || 0} prev={pmc.avgDuration} />}
+                      </div>
+                    </>
+                  )}
+                </div>
+                <Hint>
+                  Переходы из поиска = люди, которые нашли вас в Яндексе или Google и кликнули на ваш сайт. Чем больше, тем эффективнее SEO-продвижение. Показы = сколько раз ваш сайт появлялся в результатах поиска.
+                </Hint>
+              </div>
+
+              {mc && mc.bounceRate > 0 && (
+                <div className={`rounded-xl p-4 ${mc.bounceRate > 40 ? 'bg-amber-50 border border-amber-100' : 'bg-green-50 border border-green-100'}`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">Показатель отказов: {mc.bounceRate}%</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {mc.bounceRate <= 20 ? 'Отлично! Посетители изучают сайт.' :
+                         mc.bounceRate <= 40 ? 'Хорошо. Большинство посетителей остаются на сайте.' :
+                         mc.bounceRate <= 60 ? 'Средний показатель. Есть куда расти.' :
+                         'Высокий. Многие уходят сразу. Стоит улучшить контент или скорость сайта.'}
+                      </p>
+                    </div>
+                    {pmc?.bounceRate > 0 && <DeltaBadge curr={mc.bounceRate} prev={pmc.bounceRate} invert />}
+                  </div>
+                  <Hint>Отказ = посетитель открыл сайт и ушёл, не посмотрев другие страницы. Норма для лендинга: до 60%. Для многостраничного сайта: до 30%.</Hint>
+                </div>
+              )}
+            </Section>
+          )}
+
+          {/* ==== VISIBILITY: Yandex + Google ==== */}
+          {(wm || gsc) && (
+            <Section id="visibility" title="Видимость в поисковых системах" subtitle="Как вас находят" icon={Eye}>
               {wm && (
                 <div className="mb-5">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Яндекс Вебмастер</p>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-5 h-5 rounded bg-red-100 flex items-center justify-center"><span className="text-red-600 text-xs font-bold">Я</span></div>
+                    <p className="text-sm font-semibold text-slate-700">Яндекс</p>
+                  </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <StatCard label="Клики" value={wm.totalClicks || 0} prev={pwm?.totalClicks} color="blue" />
-                    <StatCard label="Показы" value={wm.totalImpressions || 0} prev={pwm?.totalImpressions} color="sky" />
-                    <StatCard label="CTR" value={wm.avgCtr || 0} prev={pwm?.avgCtr} color="emerald" isPct />
-                    <StatCard label="Ср. позиция" value={wm.avgPosition || 0} prev={pwm?.avgPosition} color="amber" invert />
+                    <StatCard label="Переходы" value={wm.totalClicks || 0} prev={pwm?.totalClicks} color="blue"
+                      hint="Сколько раз кликнули на ваш сайт в Яндексе" />
+                    <StatCard label="Показы" value={wm.totalImpressions || 0} prev={pwm?.totalImpressions} color="sky"
+                      hint="Сколько раз вас увидели в выдаче" />
+                    <StatCard label="CTR" value={wm.avgCtr || 0} prev={pwm?.avgCtr} color="emerald" isPct
+                      hint="% людей, кто кликнул. Норма: 3-10%" />
+                    <StatCard label="Ср. позиция" value={wm.avgPosition || 0} prev={pwm?.avgPosition} color="amber" invert
+                      hint="Чем ниже число, тем выше в поиске. Цель: до 10" />
                   </div>
                 </div>
               )}
               {gsc && (
-                <div className="mb-5">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Google Search Console</p>
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-5 h-5 rounded bg-blue-100 flex items-center justify-center"><span className="text-blue-600 text-xs font-bold">G</span></div>
+                    <p className="text-sm font-semibold text-slate-700">Google</p>
+                  </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <StatCard label="Клики" value={gsc.totalClicks || 0} prev={pgsc?.totalClicks} color="cyan" />
-                    <StatCard label="Показы" value={gsc.totalImpressions || 0} prev={pgsc?.totalImpressions} color="violet" />
-                    <StatCard label="CTR" value={gsc.avgCtr || 0} prev={pgsc?.avgCtr} color="emerald" isPct />
-                    <StatCard label="Ср. позиция" value={gsc.avgPosition || 0} prev={pgsc?.avgPosition} color="amber" invert />
+                    <StatCard label="Переходы" value={gsc.totalClicks || 0} prev={pgsc?.totalClicks} color="cyan"
+                      hint="Сколько раз кликнули на ваш сайт в Google" />
+                    <StatCard label="Показы" value={gsc.totalImpressions || 0} prev={pgsc?.totalImpressions} color="violet"
+                      hint="Сколько раз вас увидели в выдаче" />
+                    <StatCard label="CTR" value={gsc.avgCtr || 0} prev={pgsc?.avgCtr} color="emerald" isPct
+                      hint="% людей, кто кликнул. Норма: 3-10%" />
+                    <StatCard label="Ср. позиция" value={gsc.avgPosition || 0} prev={pgsc?.avgPosition} color="amber" invert
+                      hint="Чем ниже число, тем выше в поиске. Цель: до 10" />
                   </div>
                 </div>
               )}
-              {mc && (
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Яндекс Метрика</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <StatCard label="Визиты" value={mc.visits || 0} prev={pmc?.visits} color="purple" />
-                    <StatCard label="Просмотры" value={mc.pageviews || 0} prev={pmc?.pageviews} color="indigo" />
-                    <StatCard label="Посетители" value={mc.users || 0} prev={pmc?.users} color="teal" />
-                    <StatCard label="Отказы" value={mc.bounceRate || 0} prev={pmc?.bounceRate} color="rose" isPct invert />
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <StatCard label="Ср. время" value={mc.avgDuration || 0} prev={pmc?.avgDuration} color="blue" isSec />
-                  </div>
-                </div>
-              )}
+              <Tip>CTR (кликабельность) показывает, насколько привлекательно выглядит ваш сайт в поисковой выдаче. Если CTR ниже 3% — стоит переработать заголовки и описания страниц (Title и Description).</Tip>
             </Section>
           )}
 
           {/* ---- Indexing ---- */}
           {wm?.indexing && (
-            <Section id="indexing" title="Индексация" icon={Globe}>
-              <div className="grid grid-cols-2 gap-3">
-                <StatCard label="В поиске" value={wm.indexing.indexed} prev={pwm?.indexing?.indexed} color="green" />
-                <StatCard label="Исключено" value={wm.indexing.excluded} prev={pwm?.indexing?.excluded} color="red" invert />
+            <Section id="indexing" title="Индексация сайта" subtitle="Сколько страниц Яндекс знает о вашем сайте" icon={Globe}>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <StatCard label="Страниц в поиске" value={wm.indexing.indexed} prev={pwm?.indexing?.indexed} color="green"
+                  hint="Эти страницы могут показываться пользователям" />
+                <StatCard label="Исключено из поиска" value={wm.indexing.excluded} prev={pwm?.indexing?.excluded} color="red" invert
+                  hint="Яндекс решил не показывать эти страницы" />
               </div>
+              <Hint>Если исключённых страниц много — возможны дубли, пустые страницы или технические ошибки. Нужна техническая проверка сайта.</Hint>
+            </Section>
+          )}
+
+          {/* ---- Traffic ---- */}
+          {mc && (
+            <Section id="traffic" title="Посещаемость сайта" subtitle="Кто и сколько заходит" icon={BarChart3}>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                <StatCard label="Визиты" value={mc.visits || 0} prev={pmc?.visits} color="purple"
+                  hint="Общее количество посещений сайта" />
+                <StatCard label="Просмотры страниц" value={mc.pageviews || 0} prev={pmc?.pageviews} color="indigo"
+                  hint="Сколько страниц посмотрели в сумме" />
+                <StatCard label="Уникальные посетители" value={mc.users || 0} prev={pmc?.users} color="teal"
+                  hint="Количество разных людей" />
+                <StatCard label="Время на сайте" value={mc.avgDuration || 0} prev={pmc?.avgDuration} color="blue" isSec
+                  hint="Среднее. Хорошо: более 1:30" />
+              </div>
+              {mc.visits > 0 && mc.users > 0 && (
+                <Hint>В среднем каждый посетитель смотрит {(mc.pageviews / mc.users).toFixed(1)} страниц. {mc.pageviews / mc.users >= 2 ? 'Это хорошо — люди изучают сайт.' : 'Стоит добавить перелинковку между страницами.'}</Hint>
+              )}
             </Section>
           )}
 
           {/* ---- Yandex Queries ---- */}
           {wm?.queries && wm.queries.length > 0 && (
-            <Section id="queries" title="Топ запросов — Яндекс" icon={Search} count={wm.queries.length}>
-              <QueriesTable queries={wm.queries} prevQueries={pwm?.queries} />
+            <Section id="queries" title="По каким запросам вас находят в Яндексе" subtitle="Топ поисковых фраз" icon={Search} count={wm.queries.length}>
+              <Hint>Это запросы, по которым пользователи видят ваш сайт в Яндексе. Зелёная позиция (1-3) = топ, синяя (4-10) = первая страница, жёлтая (11-30) = потенциал роста.</Hint>
+              <div className="mt-3">
+                <QueriesTable queries={wm.queries} prevQueries={pwm?.queries} />
+              </div>
+              <Tip>Запросы на позициях 5-15 — зона роста. Небольшая доработка страниц под эти запросы может вывести их в топ-3 и значительно увеличить трафик.</Tip>
             </Section>
           )}
 
           {/* ---- GSC Queries ---- */}
           {gsc?.queries && gsc.queries.length > 0 && (
-            <Section id="gsc-queries" title="Топ запросов — Google" icon={Search} count={gsc.queries.length}>
-              <QueriesTable queries={gsc.queries} prevQueries={pgsc?.queries} />
+            <Section id="gsc-queries" title="По каким запросам вас находят в Google" subtitle="Топ поисковых фраз" icon={Search} count={gsc.queries.length}>
+              <Hint>Аналогичная таблица, но для Google. Часто запросы отличаются от Яндекса.</Hint>
+              <div className="mt-3">
+                <QueriesTable queries={gsc.queries} prevQueries={pgsc?.queries} />
+              </div>
             </Section>
           )}
 
           {/* ---- Devices ---- */}
           {mc?.devices && mc.devices.length > 0 && (
-            <Section id="devices" title="Устройства" icon={Monitor}>
-              <div className="grid grid-cols-3 gap-3">
+            <Section id="devices" title="С каких устройств заходят" subtitle="Компьютеры, телефоны, планшеты" icon={Monitor}>
+              <div className="grid grid-cols-3 gap-3 mb-3">
                 {mc.devices.map((dv: any, i: number) => {
                   const prevD = pmc?.devices?.find((pd: any) => pd.name === dv.name);
                   const DevIcon = deviceIcons[dv.name?.toLowerCase()] || Monitor;
                   return (
                     <div key={i} className="bg-slate-50 rounded-xl p-4 text-center">
                       <DevIcon className="w-6 h-6 mx-auto mb-2 text-slate-400" />
-                      <p className="text-xs text-slate-500 mb-1 capitalize">{dv.name}</p>
-                      <p className="text-xl font-bold text-slate-800">{fmtNum(dv.visits)}</p>
-                      <p className="text-sm text-slate-500">{dv.percentage}%</p>
+                      <p className="text-xs text-slate-500 mb-1">{deviceNames[dv.name?.toLowerCase()] || dv.name}</p>
+                      <p className="text-xl font-bold text-slate-800">{dv.percentage}%</p>
+                      <p className="text-sm text-slate-500">{fmtNum(dv.visits)} визитов</p>
                       {prevD && <DeltaBadge curr={dv.visits} prev={prevD.visits} />}
                     </div>
                   );
                 })}
               </div>
+              {(() => {
+                const mobile = mc.devices.find((dv: any) => dv.name?.toLowerCase() === 'mobile');
+                if (mobile && mobile.percentage > 50) return <Tip>Более половины посетителей заходят с телефона. Убедитесь, что сайт удобен на мобильных: быстро грузится, кнопки достаточного размера, текст читается без увеличения.</Tip>;
+                return null;
+              })()}
             </Section>
           )}
 
           {/* ---- Traffic Sources ---- */}
           {mc?.sources && mc.sources.length > 0 && (
-            <Section id="sources" title="Источники трафика" icon={ArrowUpRight} count={mc.sources.length}>
-              <div className="space-y-2.5">
+            <Section id="sources" title="Откуда приходят посетители" subtitle="Источники трафика" icon={ArrowUpRight} count={mc.sources.length}>
+              <Hint>Показывает, откуда люди приходят на ваш сайт: из поиска, напрямую, из соцсетей или по рекламе.</Hint>
+              <div className="space-y-2.5 mt-3">
                 {mc.sources.map((s: any, i: number) => {
                   const prevS = pmc?.sources?.find((ps: any) => ps.name === s.name);
+                  const nameMap: Record<string, string> = {
+                    'Переходы из поисковых систем': 'Поисковые системы',
+                    'Прямые заходы': 'Напрямую (ввод адреса)',
+                    'Переходы по ссылкам на сайтах': 'Ссылки с других сайтов',
+                    'Переходы из социальных сетей': 'Соц. сети',
+                    'Переходы по рекламе': 'Реклама',
+                    'Внутренние переходы': 'Внутренние',
+                  };
                   return (
                     <div key={i} className="flex items-center gap-3">
-                      <span className="text-sm text-slate-700 w-36 truncate font-medium">{s.name}</span>
+                      <span className="text-sm text-slate-700 w-44 truncate font-medium">{nameMap[s.name] || s.name}</span>
                       <div className="flex-1 bg-slate-100 rounded-full h-6 overflow-hidden relative">
                         {prevS && prevS.percentage > 0 && (
                           <div className="absolute h-full bg-slate-200 rounded-full" style={{ width: `${Math.max(prevS.percentage, 3)}%` }} />
@@ -842,13 +971,14 @@ function ReportView({ report, projects, onBack, onRegenerate, generating, onUpda
                   );
                 })}
               </div>
+              <Tip>Доля поискового трафика показывает эффективность SEO. Если меньше 40% — есть потенциал для роста через оптимизацию.</Tip>
             </Section>
           )}
 
           {/* ---- Search Engines ---- */}
           {mc?.searchEngines && mc.searchEngines.length > 0 && (
-            <Section id="search-engines" title="Поисковые системы" icon={Search} count={mc.searchEngines.length}>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <Section id="search-engines" title="Яндекс vs Google" subtitle="Соотношение поисковиков" icon={Search}>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
                 {mc.searchEngines.map((se: any, i: number) => {
                   const prev = pmc?.searchEngines?.find((p: any) => p.name === se.name);
                   return (
@@ -858,18 +988,20 @@ function ReportView({ report, projects, onBack, onRegenerate, generating, onUpda
                         <p className="text-xl font-bold text-slate-800">{fmtNum(se.visits)}</p>
                         {prev && <DeltaBadge curr={se.visits} prev={prev.visits} />}
                       </div>
-                      {prev && prev.visits > 0 && <p className="text-[11px] text-slate-400 mt-0.5">Было: {fmtNum(prev.visits)}</p>}
+                      <p className="text-xs text-slate-400 mt-0.5">переходов</p>
                     </div>
                   );
                 })}
               </div>
+              <Hint>Если трафик идёт только из одной поисковой системы — стоит оптимизировать сайт и для второй, чтобы не зависеть от одного источника.</Hint>
             </Section>
           )}
 
           {/* ---- Geography ---- */}
           {mc?.geography && mc.geography.length > 0 && (
-            <Section id="geography" title="География" icon={MapPin} count={mc.geography.length}>
-              <div className="space-y-1.5">
+            <Section id="geography" title="Города посетителей" subtitle="Откуда заходят на сайт" icon={MapPin} count={mc.geography.length}>
+              <Hint>Проверьте, совпадает ли география посетителей с вашей целевой аудиторией. Если нет — нужна корректировка геотаргетинга.</Hint>
+              <div className="space-y-1.5 mt-3">
                 {mc.geography.map((g: any, i: number) => {
                   const prevG = pmc?.geography?.find((pg: any) => pg.city === g.city);
                   return (
@@ -888,15 +1020,16 @@ function ReportView({ report, projects, onBack, onRegenerate, generating, onUpda
 
           {/* ---- Top Pages ---- */}
           {mc?.topPages && mc.topPages.length > 0 && (
-            <Section id="pages" title="Топ страниц" icon={FileText} count={mc.topPages.length}>
-              <div className="space-y-1">
+            <Section id="pages" title="Самые посещаемые страницы" subtitle="Что смотрят на сайте" icon={FileText} count={mc.topPages.length}>
+              <Hint>Самые популярные страницы вашего сайта. Обратите внимание: приносят ли они заявки? Если нет — добавьте формы и призывы к действию.</Hint>
+              <div className="space-y-1 mt-3">
                 {mc.topPages.map((p: any, i: number) => {
                   const prevP = pmc?.topPages?.find((pp: any) => pp.url === p.url);
                   return (
                     <div key={i} className="flex items-center gap-2 py-2 border-b border-slate-50 last:border-0">
                       <span className="text-xs text-slate-400 w-6 text-right">{i + 1}.</span>
                       <span className="flex-1 text-slate-700 truncate text-xs">{p.url}</span>
-                      <span className="text-sm text-slate-700 font-medium">{fmtNum(p.views)}</span>
+                      <span className="text-sm text-slate-700 font-medium">{fmtNum(p.views)} просмотров</span>
                       {prevP && <DeltaBadge curr={p.views} prev={prevP.views} />}
                     </div>
                   );
@@ -906,15 +1039,15 @@ function ReportView({ report, projects, onBack, onRegenerate, generating, onUpda
           )}
 
           {/* ---- GSC Pages ---- */}
-          {gsc?.pages && gsc.pages.length > 0 && !mc?.topPages?.length && (
-            <Section id="gsc-pages" title="Топ страниц — Google" icon={FileText} count={gsc.pages.length}>
+          {gsc?.pages && gsc.pages.length > 0 && (
+            <Section id="gsc-pages" title="Топ страниц в Google" subtitle="Какие страницы приносят трафик из Google" icon={FileText} count={gsc.pages.length}>
               <div className="space-y-1">
                 {gsc.pages.map((p: any, i: number) => (
                   <div key={i} className="flex items-center gap-2 py-2 border-b border-slate-50 last:border-0">
                     <span className="text-xs text-slate-400 w-6 text-right">{i + 1}.</span>
                     <span className="flex-1 text-slate-700 truncate text-xs">{p.url}</span>
-                    <span className="text-sm text-slate-700 font-medium">{fmtNum(p.clicks)} кл.</span>
-                    <span className="text-xs text-slate-400">{fmtNum(p.impressions)} пок.</span>
+                    <span className="text-sm text-slate-700 font-medium">{fmtNum(p.clicks)} кликов</span>
+                    <span className="text-xs text-slate-400">{fmtNum(p.impressions)} показов</span>
                   </div>
                 ))}
               </div>
@@ -922,10 +1055,10 @@ function ReportView({ report, projects, onBack, onRegenerate, generating, onUpda
           )}
 
           {/* ---- Editable Tasks ---- */}
-          <Section id="tasks" title="Выполненные работы" icon={CheckCircle2} count={tasks.length}>
+          <Section id="tasks" title="Что было сделано" subtitle="Выполненные и запланированные работы" icon={CheckCircle2} count={tasks.length}>
             <div className="space-y-1 mb-3">
               {tasks.length === 0 && (
-                <p className="text-sm text-slate-400 py-2">Нет задач. Добавьте вручную или нажмите «Обновить» для загрузки из проекта.</p>
+                <p className="text-sm text-slate-400 py-2">Добавьте выполненные работы вручную или нажмите «Обновить» для загрузки задач из проекта.</p>
               )}
               {tasks.map((t: any, i: number) => (
                 <div key={i} className="flex items-center gap-2 py-1.5 group">
@@ -933,7 +1066,6 @@ function ReportView({ report, projects, onBack, onRegenerate, generating, onUpda
                     className={`w-4 h-4 rounded-[3px] border-2 flex-shrink-0 flex items-center justify-center transition-colors no-print ${t.done ? 'bg-green-500 border-green-500' : 'border-slate-300 hover:border-green-400'}`}>
                     {t.done && <span className="text-white text-[10px]">&#10003;</span>}
                   </button>
-                  {/* Print: show static check */}
                   <span className="hidden print:inline-block w-4 h-4 rounded-[3px] border-2 flex-shrink-0 text-center leading-4 text-[10px]"
                     style={{ backgroundColor: t.done ? '#22c55e' : 'transparent', borderColor: t.done ? '#22c55e' : '#cbd5e1', color: 'white' }}>
                     {t.done ? '✓' : ''}
@@ -960,7 +1092,7 @@ function ReportView({ report, projects, onBack, onRegenerate, generating, onUpda
             <div className="flex items-center gap-2 pt-2 border-t border-slate-100 no-print">
               <input ref={taskInputRef} value={newTask} onChange={e => setNewTask(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') addTask(); }}
-                placeholder="Добавить работу..."
+                placeholder="Добавить выполненную работу..."
                 className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400" />
               <button onClick={addTask} disabled={!newTask.trim()}
                 className="px-3 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 disabled:opacity-50">
@@ -973,7 +1105,7 @@ function ReportView({ report, projects, onBack, onRegenerate, generating, onUpda
             <div className="text-center py-12 text-slate-400 no-print">
               <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-40" />
               <p className="mb-2">Нет данных</p>
-              <p className="text-sm">Привяжите сайт/счётчик к проекту и нажмите «Обновить данные»</p>
+              <p className="text-sm">Привяжите сайт к проекту и нажмите «Обновить»</p>
             </div>
           )}
         </div>
@@ -996,7 +1128,7 @@ function QueriesTable({ queries, prevQueries }: { queries: any[]; prevQueries?: 
           <tr className="text-left text-[11px] text-slate-500 uppercase tracking-wider border-b border-slate-100">
             <th className="pb-2 pr-3 w-8">#</th>
             <th className="pb-2 pr-3">Запрос</th>
-            <th className="pb-2 pr-3 text-right">Клики</th>
+            <th className="pb-2 pr-3 text-right">Переходы</th>
             <th className="pb-2 pr-3 text-right">Показы</th>
             <th className="pb-2 pr-3 text-right">CTR</th>
             <th className="pb-2 text-right">Позиция</th>
@@ -1005,6 +1137,7 @@ function QueriesTable({ queries, prevQueries }: { queries: any[]; prevQueries?: 
         <tbody>
           {queries.map((q: any, i: number) => {
             const prev = prevQueries?.find((pq: any) => pq.query === q.query);
+            const pl = positionLabel(q.position);
             return (
               <tr key={i} className="border-b border-slate-50 hover:bg-slate-50/50">
                 <td className="py-2.5 pr-3 text-xs text-slate-400">{i + 1}</td>

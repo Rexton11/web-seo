@@ -1724,11 +1724,22 @@ async function startServer() {
 
       const gscConn = await getYandexConnection(req.user.uid, 'google_search_console', report.projectId || undefined);
       const gscToken = gscConn ? await getGSCAccessToken(gscConn) : null;
-      if (gscConn && gscConn.siteUrl && gscToken) {
+      let gscSiteUrl = gscConn?.siteUrl;
+      if (gscConn && gscToken && !gscSiteUrl) {
+        try {
+          const sitesRes = await globalThis.fetch('https://www.googleapis.com/webmasters/v3/sites', {
+            headers: { Authorization: `Bearer ${gscToken}` },
+          });
+          const sitesData = await sitesRes.json() as any;
+          const sites = sitesData.siteEntry || [];
+          if (sites.length > 0) gscSiteUrl = sites[0].siteUrl;
+        } catch (e) { console.error('GSC sites fetch error:', e); }
+      }
+      if (gscConn && gscSiteUrl && gscToken) {
         try {
           const [current, prev] = await Promise.all([
-            fetchGSCData(gscToken, gscConn.siteUrl, from, to),
-            fetchGSCData(gscToken, gscConn.siteUrl, prevFrom, prevTo),
+            fetchGSCData(gscToken, gscSiteUrl, from, to),
+            fetchGSCData(gscToken, gscSiteUrl, prevFrom, prevTo),
           ]);
           data.gsc = current;
           data.prevGsc = prev;
