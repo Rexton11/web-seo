@@ -1701,19 +1701,15 @@ async function startServer() {
       if (existingData.tasks) data.tasks = existingData.tasks;
 
       const wmConn = await getYandexConnection(req.user.uid, 'yandex_webmaster', report.projectId || undefined);
-      console.log('WM conn:', wmConn ? { id: wmConn.id, hostId: wmConn.hostId, hasToken: !!wmConn.accessToken } : null);
       if (wmConn && wmConn.hostId && wmConn.accessToken) {
         try {
           const [current, prev] = await Promise.all([
             fetchWebmasterData(wmConn.accessToken, wmConn.hostId, from, to),
             fetchWebmasterData(wmConn.accessToken, wmConn.hostId, prevFrom, prevTo),
           ]);
-          console.log('WM data:', { clicks: current.totalClicks, impressions: current.totalImpressions, indexed: current.indexing?.indexed, excluded: current.indexing?.excluded });
           data.webmaster = current;
           data.prevWebmaster = prev;
-        } catch (e) { console.error('Webmaster data error:', e); }
-      } else {
-        console.log('WM skipped: conn=', !!wmConn, 'hostId=', wmConn?.hostId, 'token=', !!wmConn?.accessToken);
+        } catch (e: any) { data._wmError = e.message; }
       }
 
       const mcConn = await getYandexConnection(req.user.uid, 'yandex_metrica', report.projectId || undefined);
@@ -1728,10 +1724,12 @@ async function startServer() {
         } catch (e) { console.error('Metrica data error:', e); }
       }
 
+      const _debug: any = {};
+
       const gscConn = await getYandexConnection(req.user.uid, 'google_search_console', report.projectId || undefined);
-      console.log('GSC conn:', gscConn ? { id: gscConn.id, siteUrl: gscConn.siteUrl, hasToken: !!gscConn.accessToken, hasRefresh: !!gscConn.refreshToken, expires: gscConn.tokenExpiresAt } : null);
+      _debug.gscConn = gscConn ? { id: gscConn.id, siteUrl: gscConn.siteUrl, hasToken: !!gscConn.accessToken, hasRefresh: !!gscConn.refreshToken, expires: gscConn.tokenExpiresAt } : null;
       const gscToken = gscConn ? await getGSCAccessToken(gscConn) : null;
-      console.log('GSC token obtained:', !!gscToken);
+      _debug.gscTokenObtained = !!gscToken;
       let gscSiteUrl = gscConn?.siteUrl;
       if (gscConn && gscToken && !gscSiteUrl) {
         try {
@@ -1739,24 +1737,24 @@ async function startServer() {
             headers: { Authorization: `Bearer ${gscToken}` },
           });
           const sitesData = await sitesRes.json() as any;
-          console.log('GSC sites response:', JSON.stringify(sitesData).slice(0, 500));
+          _debug.gscSitesResponse = JSON.stringify(sitesData).slice(0, 500);
           const sites = sitesData.siteEntry || [];
           if (sites.length > 0) gscSiteUrl = sites[0].siteUrl;
-        } catch (e) { console.error('GSC sites fetch error:', e); }
+        } catch (e: any) { _debug.gscSitesError = e.message; }
       }
-      console.log('GSC siteUrl:', gscSiteUrl);
+      _debug.gscSiteUrl = gscSiteUrl;
       if (gscConn && gscSiteUrl && gscToken) {
         try {
           const [current, prev] = await Promise.all([
             fetchGSCData(gscToken, gscSiteUrl, from, to),
             fetchGSCData(gscToken, gscSiteUrl, prevFrom, prevTo),
           ]);
-          console.log('GSC data fetched:', { clicks: current.totalClicks, impressions: current.totalImpressions, queries: current.queries?.length });
+          _debug.gscData = { clicks: current.totalClicks, impressions: current.totalImpressions, queries: current.queries?.length };
           data.gsc = current;
           data.prevGsc = prev;
-        } catch (e) { console.error('GSC data error:', e); }
+        } catch (e: any) { _debug.gscDataError = e.message; }
       } else {
-        console.log('GSC skipped: conn=', !!gscConn, 'siteUrl=', !!gscSiteUrl, 'token=', !!gscToken);
+        _debug.gscSkipReason = { conn: !!gscConn, siteUrl: !!gscSiteUrl, token: !!gscToken };
       }
 
       if (report.projectId && !data.tasks) {
@@ -1773,7 +1771,7 @@ async function startServer() {
       await db!.update(schema.seoReports).set({ status: 'ready', data })
         .where(eq(schema.seoReports.id, req.params.id));
 
-      res.json({ success: true, data });
+      res.json({ success: true, data, _debug });
     } catch (e: any) {
       await db!.update(schema.seoReports).set({ status: 'error' })
         .where(eq(schema.seoReports.id, req.params.id));
