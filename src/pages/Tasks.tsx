@@ -43,8 +43,8 @@ export default function Tasks() {
   const [filter, setFilter] = useState<'inbox' | 'all' | 'today' | 'tomorrow' | 'week' | string>(searchParams.get('filter') || 'all');
   const [search, setSearch] = useState('');
   const [sortMode, setSortMode] = useState<SortMode>('manual');
-  const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
+  const [bulkLines, setBulkLines] = useState<string[] | null>(null);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectColor, setNewProjectColor] = useState('#3b82f6');
@@ -94,7 +94,7 @@ export default function Tasks() {
   const filteredTasks = useMemo(() => {
     let result = parentTasks;
     if (filter === 'inbox') {
-      result = result.filter(t => t.status === 'inbox');
+      result = result.filter(t => !t.projectId);
     } else if (filter === 'today') {
       result = result.filter(t => t.dueDate && isToday(parseISO(t.dueDate)));
     } else if (filter === 'tomorrow') {
@@ -133,15 +133,22 @@ export default function Tasks() {
 
   const selectedTask = useMemo(() => selectedTaskId ? tasks.find(t => t.id === selectedTaskId) || null : null, [selectedTaskId, tasks]);
 
+  const getTaskDefaults = () => {
+    const isDateFilter = filter === 'today' || filter === 'tomorrow' || filter === 'week';
+    return {
+      status: 'inbox',
+      projectId: !isDateFilter && filter !== 'inbox' && filter !== 'all' ? filter : null,
+      dueDate: filter === 'today' ? format(new Date(), 'yyyy-MM-dd') : filter === 'tomorrow' ? format(addDays(new Date(), 1), 'yyyy-MM-dd') : null,
+    };
+  };
+
   const createTask = async (overrides: Partial<Task> = {}) => {
     if (!newTitle.trim() && !overrides.title) return;
     const token = await getToken();
-    const isDateFilter = filter === 'today' || filter === 'tomorrow' || filter === 'week';
+    const defaults = getTaskDefaults();
     const body: any = {
       title: overrides.title || newTitle.trim(),
-      status: filter === 'inbox' || filter === 'all' || isDateFilter ? 'inbox' : (overrides.status || 'inbox'),
-      projectId: !isDateFilter && filter !== 'inbox' && filter !== 'all' ? filter : null,
-      dueDate: filter === 'today' ? format(new Date(), 'yyyy-MM-dd') : filter === 'tomorrow' ? format(addDays(new Date(), 1), 'yyyy-MM-dd') : null,
+      ...defaults,
       ...overrides,
     };
     const res = await fetch('/api/tasks', {
@@ -152,9 +159,41 @@ export default function Tasks() {
     if (res.ok) {
       const task = await res.json();
       task.tags = task.tags || [];
-      setTasks([...tasks, task]);
+      setTasks(prev => [...prev, task]);
       setNewTitle('');
-      setCreating(false);
+    }
+  };
+
+  const createBulkTasks = async (lines: string[]) => {
+    const token = await getToken();
+    const defaults = getTaskDefaults();
+    const created: Task[] = [];
+    for (const line of lines) {
+      const title = line.replace(/^[\s\-\d.•*·]+/, '').trim();
+      if (!title) continue;
+      const body: any = { title, ...defaults };
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const t = await res.json();
+        t.tags = t.tags || [];
+        created.push(t);
+      }
+    }
+    setTasks(prev => [...prev, ...created]);
+    setBulkLines(null);
+    setNewTitle('');
+  };
+
+  const handleInputPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData('text');
+    const lines = text.split('\n').filter(l => l.trim().length > 0);
+    if (lines.length >= 2) {
+      e.preventDefault();
+      setBulkLines(lines);
     }
   };
 
@@ -265,7 +304,7 @@ export default function Tasks() {
   const taskCounts = useMemo(() => {
     const counts: Record<string, number> = { inbox: 0, all: parentTasks.length, today: 0, tomorrow: 0, week: 0 };
     parentTasks.forEach(t => {
-      if (t.status === 'inbox') counts.inbox++;
+      if (!t.projectId) counts.inbox++;
       if (t.projectId) {
         counts[t.projectId] = (counts[t.projectId] || 0) + 1;
       }
@@ -366,53 +405,79 @@ export default function Tasks() {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
-        <div className="px-6 py-4 bg-white border-b border-slate-200 flex items-center gap-4 flex-shrink-0">
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-slate-800">
+        <div className="px-6 py-3 bg-white border-b border-slate-200 flex-shrink-0">
+          <div className="flex items-center gap-4 mb-3">
+            <h3 className="text-lg font-bold text-slate-800 flex-1">
               {filter === 'inbox' ? 'Входящие' : filter === 'all' ? 'Все задачи' : filter === 'today' ? 'Сегодня' : filter === 'tomorrow' ? 'Завтра' : filter === 'week' ? 'На неделю' : projects.find(p => p.id === filter)?.name || 'Задачи'}
             </h3>
+            <div className="relative">
+              <ArrowUpDown className="absolute left-3 top-2 w-4 h-4 text-slate-400" />
+              <select value={sortMode} onChange={e => setSortMode(e.target.value as SortMode)}
+                className="pl-9 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 appearance-none bg-white cursor-pointer">
+                <option value="manual">Порядок вручную</option>
+                <option value="priority">По приоритету</option>
+                <option value="dueDate">По дате</option>
+                <option value="alpha">По алфавиту</option>
+                <option value="created">По дате создания</option>
+              </select>
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-2 w-4 h-4 text-slate-400" />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Поиск..."
+                className="pl-9 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 w-48" />
+            </div>
+            <div className="flex items-center bg-slate-100 rounded-lg p-0.5">
+              <button onClick={() => setView('list')}
+                className={`p-1.5 rounded-md transition-colors ${view === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                <List className="w-4 h-4" />
+              </button>
+              <button onClick={() => setView('kanban')}
+                className={`p-1.5 rounded-md transition-colors ${view === 'kanban' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-          <div className="relative">
-            <ArrowUpDown className="absolute left-3 top-2 w-4 h-4 text-slate-400" />
-            <select value={sortMode} onChange={e => setSortMode(e.target.value as SortMode)}
-              className="pl-9 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 appearance-none bg-white cursor-pointer">
-              <option value="manual">Порядок вручную</option>
-              <option value="priority">По приоритету</option>
-              <option value="dueDate">По дате</option>
-              <option value="alpha">По алфавиту</option>
-              <option value="created">По дате создания</option>
-            </select>
+
+          {/* TickTick-style inline add task */}
+          <div className="flex items-center gap-2">
+            <Plus className="w-4 h-4 text-blue-500 flex-shrink-0" />
+            <input
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+              onPaste={handleInputPaste}
+              onKeyDown={e => { if (e.key === 'Enter' && newTitle.trim()) { createTask(); } }}
+              placeholder="Добавить задачу..."
+              className="flex-1 text-sm text-slate-700 bg-transparent border-none outline-none placeholder-slate-400 py-1"
+            />
           </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-2 w-4 h-4 text-slate-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Поиск..."
-              className="pl-9 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 w-48" />
-          </div>
-          <div className="flex items-center bg-slate-100 rounded-lg p-0.5">
-            <button onClick={() => setView('list')}
-              className={`p-1.5 rounded-md transition-colors ${view === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
-              <List className="w-4 h-4" />
-            </button>
-            <button onClick={() => setView('kanban')}
-              className={`p-1.5 rounded-md transition-colors ${view === 'kanban' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-          </div>
-          <button onClick={() => setCreating(true)}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors">
-            <Plus className="w-4 h-4" /> Задача
-          </button>
         </div>
 
-        {/* Create task inline */}
-        {creating && (
-          <div className="px-6 py-3 bg-blue-50 border-b border-blue-100 flex items-center gap-3">
-            <input autoFocus value={newTitle} onChange={e => setNewTitle(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') createTask(); if (e.key === 'Escape') { setCreating(false); setNewTitle(''); } }}
-              placeholder="Название задачи..."
-              className="flex-1 px-3 py-2 border border-blue-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
-            <button onClick={() => createTask()} className="px-4 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600">Создать</button>
-            <button onClick={() => { setCreating(false); setNewTitle(''); }} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
+        {/* Bulk paste modal */}
+        {bulkLines && (
+          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" onClick={() => setBulkLines(null)}>
+            <div className="bg-white rounded-xl shadow-xl p-6 w-[480px] max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
+              <h3 className="text-lg font-bold text-slate-800 mb-1">Массовое добавление</h3>
+              <p className="text-sm text-slate-500 mb-4">Обнаружено {bulkLines.length} строк. Создать отдельную задачу для каждой?</p>
+              <div className="flex-1 overflow-y-auto space-y-1 mb-4 border border-slate-200 rounded-lg p-3 bg-slate-50">
+                {bulkLines.map((line, i) => {
+                  const cleaned = line.replace(/^[\s\-\d.•*·]+/, '').trim();
+                  return (
+                    <div key={i} className="flex items-center gap-2 py-1">
+                      <div className="w-4 h-4 rounded-full border-2 border-slate-300 flex-shrink-0" />
+                      <span className="text-sm text-slate-700">{cleaned || <span className="text-slate-300 italic">пустая строка</span>}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => { setBulkLines(null); setNewTitle(bulkLines.join('\n')); }}
+                  className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Вставить как текст</button>
+                <button onClick={() => createBulkTasks(bulkLines)}
+                  className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium">
+                  Создать {bulkLines.filter(l => l.replace(/^[\s\-\d.•*·]+/, '').trim()).length} задач
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
