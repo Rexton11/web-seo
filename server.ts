@@ -1421,7 +1421,7 @@ async function startServer() {
 
       const data: any = { generatedAt: new Date().toISOString() };
 
-      const wmConn = await getYandexConnection(req.user.uid, 'yandex_webmaster');
+      const wmConn = await getYandexConnection(req.user.uid, 'yandex_webmaster', report.projectId || undefined);
       if (wmConn && wmConn.hostId) {
         try {
           const userIdRes = await globalThis.fetch('https://api.webmaster.yandex.net/v4/user', {
@@ -1474,7 +1474,7 @@ async function startServer() {
         } catch (e) { console.error('Webmaster data error:', e); }
       }
 
-      const mcConn = await getYandexConnection(req.user.uid, 'yandex_metrica');
+      const mcConn = await getYandexConnection(req.user.uid, 'yandex_metrica', report.projectId || undefined);
       if (mcConn && mcConn.counterId) {
         try {
           const cId = mcConn.counterId;
@@ -1549,7 +1549,16 @@ async function startServer() {
     }
   });
 
-  async function getYandexConnection(userId: string, service: string) {
+  async function getYandexConnection(userId: string, service: string, projectId?: string) {
+    if (projectId) {
+      const projectRows = await db!.select().from(schema.seoConnections)
+        .where(and(
+          eq(schema.seoConnections.userId, userId),
+          eq(schema.seoConnections.service, service),
+          eq(schema.seoConnections.projectId, projectId),
+        ));
+      if (projectRows.length > 0) return projectRows[0];
+    }
     const rows = await db!.select().from(schema.seoConnections)
       .where(and(eq(schema.seoConnections.userId, userId), eq(schema.seoConnections.service, service)));
     return rows.length > 0 ? rows[0] : null;

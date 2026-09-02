@@ -3,12 +3,12 @@ import { useAuth } from '../AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Trash2, BarChart3, Globe, TrendingUp, Search,
-  Eye, MousePointerClick, ArrowUpRight, FileText, RefreshCw, Settings,
-  Link2, CheckCircle2, XCircle, ExternalLink, ChevronDown, ChevronRight,
-  Download, Calendar, Filter, Loader2
+  Eye, ArrowUpRight, FileText, RefreshCw,
+  Link2, CheckCircle2, XCircle, ChevronDown, ChevronRight,
+  Loader2, Key, Unlink
 } from 'lucide-react';
 
-type Tab = 'reports' | 'connections' | 'settings';
+type Tab = 'reports' | 'connections';
 
 interface Connection {
   id: string;
@@ -17,6 +17,7 @@ interface Connection {
   accessToken?: string;
   hostId?: string;
   counterId?: string;
+  projectId?: string;
 }
 
 interface Report {
@@ -35,12 +36,13 @@ interface Project {
   id: string;
   name: string;
   color: string;
+  archived?: boolean;
 }
 
 export default function SeoReports() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>('reports');
+  const [tab, setTab] = useState<Tab>('connections');
   const [connections, setConnections] = useState<Connection[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -48,48 +50,38 @@ export default function SeoReports() {
   const [viewReport, setViewReport] = useState<Report | null>(null);
   const [generating, setGenerating] = useState<string | null>(null);
 
-  const [newReport, setNewReport] = useState({ title: '', projectId: '', dateFrom: '', dateTo: '' });
-  const [showNewReport, setShowNewReport] = useState(false);
-
-  const [yandexForm, setYandexForm] = useState({ clientId: '', clientSecret: '' });
   const [wmToken, setWmToken] = useState('');
   const [mcToken, setMcToken] = useState('');
   const [wmHosts, setWmHosts] = useState<any[]>([]);
   const [mcCounters, setMcCounters] = useState<any[]>([]);
+  const [loadingHosts, setLoadingHosts] = useState(false);
+  const [loadingCounters, setLoadingCounters] = useState(false);
   const [connectingWm, setConnectingWm] = useState(false);
   const [connectingMc, setConnectingMc] = useState(false);
+
+  const [newReport, setNewReport] = useState({ title: '', projectId: '', dateFrom: '', dateTo: '' });
+  const [showNewReport, setShowNewReport] = useState(false);
 
   const getToken = useCallback(async () => user ? await user.getIdToken() : '', [user]);
 
   const fetchAll = useCallback(async () => {
     const token = await getToken();
     const headers = { Authorization: `Bearer ${token}` };
-    const [connRes, repRes, projRes, setRes] = await Promise.all([
+    const [connRes, repRes, projRes] = await Promise.all([
       fetch('/api/seo-connections', { headers }),
       fetch('/api/seo-reports', { headers }),
       fetch('/api/projects', { headers }),
-      fetch('/api/settings', { headers }),
     ]);
     if (connRes.ok) setConnections(await connRes.json());
     if (repRes.ok) setReports(await repRes.json());
     if (projRes.ok) setProjects(await projRes.json());
-    if (setRes.ok) {
-      const s = await setRes.json();
-      setYandexForm({ clientId: s.yandexClientId || '', clientSecret: s.yandexClientSecret || '' });
-    }
     setLoading(false);
   }, [getToken]);
 
   useEffect(() => { if (user) fetchAll(); }, [user, fetchAll]);
 
-  const saveYandexSettings = async () => {
-    const token = await getToken();
-    await fetch('/api/settings', {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ yandexClientId: yandexForm.clientId, yandexClientSecret: yandexForm.clientSecret }),
-    });
-  };
+  const wmConn = connections.find(c => c.service === 'yandex_webmaster');
+  const mcConn = connections.find(c => c.service === 'yandex_metrica');
 
   const connectByToken = async (service: 'yandex_webmaster' | 'yandex_metrica', accessToken: string) => {
     const token = await getToken();
@@ -100,43 +92,100 @@ export default function SeoReports() {
     });
     if (res.ok) {
       await fetchAll();
-      if (service === 'yandex_webmaster') { setWmToken(''); loadWmHosts(); }
-      if (service === 'yandex_metrica') { setMcToken(''); loadMcCounters(); }
+      if (service === 'yandex_webmaster') { setWmToken(''); }
+      if (service === 'yandex_metrica') { setMcToken(''); }
     }
   };
 
   const loadWmHosts = async () => {
+    setLoadingHosts(true);
     const token = await getToken();
     const res = await fetch('/api/yandex/webmaster/hosts', { headers: { Authorization: `Bearer ${token}` } });
     if (res.ok) {
       const data = await res.json();
       setWmHosts(data.hosts || []);
     }
+    setLoadingHosts(false);
   };
 
   const loadMcCounters = async () => {
+    setLoadingCounters(true);
     const token = await getToken();
     const res = await fetch('/api/yandex/metrica/counters', { headers: { Authorization: `Bearer ${token}` } });
     if (res.ok) {
       const data = await res.json();
       setMcCounters(data.counters || []);
     }
+    setLoadingCounters(false);
   };
 
-  const setConnectionField = async (connId: string, field: string, value: string) => {
+  useEffect(() => {
+    if (wmConn && wmHosts.length === 0 && !loadingHosts) loadWmHosts();
+  }, [wmConn]);
+
+  useEffect(() => {
+    if (mcConn && mcCounters.length === 0 && !loadingCounters) loadMcCounters();
+  }, [mcConn]);
+
+  const assignToProject = async (hostOrCounterId: string, projectId: string, type: 'webmaster' | 'metrica') => {
+    const token = await getToken();
+    const conn = type === 'webmaster' ? wmConn : mcConn;
+    if (!conn) return;
+
+    const existing = connections.find(c =>
+      c.service === (type === 'webmaster' ? 'yandex_webmaster' : 'yandex_metrica') &&
+      c.projectId === projectId
+    );
+    if (existing && existing.id !== conn.id) {
+      await fetch(`/api/seo-connections/${existing.id}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: null, [type === 'webmaster' ? 'hostId' : 'counterId']: null }),
+      });
+    }
+
+    const connForSite = connections.find(c =>
+      c.service === conn.service &&
+      (type === 'webmaster' ? c.hostId === hostOrCounterId : c.counterId === hostOrCounterId)
+    );
+
+    if (connForSite) {
+      await fetch(`/api/seo-connections/${connForSite.id}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId }),
+      });
+    } else {
+      await fetch('/api/seo-connections', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service: type === 'webmaster' ? 'yandex_webmaster' : 'yandex_metrica',
+          accessToken: conn.accessToken === '***' ? undefined : conn.accessToken,
+          [type === 'webmaster' ? 'hostId' : 'counterId']: hostOrCounterId,
+          projectId,
+        }),
+      });
+    }
+    await fetchAll();
+  };
+
+  const saveProjectBinding = async (connId: string, field: string, value: string) => {
     const token = await getToken();
     await fetch(`/api/seo-connections/${connId}`, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [field]: value }),
+      body: JSON.stringify({ [field]: value || null }),
     });
     await fetchAll();
   };
 
   const deleteConnection = async (id: string) => {
-    if (!confirm('Удалить подключение?')) return;
+    if (!confirm('Отключить сервис?')) return;
     const token = await getToken();
     await fetch(`/api/seo-connections/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    if (connections.find(c => c.id === id)?.service === 'yandex_webmaster') setWmHosts([]);
+    if (connections.find(c => c.id === id)?.service === 'yandex_metrica') setMcCounters([]);
     await fetchAll();
   };
 
@@ -144,11 +193,12 @@ export default function SeoReports() {
     const token = await getToken();
     const today = new Date().toISOString().slice(0, 10);
     const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    const project = projects.find(p => p.id === newReport.projectId);
     const res = await fetch('/api/seo-reports', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        title: newReport.title || `SEO Отчёт ${today}`,
+        title: newReport.title || `SEO: ${project?.name || 'Отчёт'} ${today}`,
         projectId: newReport.projectId || null,
         dateFrom: newReport.dateFrom || monthAgo,
         dateTo: newReport.dateTo || today,
@@ -167,10 +217,7 @@ export default function SeoReports() {
     await fetch(`/api/seo-reports/${id}/generate`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
     await fetchAll();
     const repRes = await fetch(`/api/seo-reports/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-    if (repRes.ok) {
-      const report = await repRes.json();
-      setViewReport(report);
-    }
+    if (repRes.ok) setViewReport(await repRes.json());
     setGenerating(null);
   };
 
@@ -182,9 +229,6 @@ export default function SeoReports() {
     await fetchAll();
   };
 
-  const wmConn = connections.find(c => c.service === 'yandex_webmaster');
-  const mcConn = connections.find(c => c.service === 'yandex_metrica');
-
   if (loading) return (
     <div className="flex items-center justify-center h-full">
       <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent" />
@@ -194,6 +238,14 @@ export default function SeoReports() {
   if (viewReport) {
     return <ReportView report={viewReport} projects={projects} onBack={() => setViewReport(null)} onRegenerate={() => generateReport(viewReport.id)} generating={generating === viewReport.id} />;
   }
+
+  const activeProjects = projects.filter(p => !p.archived);
+
+  const getProjectBindings = (projectId: string) => {
+    const wmBind = connections.find(c => c.service === 'yandex_webmaster' && c.projectId === projectId);
+    const mcBind = connections.find(c => c.service === 'yandex_metrica' && c.projectId === projectId);
+    return { wmBind, mcBind };
+  };
 
   return (
     <div className="h-full overflow-y-auto bg-white">
@@ -210,9 +262,8 @@ export default function SeoReports() {
         {/* Tabs */}
         <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-lg w-fit">
           {([
+            { id: 'connections' as Tab, label: 'Подключения и проекты', icon: Link2 },
             { id: 'reports' as Tab, label: 'Отчёты', icon: FileText },
-            { id: 'connections' as Tab, label: 'Подключения', icon: Link2 },
-            { id: 'settings' as Tab, label: 'Настройки', icon: Settings },
           ]).map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${tab === t.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
@@ -221,168 +272,183 @@ export default function SeoReports() {
           ))}
         </div>
 
-        {/* Tab: Settings */}
-        {tab === 'settings' && (
-          <div className="space-y-6">
-            <div className="border border-slate-200 rounded-xl p-6">
-              <h3 className="font-bold text-slate-800 mb-1">Яндекс OAuth</h3>
-              <p className="text-sm text-slate-500 mb-4">
-                Создайте приложение на <a href="https://oauth.yandex.ru/client/new" target="_blank" rel="noopener" className="text-blue-500 hover:underline">oauth.yandex.ru</a> с правами на Вебмастер и Метрику. Укажите Callback URL: <code className="bg-slate-100 px-1 rounded text-xs">https://oauth.yandex.ru/verification_code</code>
-              </p>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Client ID</label>
-                  <input value={yandexForm.clientId} onChange={e => setYandexForm({ ...yandexForm, clientId: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" placeholder="Яндекс Client ID" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Client Secret</label>
-                  <input value={yandexForm.clientSecret} onChange={e => setYandexForm({ ...yandexForm, clientSecret: e.target.value })} type="password"
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" placeholder="Яндекс Client Secret" />
-                </div>
-              </div>
-              <button onClick={saveYandexSettings} className="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600">
-                Сохранить
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Tab: Connections */}
+        {/* Tab: Connections & Project Bindings */}
         {tab === 'connections' && (
           <div className="space-y-6">
-            {/* Yandex Webmaster */}
-            <div className="border border-slate-200 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center">
-                    <Globe className="w-5 h-5 text-red-500" />
+            {/* Step 1: Connect tokens */}
+            <div>
+              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Шаг 1 — Подключите токены</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Webmaster token */}
+                <div className="border border-slate-200 rounded-xl p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-5 h-5 text-red-500" />
+                      <span className="font-semibold text-slate-800 text-sm">Вебмастер</span>
+                    </div>
+                    {wmConn ? (
+                      <span className="flex items-center gap-1 text-[11px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                        <CheckCircle2 className="w-3 h-3" /> Подключено
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-[11px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full">
+                        <XCircle className="w-3 h-3" /> Нет
+                      </span>
+                    )}
                   </div>
-                  <div>
-                    <h3 className="font-bold text-slate-800">Яндекс.Вебмастер</h3>
-                    <p className="text-xs text-slate-500">Позиции, клики, показы, индексация</p>
-                  </div>
-                </div>
-                {wmConn ? (
-                  <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
-                    <CheckCircle2 className="w-3 h-3" /> Подключено
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded-full">
-                    <XCircle className="w-3 h-3" /> Не подключено
-                  </span>
-                )}
-              </div>
-
-              {!wmConn ? (
-                <div className="space-y-3">
-                  <p className="text-sm text-slate-600">Вставьте OAuth-токен Яндекса с правами доступа к Вебмастеру:</p>
-                  <div className="flex gap-2">
-                    <input value={wmToken} onChange={e => setWmToken(e.target.value)} placeholder="OAuth-токен"
-                      className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
-                    <button onClick={() => { setConnectingWm(true); connectByToken('yandex_webmaster', wmToken).finally(() => setConnectingWm(false)); }}
-                      disabled={!wmToken || connectingWm}
-                      className="px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 disabled:opacity-50">
-                      {connectingWm ? 'Подключение...' : 'Подключить'}
-                    </button>
-                  </div>
-                  <p className="text-xs text-slate-400">
-                    Получить токен: <a href="https://oauth.yandex.ru/authorize?response_type=token&client_id=ID_ВАШЕГО_ПРИЛОЖЕНИЯ" target="_blank" rel="noopener" className="text-blue-500 hover:underline">oauth.yandex.ru</a> (замените ID на ваш Client ID из настроек)
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {wmConn.hostId ? (
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <Globe className="w-4 h-4 text-slate-400" />
-                      <span>Сайт: <strong>{wmConn.hostId}</strong></span>
+                  {!wmConn ? (
+                    <div className="space-y-2">
+                      <input value={wmToken} onChange={e => setWmToken(e.target.value)} placeholder="OAuth-токен Вебмастера"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
+                      <button onClick={() => { setConnectingWm(true); connectByToken('yandex_webmaster', wmToken).finally(() => setConnectingWm(false)); }}
+                        disabled={!wmToken || connectingWm}
+                        className="w-full py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 disabled:opacity-50">
+                        {connectingWm ? 'Подключение...' : 'Подключить'}
+                      </button>
                     </div>
                   ) : (
-                    <div>
-                      <p className="text-sm text-slate-600 mb-2">Выберите сайт:</p>
-                      {wmHosts.length === 0 ? (
-                        <button onClick={loadWmHosts} className="text-sm text-blue-500 hover:text-blue-600">Загрузить список сайтов</button>
-                      ) : (
-                        <div className="space-y-1">
-                          {wmHosts.map((h: any) => (
-                            <button key={h.host_id} onClick={() => setConnectionField(wmConn.id, 'hostId', h.host_id)}
-                              className="w-full text-left px-3 py-2 text-sm border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors">
-                              {h.host_id} {h.verified ? '✓' : ''}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                    <div className="space-y-2">
+                      <p className="text-xs text-slate-500">Сайтов загружено: <strong>{wmHosts.length}</strong></p>
+                      <div className="flex gap-2">
+                        <button onClick={loadWmHosts} disabled={loadingHosts} className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1">
+                          <RefreshCw className={`w-3 h-3 ${loadingHosts ? 'animate-spin' : ''}`} /> Обновить
+                        </button>
+                        <button onClick={() => deleteConnection(wmConn.id)} className="text-xs text-red-400 hover:text-red-500 flex items-center gap-1">
+                          <Unlink className="w-3 h-3" /> Отключить
+                        </button>
+                      </div>
                     </div>
                   )}
-                  <button onClick={() => deleteConnection(wmConn.id)} className="text-xs text-red-400 hover:text-red-500">Отключить</button>
                 </div>
+
+                {/* Metrica token */}
+                <div className="border border-slate-200 rounded-xl p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5 text-amber-500" />
+                      <span className="font-semibold text-slate-800 text-sm">Метрика</span>
+                    </div>
+                    {mcConn ? (
+                      <span className="flex items-center gap-1 text-[11px] text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                        <CheckCircle2 className="w-3 h-3" /> Подключено
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-[11px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full">
+                        <XCircle className="w-3 h-3" /> Нет
+                      </span>
+                    )}
+                  </div>
+                  {!mcConn ? (
+                    <div className="space-y-2">
+                      <input value={mcToken} onChange={e => setMcToken(e.target.value)} placeholder="OAuth-токен Метрики"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
+                      <button onClick={() => { setConnectingMc(true); connectByToken('yandex_metrica', mcToken).finally(() => setConnectingMc(false)); }}
+                        disabled={!mcToken || connectingMc}
+                        className="w-full py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 disabled:opacity-50">
+                        {connectingMc ? 'Подключение...' : 'Подключить'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-xs text-slate-500">Счётчиков загружено: <strong>{mcCounters.length}</strong></p>
+                      <div className="flex gap-2">
+                        <button onClick={loadMcCounters} disabled={loadingCounters} className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1">
+                          <RefreshCw className={`w-3 h-3 ${loadingCounters ? 'animate-spin' : ''}`} /> Обновить
+                        </button>
+                        <button onClick={() => deleteConnection(mcConn.id)} className="text-xs text-red-400 hover:text-red-500 flex items-center gap-1">
+                          <Unlink className="w-3 h-3" /> Отключить
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {!wmConn && !mcConn && (
+                <p className="text-xs text-slate-400 mt-3">
+                  Получите токен в <a href="https://oauth.yandex.ru" target="_blank" rel="noopener" className="text-blue-500 hover:underline">oauth.yandex.ru</a> → ваше приложение → отладочный токен. Можно использовать один токен для обоих сервисов, если приложению выданы права на Вебмастер и Метрику.
+                </p>
               )}
             </div>
 
-            {/* Yandex Metrica */}
-            <div className="border border-slate-200 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
-                    <BarChart3 className="w-5 h-5 text-amber-500" />
+            {/* Step 2: Bind sites/counters to projects */}
+            {(wmConn || mcConn) && (
+              <div>
+                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Шаг 2 — Привяжите сайты к проектам</h2>
+                <p className="text-xs text-slate-400 mb-4">Для каждого проекта выберите сайт из Вебмастера и/или счётчик из Метрики. При генерации отчёта данные будут тянуться из привязанных источников.</p>
+
+                {activeProjects.length === 0 ? (
+                  <div className="text-center py-8 text-slate-400 border border-dashed border-slate-200 rounded-xl">
+                    <p className="text-sm mb-1">Нет проектов</p>
+                    <p className="text-xs">Создайте проект в разделе Задачи</p>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-slate-800">Яндекс.Метрика</h3>
-                    <p className="text-xs text-slate-500">Визиты, просмотры, источники трафика</p>
-                  </div>
-                </div>
-                {mcConn ? (
-                  <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
-                    <CheckCircle2 className="w-3 h-3" /> Подключено
-                  </span>
                 ) : (
-                  <span className="flex items-center gap-1 text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded-full">
-                    <XCircle className="w-3 h-3" /> Не подключено
-                  </span>
+                  <div className="space-y-3">
+                    {activeProjects.map(project => {
+                      const { wmBind, mcBind } = getProjectBindings(project.id);
+                      return (
+                        <div key={project.id} className="border border-slate-200 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: project.color }} />
+                            <span className="font-semibold text-slate-800 text-sm">{project.name}</span>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {/* Webmaster binding */}
+                            {wmConn && (
+                              <div>
+                                <label className="block text-xs text-slate-500 mb-1">
+                                  <Globe className="w-3 h-3 inline mr-1" />Сайт (Вебмастер)
+                                </label>
+                                <select
+                                  value={wmBind?.hostId || ''}
+                                  onChange={e => {
+                                    if (e.target.value) {
+                                      assignToProject(e.target.value, project.id, 'webmaster');
+                                    } else if (wmBind) {
+                                      saveProjectBinding(wmBind.id, 'projectId', '');
+                                    }
+                                  }}
+                                  className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
+                                >
+                                  <option value="">— не выбран —</option>
+                                  {wmHosts.map((h: any) => (
+                                    <option key={h.host_id} value={h.host_id}>{h.host_id}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                            {/* Metrica binding */}
+                            {mcConn && (
+                              <div>
+                                <label className="block text-xs text-slate-500 mb-1">
+                                  <BarChart3 className="w-3 h-3 inline mr-1" />Счётчик (Метрика)
+                                </label>
+                                <select
+                                  value={mcBind?.counterId || ''}
+                                  onChange={e => {
+                                    if (e.target.value) {
+                                      assignToProject(e.target.value, project.id, 'metrica');
+                                    } else if (mcBind) {
+                                      saveProjectBinding(mcBind.id, 'projectId', '');
+                                    }
+                                  }}
+                                  className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white"
+                                >
+                                  <option value="">— не выбран —</option>
+                                  {mcCounters.map((c: any) => (
+                                    <option key={c.id} value={String(c.id)}>{c.name} — {c.site}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
-
-              {!mcConn ? (
-                <div className="space-y-3">
-                  <p className="text-sm text-slate-600">Вставьте OAuth-токен Яндекса с правами доступа к Метрике:</p>
-                  <div className="flex gap-2">
-                    <input value={mcToken} onChange={e => setMcToken(e.target.value)} placeholder="OAuth-токен"
-                      className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
-                    <button onClick={() => { setConnectingMc(true); connectByToken('yandex_metrica', mcToken).finally(() => setConnectingMc(false)); }}
-                      disabled={!mcToken || connectingMc}
-                      className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 disabled:opacity-50">
-                      {connectingMc ? 'Подключение...' : 'Подключить'}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {mcConn.counterId ? (
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <BarChart3 className="w-4 h-4 text-slate-400" />
-                      <span>Счётчик: <strong>{mcConn.counterId}</strong></span>
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="text-sm text-slate-600 mb-2">Выберите счётчик:</p>
-                      {mcCounters.length === 0 ? (
-                        <button onClick={loadMcCounters} className="text-sm text-blue-500 hover:text-blue-600">Загрузить счётчики</button>
-                      ) : (
-                        <div className="space-y-1">
-                          {mcCounters.map((c: any) => (
-                            <button key={c.id} onClick={() => setConnectionField(mcConn.id, 'counterId', String(c.id))}
-                              className="w-full text-left px-3 py-2 text-sm border border-slate-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors">
-                              {c.name} <span className="text-slate-400">(ID: {c.id})</span> — {c.site}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <button onClick={() => deleteConnection(mcConn.id)} className="text-xs text-red-400 hover:text-red-500">Отключить</button>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         )}
 
@@ -392,8 +458,8 @@ export default function SeoReports() {
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-500">
                 {connections.length === 0
-                  ? 'Сначала подключите Яндекс.Вебмастер или Метрику во вкладке "Подключения"'
-                  : `Подключено сервисов: ${connections.length}`}
+                  ? 'Сначала подключите токены во вкладке "Подключения и проекты"'
+                  : `Подключено сервисов: ${connections.filter(c => !c.projectId || c.hostId || c.counterId).length}`}
               </p>
               <button onClick={() => setShowNewReport(true)}
                 className="flex items-center gap-1.5 px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600">
@@ -405,33 +471,40 @@ export default function SeoReports() {
               <div className="border border-blue-200 rounded-xl p-5 bg-blue-50/50">
                 <h3 className="font-bold text-slate-800 mb-3">Новый SEO отчёт</h3>
                 <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Название</label>
-                    <input value={newReport.title} onChange={e => setNewReport({ ...newReport, title: e.target.value })}
-                      placeholder={`SEO Отчёт ${new Date().toISOString().slice(0, 10)}`}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white" />
-                  </div>
-                  <div>
+                  <div className="col-span-2">
                     <label className="block text-xs font-medium text-slate-600 mb-1">Проект</label>
                     <select value={newReport.projectId} onChange={e => setNewReport({ ...newReport, projectId: e.target.value })}
                       className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white">
-                      <option value="">Без проекта</option>
-                      {projects.filter(p => !(p as any).archived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      <option value="">Выберите проект</option>
+                      {activeProjects.map(p => {
+                        const { wmBind, mcBind } = getProjectBindings(p.id);
+                        const hasBind = wmBind?.hostId || mcBind?.counterId;
+                        return <option key={p.id} value={p.id}>{p.name} {hasBind ? '✓' : '(нет привязок)'}</option>;
+                      })}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Дата от</label>
-                    <input type="date" value={newReport.dateFrom} onChange={e => setNewReport({ ...newReport, dateFrom: e.target.value })}
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Название (необязательно)</label>
+                    <input value={newReport.title} onChange={e => setNewReport({ ...newReport, title: e.target.value })}
+                      placeholder="Автоматически по проекту"
                       className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white" />
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">Дата до</label>
-                    <input type="date" value={newReport.dateTo} onChange={e => setNewReport({ ...newReport, dateTo: e.target.value })}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">От</label>
+                      <input type="date" value={newReport.dateFrom} onChange={e => setNewReport({ ...newReport, dateFrom: e.target.value })}
+                        className="w-full px-2 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-600 mb-1">До</label>
+                      <input type="date" value={newReport.dateTo} onChange={e => setNewReport({ ...newReport, dateTo: e.target.value })}
+                        className="w-full px-2 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white" />
+                    </div>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={createReport} className="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600">Создать</button>
+                  <button onClick={createReport} disabled={!newReport.projectId}
+                    className="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 disabled:opacity-50">Создать и собрать данные</button>
                   <button onClick={() => setShowNewReport(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Отмена</button>
                 </div>
               </div>
@@ -441,7 +514,7 @@ export default function SeoReports() {
               <div className="text-center py-16 text-slate-400">
                 <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-40" />
                 <p className="mb-2">Нет отчётов</p>
-                <p className="text-sm">Создайте первый SEO-отчёт для автоматического сбора данных</p>
+                <p className="text-sm">Привяжите сайты к проектам и создайте первый отчёт</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -495,7 +568,7 @@ function ReportView({ report, projects, onBack, onRegenerate, generating }: { re
   const tasks = d.tasks;
   const project = projects.find(p => p.id === report.projectId);
 
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['overview', 'queries', 'traffic', 'sources', 'pages', 'tasks']));
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['overview', 'queries', 'traffic', 'sources', 'pages', 'tasks', 'indexing', 'search-engines']));
   const toggleSection = (s: string) => {
     const next = new Set(expandedSections);
     if (next.has(s)) next.delete(s); else next.add(s);
@@ -513,13 +586,20 @@ function ReportView({ report, projects, onBack, onRegenerate, generating }: { re
     </div>
   );
 
-  const StatCard = ({ label, value, sub, color = 'blue' }: { label: string; value: string | number; sub?: string; color?: string }) => (
-    <div className={`bg-${color}-50 rounded-xl p-4`}>
-      <p className="text-xs text-slate-500 mb-1">{label}</p>
-      <p className="text-2xl font-bold text-slate-800">{typeof value === 'number' ? value.toLocaleString('ru') : value}</p>
-      {sub && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
-    </div>
-  );
+  const StatCard = ({ label, value, sub, color = 'blue' }: { label: string; value: string | number; sub?: string; color?: string }) => {
+    const bgColors: Record<string, string> = {
+      blue: 'bg-blue-50', sky: 'bg-sky-50', emerald: 'bg-emerald-50', amber: 'bg-amber-50',
+      purple: 'bg-purple-50', indigo: 'bg-indigo-50', teal: 'bg-teal-50', rose: 'bg-rose-50',
+      green: 'bg-green-50', red: 'bg-red-50',
+    };
+    return (
+      <div className={`${bgColors[color] || 'bg-slate-50'} rounded-xl p-4`}>
+        <p className="text-xs text-slate-500 mb-1">{label}</p>
+        <p className="text-2xl font-bold text-slate-800">{typeof value === 'number' ? value.toLocaleString('ru') : value}</p>
+        {sub && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
+      </div>
+    );
+  };
 
   return (
     <div className="h-full overflow-y-auto bg-white">
@@ -546,7 +626,6 @@ function ReportView({ report, projects, onBack, onRegenerate, generating }: { re
         </div>
 
         <div className="space-y-4">
-          {/* Overview */}
           {(wm || mc) && (
             <Section id="overview" title="Обзор" icon={TrendingUp}>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -570,7 +649,6 @@ function ReportView({ report, projects, onBack, onRegenerate, generating }: { re
             </Section>
           )}
 
-          {/* Webmaster Queries */}
           {wm?.queries && wm.queries.length > 0 && (
             <Section id="queries" title={`Топ запросов (${wm.queries.length})`} icon={Search}>
               <div className="overflow-x-auto">
@@ -606,7 +684,6 @@ function ReportView({ report, projects, onBack, onRegenerate, generating }: { re
             </Section>
           )}
 
-          {/* Indexing */}
           {wm?.indexing && (
             <Section id="indexing" title="Индексация" icon={Globe}>
               <div className="grid grid-cols-2 gap-3">
@@ -616,7 +693,6 @@ function ReportView({ report, projects, onBack, onRegenerate, generating }: { re
             </Section>
           )}
 
-          {/* Traffic sources */}
           {mc?.sources && mc.sources.length > 0 && (
             <Section id="sources" title="Источники трафика" icon={ArrowUpRight}>
               <div className="space-y-2">
@@ -636,7 +712,6 @@ function ReportView({ report, projects, onBack, onRegenerate, generating }: { re
             </Section>
           )}
 
-          {/* Search engines */}
           {mc?.searchEngines && mc.searchEngines.length > 0 && (
             <Section id="search-engines" title="Поисковые системы" icon={Search}>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -650,7 +725,6 @@ function ReportView({ report, projects, onBack, onRegenerate, generating }: { re
             </Section>
           )}
 
-          {/* Top pages */}
           {mc?.topPages && mc.topPages.length > 0 && (
             <Section id="pages" title={`Топ страниц (${mc.topPages.length})`} icon={FileText}>
               <div className="space-y-1.5">
@@ -665,7 +739,6 @@ function ReportView({ report, projects, onBack, onRegenerate, generating }: { re
             </Section>
           )}
 
-          {/* Tasks */}
           {tasks && tasks.length > 0 && (
             <Section id="tasks" title={`Выполненные работы (${tasks.length})`} icon={CheckCircle2}>
               <div className="space-y-1">
@@ -686,7 +759,7 @@ function ReportView({ report, projects, onBack, onRegenerate, generating }: { re
             <div className="text-center py-12 text-slate-400">
               <BarChart3 className="w-12 h-12 mx-auto mb-3 opacity-40" />
               <p className="mb-2">Нет данных</p>
-              <p className="text-sm">Подключите Яндекс.Вебмастер или Метрику и нажмите "Обновить данные"</p>
+              <p className="text-sm">Привяжите сайт/счётчик к проекту и нажмите "Обновить данные"</p>
             </div>
           )}
         </div>
