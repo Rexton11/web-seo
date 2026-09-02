@@ -6,10 +6,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus, Search, Inbox, ListTodo, FolderOpen, LayoutGrid, List, ChevronRight, ChevronDown,
   Flag, Calendar, Trash2, Check, X, MoreHorizontal, GripVertical, Clock,
-  AlertCircle, Folder, FolderPlus, Archive, FileText, Copy, ExternalLink, AlignLeft
+  AlertCircle, Folder, FolderPlus, Archive, FileText, Copy, ExternalLink, AlignLeft,
+  Sun, Sunrise, CalendarDays, ArrowUpDown
 } from 'lucide-react';
-import { format, isPast, isToday, isTomorrow, parseISO } from 'date-fns';
+import { format, isPast, isToday, isTomorrow, parseISO, isThisWeek, addDays, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
+
+type SortMode = 'manual' | 'priority' | 'dueDate' | 'alpha' | 'created';
 
 const PRIORITY_CONFIG = [
   { value: 0, label: 'Без приоритета', color: 'text-slate-300', bg: '', flagColor: '' },
@@ -37,8 +40,9 @@ export default function Tasks() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'list' | 'kanban'>(searchParams.get('view') as any || 'list');
-  const [filter, setFilter] = useState<'inbox' | 'all' | string>(searchParams.get('filter') || 'all');
+  const [filter, setFilter] = useState<'inbox' | 'all' | 'today' | 'tomorrow' | 'week' | string>(searchParams.get('filter') || 'all');
   const [search, setSearch] = useState('');
+  const [sortMode, setSortMode] = useState<SortMode>('manual');
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [showProjectModal, setShowProjectModal] = useState(false);
@@ -91,6 +95,16 @@ export default function Tasks() {
     let result = parentTasks;
     if (filter === 'inbox') {
       result = result.filter(t => t.status === 'inbox');
+    } else if (filter === 'today') {
+      result = result.filter(t => t.dueDate && isToday(parseISO(t.dueDate)));
+    } else if (filter === 'tomorrow') {
+      result = result.filter(t => t.dueDate && isTomorrow(parseISO(t.dueDate)));
+    } else if (filter === 'week') {
+      result = result.filter(t => {
+        if (!t.dueDate) return false;
+        const d = parseISO(t.dueDate);
+        return isThisWeek(d, { weekStartsOn: 1 }) || isToday(d);
+      });
     } else if (filter !== 'all') {
       result = result.filter(t => t.projectId === filter);
     }
@@ -98,18 +112,36 @@ export default function Tasks() {
       const q = search.toLowerCase();
       result = result.filter(t => t.title.toLowerCase().includes(q) || (t.description || '').toLowerCase().includes(q));
     }
+    if (sortMode === 'priority') {
+      result = [...result].sort((a, b) => b.priority - a.priority);
+    } else if (sortMode === 'dueDate') {
+      result = [...result].sort((a, b) => {
+        if (!a.dueDate && !b.dueDate) return 0;
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return a.dueDate.localeCompare(b.dueDate);
+      });
+    } else if (sortMode === 'alpha') {
+      result = [...result].sort((a, b) => a.title.localeCompare(b.title, 'ru'));
+    } else if (sortMode === 'created') {
+      result = [...result].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    } else if (sortMode === 'manual') {
+      result = [...result].sort((a, b) => a.order - b.order);
+    }
     return result;
-  }, [parentTasks, filter, search]);
+  }, [parentTasks, filter, search, sortMode]);
 
   const selectedTask = useMemo(() => selectedTaskId ? tasks.find(t => t.id === selectedTaskId) || null : null, [selectedTaskId, tasks]);
 
   const createTask = async (overrides: Partial<Task> = {}) => {
     if (!newTitle.trim() && !overrides.title) return;
     const token = await getToken();
+    const isDateFilter = filter === 'today' || filter === 'tomorrow' || filter === 'week';
     const body: any = {
       title: overrides.title || newTitle.trim(),
-      status: filter === 'inbox' || filter === 'all' ? 'inbox' : (overrides.status || 'inbox'),
-      projectId: filter !== 'inbox' && filter !== 'all' ? filter : null,
+      status: filter === 'inbox' || filter === 'all' || isDateFilter ? 'inbox' : (overrides.status || 'inbox'),
+      projectId: !isDateFilter && filter !== 'inbox' && filter !== 'all' ? filter : null,
+      dueDate: filter === 'today' ? format(new Date(), 'yyyy-MM-dd') : filter === 'tomorrow' ? format(addDays(new Date(), 1), 'yyyy-MM-dd') : null,
       ...overrides,
     };
     const res = await fetch('/api/tasks', {
@@ -231,11 +263,17 @@ export default function Tasks() {
   };
 
   const taskCounts = useMemo(() => {
-    const counts: Record<string, number> = { inbox: 0, all: parentTasks.length };
+    const counts: Record<string, number> = { inbox: 0, all: parentTasks.length, today: 0, tomorrow: 0, week: 0 };
     parentTasks.forEach(t => {
       if (t.status === 'inbox') counts.inbox++;
       if (t.projectId) {
         counts[t.projectId] = (counts[t.projectId] || 0) + 1;
+      }
+      if (t.dueDate) {
+        const d = parseISO(t.dueDate);
+        if (isToday(d)) counts.today++;
+        if (isTomorrow(d)) counts.tomorrow++;
+        if (isThisWeek(d, { weekStartsOn: 1 }) || isToday(d)) counts.week++;
       }
     });
     return counts;
@@ -264,6 +302,30 @@ export default function Tasks() {
               <ListTodo className="w-4 h-4" />
               <span className="flex-1 text-left">Все задачи</span>
               <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">{taskCounts.all}</span>
+            </button>
+          </div>
+
+          <div className="mt-3 px-4">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 block">Даты</span>
+          </div>
+          <div className="px-2 space-y-0.5">
+            <button onClick={() => setFilter('today')}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'today' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+              <Sun className="w-4 h-4" />
+              <span className="flex-1 text-left">Сегодня</span>
+              {taskCounts.today > 0 && <span className="text-xs bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full">{taskCounts.today}</span>}
+            </button>
+            <button onClick={() => setFilter('tomorrow')}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'tomorrow' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+              <Sunrise className="w-4 h-4" />
+              <span className="flex-1 text-left">Завтра</span>
+              {taskCounts.tomorrow > 0 && <span className="text-xs bg-blue-100 text-blue-500 px-1.5 py-0.5 rounded-full">{taskCounts.tomorrow}</span>}
+            </button>
+            <button onClick={() => setFilter('week')}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${filter === 'week' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+              <CalendarDays className="w-4 h-4" />
+              <span className="flex-1 text-left">На неделю</span>
+              {taskCounts.week > 0 && <span className="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">{taskCounts.week}</span>}
             </button>
           </div>
 
@@ -307,8 +369,19 @@ export default function Tasks() {
         <div className="px-6 py-4 bg-white border-b border-slate-200 flex items-center gap-4 flex-shrink-0">
           <div className="flex-1">
             <h3 className="text-lg font-bold text-slate-800">
-              {filter === 'inbox' ? 'Входящие' : filter === 'all' ? 'Все задачи' : projects.find(p => p.id === filter)?.name || 'Задачи'}
+              {filter === 'inbox' ? 'Входящие' : filter === 'all' ? 'Все задачи' : filter === 'today' ? 'Сегодня' : filter === 'tomorrow' ? 'Завтра' : filter === 'week' ? 'На неделю' : projects.find(p => p.id === filter)?.name || 'Задачи'}
             </h3>
+          </div>
+          <div className="relative">
+            <ArrowUpDown className="absolute left-3 top-2 w-4 h-4 text-slate-400" />
+            <select value={sortMode} onChange={e => setSortMode(e.target.value as SortMode)}
+              className="pl-9 pr-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 appearance-none bg-white cursor-pointer">
+              <option value="manual">Порядок вручную</option>
+              <option value="priority">По приоритету</option>
+              <option value="dueDate">По дате</option>
+              <option value="alpha">По алфавиту</option>
+              <option value="created">По дате создания</option>
+            </select>
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-2 w-4 h-4 text-slate-400" />
@@ -363,6 +436,7 @@ export default function Tasks() {
                 selectedTaskId={selectedTaskId}
                 onSelectTask={(id: string) => setSelectedTaskId(selectedTaskId === id ? null : id)}
                 createTask={createSubtask}
+                sortMode={sortMode}
               />
             ) : (
               <KanbanView
@@ -696,13 +770,49 @@ function TaskDetailPanel({ task, subtasks, projects, columns, updateTask, delete
   );
 }
 
-function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExpandedTasks, updateTask, deleteTask, toggleComplete, getDueDateLabel, navigate, selectedTaskId, onSelectTask, createTask }: any) {
+function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExpandedTasks, updateTask, deleteTask, toggleComplete, getDueDateLabel, navigate, selectedTaskId, onSelectTask, createTask, sortMode }: any) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [addingSubtask, setAddingSubtask] = useState<string | null>(null);
   const [subtaskTitle, setSubtaskTitle] = useState('');
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const lastCol = columns.length > 0 ? columns[columns.length - 1].id : 'done';
+
+  const handleListDragStart = (e: React.DragEvent, taskId: string) => {
+    e.dataTransfer.setData('listTaskId', taskId);
+    e.dataTransfer.effectAllowed = 'move';
+    setDragId(taskId);
+  };
+
+  const handleListDragOver = (e: React.DragEvent, taskId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverId(taskId);
+  };
+
+  const handleListDrop = async (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    const sourceId = e.dataTransfer.getData('listTaskId');
+    setDragId(null);
+    setDragOverId(null);
+    if (!sourceId || sourceId === targetId) return;
+    const sourceIdx = tasks.findIndex((t: any) => t.id === sourceId);
+    const targetIdx = tasks.findIndex((t: any) => t.id === targetId);
+    if (sourceIdx === -1 || targetIdx === -1) return;
+    const reordered = [...tasks];
+    const [moved] = reordered.splice(sourceIdx, 1);
+    reordered.splice(targetIdx, 0, moved);
+    reordered.forEach((t: any, i: number) => {
+      updateTask(t.id, { order: i });
+    });
+  };
+
+  const handleListDragEnd = () => {
+    setDragId(null);
+    setDragOverId(null);
+  };
 
   const startEdit = (task: any) => {
     setEditingId(task.id);
@@ -753,8 +863,17 @@ function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExp
       <div key={task.id}>
         <div
           onClick={() => onSelectTask(task.id)}
-          className={`group flex items-center gap-2 px-6 py-2.5 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer ${isSubtask ? 'pl-14' : ''} ${isDone ? 'opacity-60' : ''} ${isSelected ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''}`}
+          draggable={!isSubtask && sortMode === 'manual'}
+          onDragStart={!isSubtask ? (e) => handleListDragStart(e, task.id) : undefined}
+          onDragOver={!isSubtask ? (e) => handleListDragOver(e, task.id) : undefined}
+          onDrop={!isSubtask ? (e) => handleListDrop(e, task.id) : undefined}
+          onDragEnd={!isSubtask ? handleListDragEnd : undefined}
+          className={`group flex items-center gap-2 px-6 py-2.5 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer ${isSubtask ? 'pl-14' : ''} ${isDone ? 'opacity-60' : ''} ${isSelected ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''} ${dragId === task.id ? 'opacity-40' : ''} ${dragOverId === task.id && dragId !== task.id ? 'border-t-2 border-t-blue-400' : ''}`}
         >
+          {!isSubtask && sortMode === 'manual' && (
+            <GripVertical className="w-3.5 h-3.5 text-slate-300 opacity-0 group-hover:opacity-100 cursor-grab flex-shrink-0" />
+          )}
+
           {!isSubtask && hasSubtasks && (
             <button onClick={(e) => { e.stopPropagation(); toggleExpand(task.id); }} className="p-0.5 text-slate-400 hover:text-slate-600">
               {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
