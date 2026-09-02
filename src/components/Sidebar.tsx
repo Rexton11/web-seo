@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Briefcase, LayoutDashboard, Users, BookOpen, Settings, LogOut, CheckSquare } from 'lucide-react';
+import { Briefcase, LayoutDashboard, Users, BookOpen, Settings, LogOut, CheckSquare, BarChart3 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { useSettings } from '../SettingsContext';
 
@@ -11,6 +11,7 @@ export default function Sidebar() {
   const navItems = [
     { name: 'Воронка продаж', to: '/', icon: LayoutDashboard },
     { name: 'Задачи', to: '/tasks', icon: CheckSquare },
+    { name: 'SEO Отчёты', to: '/seo', icon: BarChart3 },
     { name: 'Клиенты', to: '/clients', icon: Users },
     { name: 'База знаний', to: '/knowledge', icon: BookOpen },
     { name: 'Настройки', to: '/settings', icon: Settings },

@@ -152,6 +152,63 @@ export interface AgencySettings {
   crmFavicon?: string;
   telegramBotToken?: string;
   telegramChatId?: string;
+  yandexClientId?: string;
+  yandexClientSecret?: string;
+}
+
+export interface SeoConnection {
+  id: string;
+  userId: string;
+  projectId?: string;
+  service: 'yandex_webmaster' | 'yandex_metrica';
+  siteUrl?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  tokenExpiresAt?: string;
+  hostId?: string;
+  counterId?: string;
+  meta?: any;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SeoReport {
+  id: string;
+  userId: string;
+  projectId?: string;
+  title: string;
+  period?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  status: 'draft' | 'generating' | 'ready' | 'error';
+  data?: SeoReportData;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SeoReportData {
+  webmaster?: {
+    totalClicks?: number;
+    totalImpressions?: number;
+    avgCtr?: number;
+    avgPosition?: number;
+    queries?: { query: string; clicks: number; impressions: number; ctr: number; position: number }[];
+    pages?: { url: string; clicks: number; impressions: number }[];
+    indexing?: { indexed: number; excluded: number };
+  };
+  metrica?: {
+    visits?: number;
+    pageviews?: number;
+    users?: number;
+    bounceRate?: number;
+    avgDuration?: number;
+    sources?: { name: string; visits: number; percentage: number }[];
+    topPages?: { url: string; views: number }[];
+    searchEngines?: { name: string; visits: number }[];
+    geography?: { country: string; visits: number }[];
+  };
+  tasks?: { title: string; status: string; completedAt?: string }[];
+  generatedAt?: string;
 }
 
 export interface Client {

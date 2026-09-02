@@ -12,6 +12,7 @@ import ArticleEditor from './pages/ArticleEditor';
 import PublicArticle from './pages/PublicArticle';
 import Tasks from './pages/Tasks';
 import TaskTemplates from './pages/TaskTemplates';
+import SeoReports from './pages/SeoReports';
 import { useSettings } from './SettingsContext';
 
 function AppLayout() {
@@ -44,6 +45,7 @@ function AppLayout() {
           <Route path="/client/:id" element={<ClientView />} />
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/tasks/templates" element={<TaskTemplates />} />
+          <Route path="/seo" element={<SeoReports />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/knowledge" element={<KnowledgeBase />} />
           <Route path="/knowledge/:id" element={<ArticleView />} />

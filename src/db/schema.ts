@@ -28,6 +28,8 @@ export const settings = mysqlTable('settings', {
   crmFavicon: varchar('crm_favicon', { length: 500 }),
   telegramBotToken: varchar('telegram_bot_token', { length: 255 }),
   telegramChatId: varchar('telegram_chat_id', { length: 100 }),
+  yandexClientId: varchar('yandex_client_id', { length: 255 }),
+  yandexClientSecret: varchar('yandex_client_secret', { length: 500 }),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
 
@@ -152,6 +154,36 @@ export const taskTemplates = mysqlTable('task_templates', {
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description'),
   tasks: json('tasks'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
+
+export const seoConnections = mysqlTable('seo_connections', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull(),
+  projectId: varchar('project_id', { length: 255 }),
+  service: varchar('service', { length: 50 }).notNull(),
+  siteUrl: varchar('site_url', { length: 500 }),
+  accessToken: text('access_token'),
+  refreshToken: text('refresh_token'),
+  tokenExpiresAt: timestamp('token_expires_at'),
+  hostId: varchar('host_id', { length: 255 }),
+  counterId: varchar('counter_id', { length: 50 }),
+  meta: json('meta'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
+});
+
+export const seoReports = mysqlTable('seo_reports', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull(),
+  projectId: varchar('project_id', { length: 255 }),
+  title: varchar('title', { length: 500 }).notNull(),
+  period: varchar('period', { length: 50 }),
+  dateFrom: varchar('date_from', { length: 20 }),
+  dateTo: varchar('date_to', { length: 20 }),
+  status: varchar('status', { length: 50 }).default('draft'),
+  data: json('data'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });

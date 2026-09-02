@@ -326,7 +326,8 @@ async function startServer() {
         'agencyName', 'inn', 'kpp', 'ogrn', 'directorName', 'address',
         'bankAccount', 'bankName', 'bik', 'contractTemplate', 'actTemplate',
         'kanbanColumns', 'taskColumns', 'geminiProxy', 'stageScripts', 'services',
-        'crmTitle', 'crmFavicon', 'telegramBotToken', 'telegramChatId'
+        'crmTitle', 'crmFavicon', 'telegramBotToken', 'telegramChatId',
+        'yandexClientId', 'yandexClientSecret'
       ];
       for (const key of allowedKeys) {
         if (req.body[key] !== undefined) {
@@ -360,6 +361,8 @@ async function startServer() {
           crmFavicon: req.body.crmFavicon || null,
           telegramBotToken: req.body.telegramBotToken || null,
           telegramChatId: req.body.telegramChatId || null,
+          yandexClientId: req.body.yandexClientId || null,
+          yandexClientSecret: req.body.yandexClientSecret || null,
         });
       }
       res.json({ success: true });
@@ -1134,6 +1137,423 @@ async function startServer() {
       res.status(500).json({ error: e.message });
     }
   });
+
+  // ---- SEO Connections CRUD ----
+  apiRouter.get('/seo-connections', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const rows = await db!.select().from(schema.seoConnections).where(eq(schema.seoConnections.userId, req.user.uid));
+      const safe = rows.map((r: any) => ({ ...r, accessToken: r.accessToken ? '***' : null, refreshToken: undefined, meta: r.meta }));
+      res.json(safe);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  apiRouter.post('/seo-connections', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const id = uuidv4();
+      const { service, projectId, siteUrl, accessToken, hostId, counterId } = req.body;
+      await db!.insert(schema.seoConnections).values({
+        id, userId: req.user.uid, service, projectId: projectId || null,
+        siteUrl: siteUrl || null, accessToken: accessToken || null,
+        hostId: hostId || null, counterId: counterId || null,
+      });
+      res.json({ id, service, siteUrl, hostId, counterId });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  apiRouter.put('/seo-connections/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const { service, projectId, siteUrl, accessToken, hostId, counterId } = req.body;
+      const fields: any = {};
+      if (service !== undefined) fields.service = service;
+      if (projectId !== undefined) fields.projectId = projectId || null;
+      if (siteUrl !== undefined) fields.siteUrl = siteUrl;
+      if (accessToken !== undefined) fields.accessToken = accessToken;
+      if (hostId !== undefined) fields.hostId = hostId;
+      if (counterId !== undefined) fields.counterId = counterId;
+      await db!.update(schema.seoConnections).set(fields)
+        .where(and(eq(schema.seoConnections.id, req.params.id), eq(schema.seoConnections.userId, req.user.uid)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  apiRouter.delete('/seo-connections/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      await db!.delete(schema.seoConnections)
+        .where(and(eq(schema.seoConnections.id, req.params.id), eq(schema.seoConnections.userId, req.user.uid)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ---- Yandex OAuth ----
+  apiRouter.get('/yandex/auth-url', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const settingsResult = await db!.select().from(schema.settings).where(eq(schema.settings.userId, req.user.uid));
+      const s = settingsResult[0] as any;
+      if (!s?.yandexClientId) return res.status(400).json({ error: 'Yandex Client ID not configured in settings' });
+      const service = req.query.service || 'webmaster';
+      const state = JSON.stringify({ uid: req.user.uid, service });
+      const url = `https://oauth.yandex.ru/authorize?response_type=code&client_id=${s.yandexClientId}&state=${encodeURIComponent(state)}&force_confirm=yes`;
+      res.json({ url });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  apiRouter.post('/yandex/token', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const { code, service } = req.body;
+      const settingsResult = await db!.select().from(schema.settings).where(eq(schema.settings.userId, req.user.uid));
+      const s = settingsResult[0] as any;
+      if (!s?.yandexClientId || !s?.yandexClientSecret) return res.status(400).json({ error: 'Yandex OAuth not configured' });
+
+      const tokenRes = await globalThis.fetch('https://oauth.yandex.ru/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `grant_type=authorization_code&code=${code}&client_id=${s.yandexClientId}&client_secret=${s.yandexClientSecret}`,
+      });
+      const tokenData = await tokenRes.json() as any;
+      if (tokenData.error) return res.status(400).json({ error: tokenData.error_description || tokenData.error });
+
+      const connId = uuidv4();
+      await db!.insert(schema.seoConnections).values({
+        id: connId, userId: req.user.uid,
+        service: service === 'metrica' ? 'yandex_metrica' : 'yandex_webmaster',
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token || null,
+      });
+      res.json({ id: connId, service, success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ---- Yandex Webmaster API proxy ----
+  apiRouter.get('/yandex/webmaster/hosts', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const conn = await getYandexConnection(req.user.uid, 'yandex_webmaster');
+      if (!conn) return res.status(400).json({ error: 'Yandex Webmaster not connected' });
+      const userIdRes = await globalThis.fetch('https://api.webmaster.yandex.net/v4/user', {
+        headers: { Authorization: `OAuth ${conn.accessToken}` },
+      });
+      const userData = await userIdRes.json() as any;
+      const ymUserId = userData.user_id;
+      const hostsRes = await globalThis.fetch(`https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts`, {
+        headers: { Authorization: `OAuth ${conn.accessToken}` },
+      });
+      const hostsData = await hostsRes.json() as any;
+      res.json({ hosts: hostsData.hosts || [], ymUserId });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  apiRouter.get('/yandex/webmaster/stats', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const conn = await getYandexConnection(req.user.uid, 'yandex_webmaster');
+      if (!conn) return res.status(400).json({ error: 'Yandex Webmaster not connected' });
+      const { hostId, dateFrom, dateTo } = req.query;
+      if (!hostId) return res.status(400).json({ error: 'hostId required' });
+
+      const userIdRes = await globalThis.fetch('https://api.webmaster.yandex.net/v4/user', {
+        headers: { Authorization: `OAuth ${conn.accessToken}` },
+      });
+      const userData = await userIdRes.json() as any;
+      const ymUserId = userData.user_id;
+      const encodedHost = encodeURIComponent(hostId as string);
+
+      const from = dateFrom || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+      const to = dateTo || new Date().toISOString().slice(0, 10);
+
+      const [queriesRes, indexingRes] = await Promise.all([
+        globalThis.fetch(
+          `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/search-queries/all/history?query_indicator=TOTAL_SHOWS&query_indicator=TOTAL_CLICKS&query_indicator=AVG_SHOW_POSITION&query_indicator=AVG_CLICK_POSITION&date_from=${from}&date_to=${to}`,
+          { headers: { Authorization: `OAuth ${conn.accessToken}` } }
+        ),
+        globalThis.fetch(
+          `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/summary`,
+          { headers: { Authorization: `OAuth ${conn.accessToken}` } }
+        ),
+      ]);
+
+      const queriesData = await queriesRes.json() as any;
+      const indexingData = await indexingRes.json() as any;
+
+      res.json({ queries: queriesData, indexing: indexingData });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  apiRouter.get('/yandex/webmaster/top-queries', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const conn = await getYandexConnection(req.user.uid, 'yandex_webmaster');
+      if (!conn) return res.status(400).json({ error: 'Yandex Webmaster not connected' });
+      const { hostId, dateFrom, dateTo } = req.query;
+      if (!hostId) return res.status(400).json({ error: 'hostId required' });
+
+      const userIdRes = await globalThis.fetch('https://api.webmaster.yandex.net/v4/user', {
+        headers: { Authorization: `OAuth ${conn.accessToken}` },
+      });
+      const userData = await userIdRes.json() as any;
+      const ymUserId = userData.user_id;
+      const encodedHost = encodeURIComponent(hostId as string);
+
+      const from = dateFrom || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+      const to = dateTo || new Date().toISOString().slice(0, 10);
+
+      const topRes = await globalThis.fetch(
+        `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/search-queries/popular?order_by=TOTAL_CLICKS&date_from=${from}&date_to=${to}`,
+        { headers: { Authorization: `OAuth ${conn.accessToken}` } }
+      );
+      const topData = await topRes.json();
+      res.json(topData);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ---- Yandex Metrica API proxy ----
+  apiRouter.get('/yandex/metrica/counters', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const conn = await getYandexConnection(req.user.uid, 'yandex_metrica');
+      if (!conn) return res.status(400).json({ error: 'Yandex Metrica not connected' });
+      const countersRes = await globalThis.fetch('https://api-metrica.yandex.net/management/v1/counters', {
+        headers: { Authorization: `OAuth ${conn.accessToken}` },
+      });
+      const data = await countersRes.json();
+      res.json(data);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  apiRouter.get('/yandex/metrica/stats', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const conn = await getYandexConnection(req.user.uid, 'yandex_metrica');
+      if (!conn) return res.status(400).json({ error: 'Yandex Metrica not connected' });
+      const { counterId, dateFrom, dateTo } = req.query;
+      if (!counterId) return res.status(400).json({ error: 'counterId required' });
+
+      const from = dateFrom || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+      const to = dateTo || new Date().toISOString().slice(0, 10);
+
+      const [summaryRes, sourcesRes, topPagesRes, searchEnginesRes] = await Promise.all([
+        globalThis.fetch(
+          `https://api-metrica.yandex.net/stat/v1/data?ids=${counterId}&metrics=ym:s:visits,ym:s:pageviews,ym:s:users,ym:s:bounceRate,ym:s:avgVisitDurationSeconds&date1=${from}&date2=${to}`,
+          { headers: { Authorization: `OAuth ${conn.accessToken}` } }
+        ),
+        globalThis.fetch(
+          `https://api-metrica.yandex.net/stat/v1/data?ids=${counterId}&metrics=ym:s:visits&dimensions=ym:s:lastTrafficSource&date1=${from}&date2=${to}&limit=10`,
+          { headers: { Authorization: `OAuth ${conn.accessToken}` } }
+        ),
+        globalThis.fetch(
+          `https://api-metrica.yandex.net/stat/v1/data?ids=${counterId}&metrics=ym:s:pageviews&dimensions=ym:s:startURL&date1=${from}&date2=${to}&sort=-ym:s:pageviews&limit=20`,
+          { headers: { Authorization: `OAuth ${conn.accessToken}` } }
+        ),
+        globalThis.fetch(
+          `https://api-metrica.yandex.net/stat/v1/data?ids=${counterId}&metrics=ym:s:visits&dimensions=ym:s:searchEngine&date1=${from}&date2=${to}&limit=10`,
+          { headers: { Authorization: `OAuth ${conn.accessToken}` } }
+        ),
+      ]);
+
+      const [summary, sources, topPages, searchEngines] = await Promise.all([
+        summaryRes.json(), sourcesRes.json(), topPagesRes.json(), searchEnginesRes.json(),
+      ]);
+
+      res.json({ summary, sources, topPages, searchEngines });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ---- SEO Reports CRUD ----
+  apiRouter.get('/seo-reports', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const rows = await db!.select().from(schema.seoReports)
+        .where(eq(schema.seoReports.userId, req.user.uid))
+        .orderBy(desc(schema.seoReports.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  apiRouter.get('/seo-reports/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const rows = await db!.select().from(schema.seoReports)
+        .where(and(eq(schema.seoReports.id, req.params.id), eq(schema.seoReports.userId, req.user.uid)));
+      if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
+      res.json(rows[0]);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  apiRouter.post('/seo-reports', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const id = uuidv4();
+      const { title, projectId, period, dateFrom, dateTo } = req.body;
+      await db!.insert(schema.seoReports).values({
+        id, userId: req.user.uid, title: title || 'SEO Отчёт',
+        projectId: projectId || null, period: period || null,
+        dateFrom: dateFrom || null, dateTo: dateTo || null,
+        status: 'draft', data: null,
+      });
+      res.json({ id });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  apiRouter.put('/seo-reports/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const fields: any = {};
+      const allowedKeys = ['title', 'projectId', 'period', 'dateFrom', 'dateTo', 'status', 'data'];
+      for (const key of allowedKeys) {
+        if (req.body[key] !== undefined) fields[key] = req.body[key];
+      }
+      await db!.update(schema.seoReports).set(fields)
+        .where(and(eq(schema.seoReports.id, req.params.id), eq(schema.seoReports.userId, req.user.uid)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  apiRouter.delete('/seo-reports/:id', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      await db!.delete(schema.seoReports)
+        .where(and(eq(schema.seoReports.id, req.params.id), eq(schema.seoReports.userId, req.user.uid)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  apiRouter.post('/seo-reports/:id/generate', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const reportRows = await db!.select().from(schema.seoReports)
+        .where(and(eq(schema.seoReports.id, req.params.id), eq(schema.seoReports.userId, req.user.uid)));
+      if (reportRows.length === 0) return res.status(404).json({ error: 'Report not found' });
+      const report = reportRows[0] as any;
+
+      await db!.update(schema.seoReports).set({ status: 'generating' })
+        .where(eq(schema.seoReports.id, req.params.id));
+
+      const from = report.dateFrom || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+      const to = report.dateTo || new Date().toISOString().slice(0, 10);
+
+      const data: any = { generatedAt: new Date().toISOString() };
+
+      const wmConn = await getYandexConnection(req.user.uid, 'yandex_webmaster');
+      if (wmConn && wmConn.hostId) {
+        try {
+          const userIdRes = await globalThis.fetch('https://api.webmaster.yandex.net/v4/user', {
+            headers: { Authorization: `OAuth ${wmConn.accessToken}` },
+          });
+          const userData = await userIdRes.json() as any;
+          const ymUserId = userData.user_id;
+          const encodedHost = encodeURIComponent(wmConn.hostId);
+
+          const [historyRes, topRes, summaryRes] = await Promise.all([
+            globalThis.fetch(
+              `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/search-queries/all/history?query_indicator=TOTAL_SHOWS&query_indicator=TOTAL_CLICKS&query_indicator=AVG_SHOW_POSITION&date_from=${from}&date_to=${to}`,
+              { headers: { Authorization: `OAuth ${wmConn.accessToken}` } }
+            ),
+            globalThis.fetch(
+              `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/search-queries/popular?order_by=TOTAL_CLICKS&date_from=${from}&date_to=${to}`,
+              { headers: { Authorization: `OAuth ${wmConn.accessToken}` } }
+            ),
+            globalThis.fetch(
+              `https://api.webmaster.yandex.net/v4/user/${ymUserId}/hosts/${encodedHost}/summary`,
+              { headers: { Authorization: `OAuth ${wmConn.accessToken}` } }
+            ),
+          ]);
+
+          const [history, top, summary] = await Promise.all([
+            historyRes.json() as any, topRes.json() as any, summaryRes.json() as any
+          ]);
+
+          const indicators = history.indicators || {};
+          const totalClicks = (indicators.TOTAL_CLICKS || []).reduce((s: number, d: any) => s + (d.value || 0), 0);
+          const totalImpressions = (indicators.TOTAL_SHOWS || []).reduce((s: number, d: any) => s + (d.value || 0), 0);
+          const positions = (indicators.AVG_SHOW_POSITION || []).filter((d: any) => d.value);
+          const avgPosition = positions.length > 0 ? positions.reduce((s: number, d: any) => s + d.value, 0) / positions.length : 0;
+
+          data.webmaster = {
+            totalClicks, totalImpressions,
+            avgCtr: totalImpressions > 0 ? Math.round((totalClicks / totalImpressions) * 10000) / 100 : 0,
+            avgPosition: Math.round(avgPosition * 10) / 10,
+            queries: (top.queries || []).slice(0, 50).map((q: any) => ({
+              query: q.query_text, clicks: q.indicators?.TOTAL_CLICKS || 0,
+              impressions: q.indicators?.TOTAL_SHOWS || 0,
+              ctr: q.indicators?.TOTAL_SHOWS > 0 ? Math.round((q.indicators?.TOTAL_CLICKS / q.indicators?.TOTAL_SHOWS) * 10000) / 100 : 0,
+              position: Math.round((q.indicators?.AVG_SHOW_POSITION || 0) * 10) / 10,
+            })),
+            indexing: {
+              indexed: summary.searchable_count || 0,
+              excluded: summary.excluded_count || 0,
+            },
+          };
+        } catch (e) { console.error('Webmaster data error:', e); }
+      }
+
+      const mcConn = await getYandexConnection(req.user.uid, 'yandex_metrica');
+      if (mcConn && mcConn.counterId) {
+        try {
+          const cId = mcConn.counterId;
+          const [summaryRes, sourcesRes, topPagesRes, searchRes] = await Promise.all([
+            globalThis.fetch(
+              `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:visits,ym:s:pageviews,ym:s:users,ym:s:bounceRate,ym:s:avgVisitDurationSeconds&date1=${from}&date2=${to}`,
+              { headers: { Authorization: `OAuth ${mcConn.accessToken}` } }
+            ),
+            globalThis.fetch(
+              `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:visits&dimensions=ym:s:lastTrafficSource&date1=${from}&date2=${to}&limit=10`,
+              { headers: { Authorization: `OAuth ${mcConn.accessToken}` } }
+            ),
+            globalThis.fetch(
+              `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:pageviews&dimensions=ym:s:startURL&date1=${from}&date2=${to}&sort=-ym:s:pageviews&limit=20`,
+              { headers: { Authorization: `OAuth ${mcConn.accessToken}` } }
+            ),
+            globalThis.fetch(
+              `https://api-metrica.yandex.net/stat/v1/data?ids=${cId}&metrics=ym:s:visits&dimensions=ym:s:searchEngine&date1=${from}&date2=${to}&limit=10`,
+              { headers: { Authorization: `OAuth ${mcConn.accessToken}` } }
+            ),
+          ]);
+
+          const [smry, srcs, tPages, sEngines] = await Promise.all([
+            summaryRes.json() as any, sourcesRes.json() as any,
+            topPagesRes.json() as any, searchRes.json() as any,
+          ]);
+
+          const totals = smry.data?.[0]?.metrics || [];
+          const totalVisits = totals[0] || 0;
+
+          data.metrica = {
+            visits: Math.round(totals[0] || 0),
+            pageviews: Math.round(totals[1] || 0),
+            users: Math.round(totals[2] || 0),
+            bounceRate: Math.round((totals[3] || 0) * 100) / 100,
+            avgDuration: Math.round(totals[4] || 0),
+            sources: (srcs.data || []).map((d: any) => ({
+              name: d.dimensions?.[0]?.name || 'Unknown',
+              visits: Math.round(d.metrics?.[0] || 0),
+              percentage: totalVisits > 0 ? Math.round((d.metrics?.[0] || 0) / totalVisits * 10000) / 100 : 0,
+            })),
+            topPages: (tPages.data || []).map((d: any) => ({
+              url: d.dimensions?.[0]?.name || '',
+              views: Math.round(d.metrics?.[0] || 0),
+            })),
+            searchEngines: (sEngines.data || []).map((d: any) => ({
+              name: d.dimensions?.[0]?.name || 'Unknown',
+              visits: Math.round(d.metrics?.[0] || 0),
+            })),
+          };
+        } catch (e) { console.error('Metrica data error:', e); }
+      }
+
+      if (report.projectId) {
+        try {
+          const projectTasks = await db!.select().from(schema.tasks)
+            .where(and(eq(schema.tasks.userId, req.user.uid), eq(schema.tasks.projectId, report.projectId)));
+          data.tasks = projectTasks.map((t: any) => ({
+            title: t.title, status: t.status, completedAt: t.completedAt?.toISOString() || null,
+          }));
+        } catch (e) { console.error('Tasks fetch error:', e); }
+      }
+
+      await db!.update(schema.seoReports).set({ status: 'ready', data })
+        .where(eq(schema.seoReports.id, req.params.id));
+
+      res.json({ success: true, data });
+    } catch (e: any) {
+      await db!.update(schema.seoReports).set({ status: 'error' })
+        .where(eq(schema.seoReports.id, req.params.id));
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  async function getYandexConnection(userId: string, service: string) {
+    const rows = await db!.select().from(schema.seoConnections)
+      .where(and(eq(schema.seoConnections.userId, userId), eq(schema.seoConnections.service, service)));
+    return rows.length > 0 ? rows[0] : null;
+  }
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
