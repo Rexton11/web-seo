@@ -1102,7 +1102,7 @@ function TaskDetailPanel({ task, subtasks, projects, columns, updateTask, delete
               return (
                 <div key={sub.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-slate-50 group">
                   <button onClick={() => toggleComplete(sub)}
-                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${subDone ? 'bg-green-500 border-green-500' : 'border-slate-300 hover:border-blue-500'}`}>
+                    className={`w-4 h-4 rounded-[3px] border-2 flex items-center justify-center flex-shrink-0 transition-colors ${subDone ? 'bg-green-500 border-green-500' : 'border-slate-300 hover:border-blue-500'}`}>
                     {subDone && <Check className="w-2.5 h-2.5 text-white" />}
                   </button>
                   <span className={`flex-1 text-sm ${subDone ? 'line-through text-slate-400' : 'text-slate-700'}`}>{sub.title}</span>
@@ -1117,7 +1117,7 @@ function TaskDetailPanel({ task, subtasks, projects, columns, updateTask, delete
 
             {addingSubtask && (
               <div className="flex items-center gap-2 py-1">
-                <div className="w-4 h-4 rounded-full border-2 border-slate-200 flex-shrink-0" />
+                <div className="w-4 h-4 rounded-[3px] border-2 border-slate-200 flex-shrink-0" />
                 <input
                   autoFocus
                   value={subtaskTitle}
@@ -1313,7 +1313,7 @@ function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExp
           onDragOver={!isSubtask ? (e) => handleListDragOver(e, task.id) : undefined}
           onDrop={!isSubtask ? (e) => handleListDrop(e, task.id) : undefined}
           onDragEnd={!isSubtask ? handleListDragEnd : undefined}
-          className={`group flex items-center gap-2 px-6 py-2.5 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer ${isSubtask ? 'pl-14' : ''} ${isDone ? 'opacity-60' : ''} ${isSelected ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''} ${isMultiSelected ? 'bg-blue-50/70' : ''} ${dragId === task.id ? 'opacity-40' : ''} ${dragOverId === task.id && dragId !== task.id ? 'border-t-2 border-t-blue-400' : ''}`}
+          className={`group flex items-center gap-1.5 px-4 py-1.5 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer ${isSubtask ? 'pl-12' : ''} ${isDone ? 'opacity-60' : ''} ${isSelected ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''} ${isMultiSelected ? 'bg-blue-50/70' : ''} ${dragId === task.id ? 'opacity-40' : ''} ${dragOverId === task.id && dragId !== task.id ? 'border-t-2 border-t-blue-400' : ''}`}
         >
           {!isSubtask && isMultiSelected && (
             <CheckSquare className="w-4 h-4 text-blue-500 flex-shrink-0" />
@@ -1334,8 +1334,8 @@ function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExp
           {!isSubtask && !hasSubtasks && <div className="w-4.5" />}
 
           <button onClick={(e) => { e.stopPropagation(); toggleComplete(task); }}
-            className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isDone ? 'bg-green-500 border-green-500' : 'border-slate-300 hover:border-blue-500'}`}>
-            {isDone && <Check className="w-3 h-3 text-white" />}
+            className={`w-4 h-4 rounded-[3px] border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isDone ? 'bg-green-500 border-green-500' : 'border-slate-300 hover:border-blue-500'}`}>
+            {isDone && <Check className="w-2.5 h-2.5 text-white" />}
           </button>
 
           {editingId === task.id ? (
@@ -1343,10 +1343,10 @@ function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExp
               onClick={e => e.stopPropagation()}
               onKeyDown={e => { if (e.key === 'Enter') saveEdit(task.id); if (e.key === 'Escape') setEditingId(null); }}
               onBlur={() => saveEdit(task.id)}
-              className="flex-1 px-2 py-0.5 text-sm border border-blue-300 rounded focus:outline-none" />
+              className="flex-1 px-1.5 py-0.5 text-[13px] border border-blue-300 rounded focus:outline-none" />
           ) : (
             <span onDoubleClick={(e) => { e.stopPropagation(); startEdit(task); }}
-              className={`flex-1 text-sm ${isDone ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+              className={`flex-1 text-[13px] ${isDone ? 'line-through text-slate-400' : 'text-slate-700'}`}>
               {task.title}
               {task.description && <AlignLeft className="w-3 h-3 inline ml-1.5 text-slate-300" />}
             </span>
@@ -1391,11 +1391,11 @@ function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExp
         {isExpanded && subs.map((sub: any) => renderTask(sub, true))}
 
         {addingSubtask === task.id && (
-          <div className="flex items-center gap-2 pl-14 pr-6 py-2 bg-blue-50 border-b border-blue-100">
+          <div className="flex items-center gap-1.5 pl-12 pr-4 py-1.5 bg-blue-50 border-b border-blue-100">
             <input autoFocus value={subtaskTitle} onChange={e => setSubtaskTitle(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') addSubtask(task.id); if (e.key === 'Escape') setAddingSubtask(null); }}
               placeholder="Подзадача..."
-              className="flex-1 px-2 py-1 text-sm border border-blue-200 rounded focus:outline-none focus:border-blue-500" />
+              className="flex-1 px-1.5 py-0.5 text-[13px] border border-blue-200 rounded focus:outline-none focus:border-blue-500" />
             <button onClick={() => addSubtask(task.id)} className="text-xs text-blue-500 hover:text-blue-600 font-medium">Добавить</button>
             <button onClick={() => setAddingSubtask(null)} className="text-slate-400"><X className="w-3.5 h-3.5" /></button>
           </div>
@@ -1412,7 +1412,7 @@ function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExp
       {incompleteTasks.map((t: any) => renderTask(t))}
       {completedTasks.length > 0 && (
         <>
-          <div className="px-6 py-2 bg-slate-50 border-b border-slate-100">
+          <div className="px-4 py-1.5 bg-slate-50 border-b border-slate-100">
             <span className="text-xs font-semibold text-slate-400 uppercase">Завершённые ({completedTasks.length})</span>
           </div>
           {completedTasks.map((t: any) => renderTask(t))}

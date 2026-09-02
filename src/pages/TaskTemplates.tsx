@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useAuth } from '../AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, Save, Check, FileText, ChevronDown, ChevronRight, X } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Check, FileText, X } from 'lucide-react';
 
 interface TemplateTask {
   title: string;
@@ -23,6 +23,10 @@ export default function TaskTemplates() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Template | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const taskInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
+  const subtaskInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
   const getToken = async () => user ? await user.getIdToken() : '';
 
@@ -41,20 +45,11 @@ export default function TaskTemplates() {
 
   useEffect(() => { if (user) fetchTemplates(); }, [user]);
 
-  const createTemplate = () => {
-    setEditing({
-      id: '',
-      name: '',
-      description: '',
-      tasks: [{ title: '', subtasks: [] }],
-    });
-  };
-
-  const saveTemplate = async () => {
-    if (!editing || !editing.name.trim()) return;
+  const doSave = useCallback(async (template: Template) => {
+    if (!template.name.trim()) return;
     setSaving(true);
     const token = await getToken();
-    const cleanTasks = editing.tasks
+    const cleanTasks = template.tasks
       .filter(t => t.title.trim())
       .map(t => ({
         title: t.title.trim(),
@@ -62,10 +57,10 @@ export default function TaskTemplates() {
         subtasks: (t.subtasks || []).filter(s => s.title.trim()),
       }));
 
-    const body = { name: editing.name, description: editing.description || null, tasks: cleanTasks };
+    const body = { name: template.name, description: template.description || null, tasks: cleanTasks };
 
-    if (editing.id) {
-      await fetch(`/api/task-templates/${editing.id}`, {
+    if (template.id) {
+      await fetch(`/api/task-templates/${template.id}`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -78,12 +73,44 @@ export default function TaskTemplates() {
       });
       if (res.ok) {
         const created = await res.json();
-        editing.id = created.id;
+        template.id = created.id;
       }
     }
     setSaving(false);
-    setEditing(null);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
     fetchTemplates();
+  }, [user]);
+
+  const scheduleAutoSave = useCallback((template: Template) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => doSave(template), 1200);
+  }, [doSave]);
+
+  useEffect(() => {
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, []);
+
+  const updateEditing = (updated: Template) => {
+    setEditing(updated);
+    scheduleAutoSave(updated);
+  };
+
+  const createTemplate = () => {
+    setEditing({
+      id: '',
+      name: '',
+      description: '',
+      tasks: [{ title: '', subtasks: [] }],
+    });
+  };
+
+  const handleBack = async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      if (editing && editing.name.trim()) await doSave(editing);
+    }
+    setEditing(null);
   };
 
   const deleteTemplate = async (id: string) => {
@@ -93,28 +120,59 @@ export default function TaskTemplates() {
     setTemplates(templates.filter(t => t.id !== id));
   };
 
+  const handleTaskKeyDown = (e: React.KeyboardEvent, ti: number) => {
+    if (e.key === 'Enter' && !e.shiftKey && editing) {
+      e.preventDefault();
+      const newTasks = [...editing.tasks];
+      newTasks.splice(ti + 1, 0, { title: '', subtasks: [] });
+      const updated = { ...editing, tasks: newTasks };
+      setEditing(updated);
+      scheduleAutoSave(updated);
+      setTimeout(() => taskInputRefs.current.get(ti + 1)?.focus(), 50);
+    }
+  };
+
+  const handleSubtaskKeyDown = (e: React.KeyboardEvent, ti: number, si: number) => {
+    if (e.key === 'Enter' && !e.shiftKey && editing) {
+      e.preventDefault();
+      const newTasks = [...editing.tasks];
+      const subs = [...(newTasks[ti].subtasks || [])];
+      subs.splice(si + 1, 0, { title: '' });
+      newTasks[ti] = { ...newTasks[ti], subtasks: subs };
+      const updated = { ...editing, tasks: newTasks };
+      setEditing(updated);
+      scheduleAutoSave(updated);
+      setTimeout(() => subtaskInputRefs.current.get(`${ti}-${si + 1}`)?.focus(), 50);
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent"></div></div>;
 
   if (editing) {
     return (
       <div className="h-full overflow-y-auto bg-white">
         <div className="max-w-2xl mx-auto px-6 py-8">
-          <button onClick={() => setEditing(null)} className="flex items-center gap-1 text-sm text-slate-400 hover:text-blue-500 mb-6">
+          <button onClick={handleBack} className="flex items-center gap-1 text-sm text-slate-400 hover:text-blue-500 mb-6">
             <ArrowLeft className="w-4 h-4" /> Назад к шаблонам
           </button>
 
-          <h1 className="text-2xl font-bold text-slate-900 mb-6">{editing.id ? 'Редактировать шаблон' : 'Новый шаблон'}</h1>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-slate-900">{editing.id ? 'Редактировать шаблон' : 'Новый шаблон'}</h1>
+            <span className={`text-xs transition-opacity ${saving ? 'text-blue-500 opacity-100' : saved ? 'text-green-500 opacity-100' : 'opacity-0'}`}>
+              {saving ? 'Сохранение...' : saved ? <span className="flex items-center gap-1"><Check className="w-3 h-3" /> Сохранено</span> : ''}
+            </span>
+          </div>
 
           <div className="space-y-4 mb-8">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Название шаблона</label>
-              <input value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })}
+              <input value={editing.name} onChange={e => updateEditing({ ...editing, name: e.target.value })}
                 placeholder="Например: Разработка интернет-магазина"
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Описание (необязательно)</label>
-              <input value={editing.description || ''} onChange={e => setEditing({ ...editing, description: e.target.value })}
+              <input value={editing.description || ''} onChange={e => updateEditing({ ...editing, description: e.target.value })}
                 placeholder="Краткое описание шаблона"
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500" />
             </div>
@@ -127,15 +185,20 @@ export default function TaskTemplates() {
               <div key={ti} className="border border-slate-200 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs text-slate-400 font-mono w-6">{ti + 1}.</span>
-                  <input value={task.title} onChange={e => {
-                    const newTasks = [...editing.tasks];
-                    newTasks[ti] = { ...newTasks[ti], title: e.target.value };
-                    setEditing({ ...editing, tasks: newTasks });
-                  }}
+                  <input
+                    ref={el => { if (el) taskInputRefs.current.set(ti, el); }}
+                    value={task.title}
+                    onChange={e => {
+                      const newTasks = [...editing.tasks];
+                      newTasks[ti] = { ...newTasks[ti], title: e.target.value };
+                      updateEditing({ ...editing, tasks: newTasks });
+                    }}
+                    onKeyDown={e => handleTaskKeyDown(e, ti)}
                     placeholder="Название задачи"
                     className="flex-1 px-2 py-1.5 border border-slate-200 rounded text-sm focus:outline-none focus:border-blue-500" />
                   <button onClick={() => {
-                    setEditing({ ...editing, tasks: editing.tasks.filter((_, i) => i !== ti) });
+                    const updated = { ...editing, tasks: editing.tasks.filter((_, i) => i !== ti) };
+                    updateEditing(updated);
                   }} className="text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                 </div>
 
@@ -144,19 +207,23 @@ export default function TaskTemplates() {
                     {task.subtasks!.map((sub, si) => (
                       <div key={si} className="flex items-center gap-2">
                         <span className="text-xs text-slate-300">-</span>
-                        <input value={sub.title} onChange={e => {
-                          const newTasks = [...editing.tasks];
-                          const subs = [...(newTasks[ti].subtasks || [])];
-                          subs[si] = { title: e.target.value };
-                          newTasks[ti] = { ...newTasks[ti], subtasks: subs };
-                          setEditing({ ...editing, tasks: newTasks });
-                        }}
+                        <input
+                          ref={el => { if (el) subtaskInputRefs.current.set(`${ti}-${si}`, el); }}
+                          value={sub.title}
+                          onChange={e => {
+                            const newTasks = [...editing.tasks];
+                            const subs = [...(newTasks[ti].subtasks || [])];
+                            subs[si] = { title: e.target.value };
+                            newTasks[ti] = { ...newTasks[ti], subtasks: subs };
+                            updateEditing({ ...editing, tasks: newTasks });
+                          }}
+                          onKeyDown={e => handleSubtaskKeyDown(e, ti, si)}
                           placeholder="Подзадача"
                           className="flex-1 px-2 py-1 border border-slate-100 rounded text-xs focus:outline-none focus:border-blue-500" />
                         <button onClick={() => {
                           const newTasks = [...editing.tasks];
                           newTasks[ti] = { ...newTasks[ti], subtasks: (newTasks[ti].subtasks || []).filter((_, i) => i !== si) };
-                          setEditing({ ...editing, tasks: newTasks });
+                          updateEditing({ ...editing, tasks: newTasks });
                         }} className="text-slate-200 hover:text-red-400"><X className="w-3 h-3" /></button>
                       </div>
                     ))}
@@ -165,25 +232,25 @@ export default function TaskTemplates() {
 
                 <button onClick={() => {
                   const newTasks = [...editing.tasks];
-                  newTasks[ti] = { ...newTasks[ti], subtasks: [...(newTasks[ti].subtasks || []), { title: '' }] };
-                  setEditing({ ...editing, tasks: newTasks });
+                  const subs = [...(newTasks[ti].subtasks || []), { title: '' }];
+                  newTasks[ti] = { ...newTasks[ti], subtasks: subs };
+                  const updated = { ...editing, tasks: newTasks };
+                  updateEditing(updated);
+                  setTimeout(() => subtaskInputRefs.current.get(`${ti}-${subs.length - 1}`)?.focus(), 50);
                 }} className="ml-8 text-xs text-blue-500 hover:text-blue-600">+ Подзадача</button>
               </div>
             ))}
           </div>
 
-          <button onClick={() => setEditing({ ...editing, tasks: [...editing.tasks, { title: '', subtasks: [] }] })}
+          <button onClick={() => {
+            const updated = { ...editing, tasks: [...editing.tasks, { title: '', subtasks: [] }] };
+            setEditing(updated);
+            scheduleAutoSave(updated);
+            setTimeout(() => taskInputRefs.current.get(editing.tasks.length)?.focus(), 50);
+          }}
             className="flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600 font-medium mb-8">
             <Plus className="w-4 h-4" /> Добавить задачу
           </button>
-
-          <div className="flex justify-end gap-2 pt-4 border-t border-slate-200">
-            <button onClick={() => setEditing(null)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Отмена</button>
-            <button onClick={saveTemplate} disabled={saving}
-              className="flex items-center gap-1.5 px-5 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 disabled:opacity-50">
-              <Save className="w-4 h-4" /> {saving ? 'Сохранение...' : 'Сохранить'}
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -228,7 +295,7 @@ export default function TaskTemplates() {
                 <div className="space-y-1">
                   {tmpl.tasks.slice(0, 5).map((t: TemplateTask, i: number) => (
                     <div key={i} className="flex items-center gap-2 text-sm text-slate-600">
-                      <div className="w-4 h-4 rounded-full border-2 border-slate-300 flex-shrink-0" />
+                      <div className="w-4 h-4 rounded-[3px] border-2 border-slate-300 flex-shrink-0" />
                       <span>{t.title}</span>
                       {t.subtasks && t.subtasks.length > 0 && (
                         <span className="text-xs text-slate-400">({t.subtasks.length} подзадач)</span>
