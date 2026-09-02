@@ -7,8 +7,14 @@ import {
   Plus, Search, Inbox, ListTodo, FolderOpen, LayoutGrid, List, ChevronRight, ChevronDown,
   Flag, Calendar, Trash2, Check, X, MoreHorizontal, GripVertical, Clock,
   AlertCircle, Folder, FolderPlus, Archive, FileText, Copy, ExternalLink, AlignLeft,
-  Sun, Sunrise, CalendarDays, ArrowUpDown
+  Sun, Sunrise, CalendarDays, ArrowUpDown, CheckSquare, Square
 } from 'lucide-react';
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  taskIds: string[];
+}
 import { format, isPast, isToday, isTomorrow, parseISO, isThisWeek, addDays, startOfDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
@@ -52,6 +58,9 @@ export default function Tasks() {
   const [templates, setTemplates] = useState<any[]>([]);
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const lastClickedTaskRef = useRef<string | null>(null);
 
   const COLUMNS: TaskColumn[] = settings?.taskColumns?.sort((a: TaskColumn, b: TaskColumn) => a.order - b.order) || DEFAULT_COLUMNS;
 
@@ -196,6 +205,79 @@ export default function Tasks() {
       setBulkLines(lines);
     }
   };
+
+  const handleTaskClick = (taskId: string, e: React.MouseEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      setSelectedTaskIds(prev => {
+        const next = new Set(prev);
+        if (next.has(taskId)) next.delete(taskId); else next.add(taskId);
+        return next;
+      });
+      lastClickedTaskRef.current = taskId;
+      return;
+    }
+    if (e.shiftKey && lastClickedTaskRef.current) {
+      const taskList = filteredTasks;
+      const lastIdx = taskList.findIndex(t => t.id === lastClickedTaskRef.current);
+      const curIdx = taskList.findIndex(t => t.id === taskId);
+      if (lastIdx !== -1 && curIdx !== -1) {
+        const start = Math.min(lastIdx, curIdx);
+        const end = Math.max(lastIdx, curIdx);
+        setSelectedTaskIds(prev => {
+          const next = new Set(prev);
+          for (let i = start; i <= end; i++) next.add(taskList[i].id);
+          return next;
+        });
+      }
+      return;
+    }
+    setSelectedTaskIds(new Set());
+    setSelectedTaskId(selectedTaskId === taskId ? null : taskId);
+    lastClickedTaskRef.current = taskId;
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, taskId: string) => {
+    e.preventDefault();
+    if (selectedTaskIds.size > 0 && !selectedTaskIds.has(taskId)) {
+      setSelectedTaskIds(new Set([taskId]));
+    } else if (selectedTaskIds.size === 0) {
+      setSelectedTaskIds(new Set([taskId]));
+    }
+    const ids = selectedTaskIds.size > 0 && selectedTaskIds.has(taskId)
+      ? Array.from(selectedTaskIds) : [taskId];
+    setContextMenu({ x: e.clientX, y: e.clientY, taskIds: ids });
+  };
+
+  const bulkDeleteTasks = async (ids: string[]) => {
+    if (!confirm(`Удалить ${ids.length} задач?`)) return;
+    const token = await getToken();
+    for (const id of ids) {
+      await fetch(`/api/tasks/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    }
+    setTasks(prev => prev.filter(t => !ids.includes(t.id) && !ids.includes(t.parentId || '')));
+    setSelectedTaskIds(new Set());
+    if (selectedTaskId && ids.includes(selectedTaskId)) setSelectedTaskId(null);
+    setContextMenu(null);
+  };
+
+  const bulkUpdateTasks = async (ids: string[], updates: Partial<Task>) => {
+    const token = await getToken();
+    setTasks(prev => prev.map(t => ids.includes(t.id) ? { ...t, ...updates } : t));
+    for (const id of ids) {
+      await fetch(`/api/tasks/${id}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+    }
+    setContextMenu(null);
+  };
+
+  useEffect(() => {
+    const close = () => setContextMenu(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, []);
 
   const createSubtask = async (overrides: Partial<Task>) => {
     const token = await getToken();
@@ -481,6 +563,89 @@ export default function Tasks() {
           </div>
         )}
 
+        {/* Multi-select toolbar */}
+        {selectedTaskIds.size > 0 && (
+          <div className="px-6 py-2 bg-blue-50 border-b border-blue-200 flex items-center gap-3 flex-shrink-0">
+            <span className="text-sm font-medium text-blue-700">Выбрано: {selectedTaskIds.size}</span>
+            <button onClick={() => bulkDeleteTasks(Array.from(selectedTaskIds))}
+              className="flex items-center gap-1 px-3 py-1 text-xs text-red-600 hover:bg-red-50 rounded-lg border border-red-200">
+              <Trash2 className="w-3 h-3" /> Удалить
+            </button>
+            <select onChange={e => { if (e.target.value) { bulkUpdateTasks(Array.from(selectedTaskIds), { priority: parseInt(e.target.value) }); e.target.value = ''; } }}
+              defaultValue="" className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white">
+              <option value="" disabled>Приоритет...</option>
+              {PRIORITY_CONFIG.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+            </select>
+            <select onChange={e => { if (e.target.value) { bulkUpdateTasks(Array.from(selectedTaskIds), { status: e.target.value }); e.target.value = ''; } }}
+              defaultValue="" className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white">
+              <option value="" disabled>Статус...</option>
+              {COLUMNS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+            </select>
+            <select onChange={e => { if (e.target.value !== '__none__') { bulkUpdateTasks(Array.from(selectedTaskIds), { projectId: e.target.value || null } as any); e.target.value = '__none__'; } }}
+              defaultValue="__none__" className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white">
+              <option value="__none__" disabled>Проект...</option>
+              <option value="">Без проекта</option>
+              {projects.filter(p => !p.archived).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <button onClick={() => setSelectedTaskIds(new Set())}
+              className="ml-auto text-xs text-slate-500 hover:text-slate-700">Снять выделение</button>
+          </div>
+        )}
+
+        {/* Context menu */}
+        {contextMenu && (
+          <div className="fixed z-[100] bg-white rounded-lg shadow-xl border border-slate-200 py-1 min-w-[200px]"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onClick={e => e.stopPropagation()}>
+            <div className="px-3 py-1.5 text-xs text-slate-400 border-b border-slate-100">
+              {contextMenu.taskIds.length > 1 ? `${contextMenu.taskIds.length} задач` : 'Действия'}
+            </div>
+            <button onClick={() => bulkDeleteTasks(contextMenu.taskIds)}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+              <Trash2 className="w-3.5 h-3.5" /> Удалить
+            </button>
+            <div className="border-t border-slate-100 my-1" />
+            <div className="px-3 py-1 text-xs text-slate-400">Приоритет</div>
+            {PRIORITY_CONFIG.map(p => (
+              <button key={p.value} onClick={() => bulkUpdateTasks(contextMenu.taskIds, { priority: p.value })}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">
+                <Flag className={`w-3.5 h-3.5 ${p.value > 0 ? p.color : 'text-slate-300'}`} fill={p.value > 0 ? 'currentColor' : 'none'} />
+                {p.label}
+              </button>
+            ))}
+            <div className="border-t border-slate-100 my-1" />
+            <div className="px-3 py-1 text-xs text-slate-400">Статус</div>
+            {COLUMNS.map(c => (
+              <button key={c.id} onClick={() => bulkUpdateTasks(contextMenu.taskIds, { status: c.id })}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">
+                {c.label}
+              </button>
+            ))}
+            <div className="border-t border-slate-100 my-1" />
+            <div className="px-3 py-1 text-xs text-slate-400">Проект</div>
+            <button onClick={() => bulkUpdateTasks(contextMenu.taskIds, { projectId: null } as any)}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">
+              Без проекта
+            </button>
+            {projects.filter(p => !p.archived).map(p => (
+              <button key={p.id} onClick={() => bulkUpdateTasks(contextMenu.taskIds, { projectId: p.id })}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.color }} />
+                {p.name}
+              </button>
+            ))}
+            {contextMenu.taskIds.length === 1 && (
+              <>
+                <div className="border-t border-slate-100 my-1" />
+                <button onClick={() => { setContextMenu(null); setSelectedTaskId(contextMenu.taskIds[0]); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                  <AlignLeft className="w-3.5 h-3.5" /> Подробнее
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Content area with optional right panel */}
         <div className="flex-1 flex overflow-hidden">
           {/* Task list / kanban */}
@@ -499,7 +664,9 @@ export default function Tasks() {
                 getDueDateLabel={getDueDateLabel}
                 navigate={navigate}
                 selectedTaskId={selectedTaskId}
-                onSelectTask={(id: string) => setSelectedTaskId(selectedTaskId === id ? null : id)}
+                selectedTaskIds={selectedTaskIds}
+                onSelectTask={handleTaskClick}
+                onContextMenu={handleContextMenu}
                 createTask={createSubtask}
                 sortMode={sortMode}
               />
@@ -611,6 +778,7 @@ function TaskDetailPanel({ task, subtasks, projects, columns, updateTask, delete
   const [description, setDescription] = useState(task.description || '');
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [subtaskTitle, setSubtaskTitle] = useState('');
+  const [bulkSubtaskLines, setBulkSubtaskLines] = useState<string[] | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
 
   const lastCol = columns.length > 0 ? columns[columns.length - 1].id : 'done';
@@ -639,7 +807,25 @@ function TaskDetailPanel({ task, subtasks, projects, columns, updateTask, delete
     if (!subtaskTitle.trim()) return;
     await createSubtask({ title: subtaskTitle.trim(), parentId: task.id, status: 'inbox' });
     setSubtaskTitle('');
-    setAddingSubtask(false);
+  };
+
+  const handleSubtaskPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData('text');
+    const lines = text.split('\n').filter(l => l.trim().length > 0);
+    if (lines.length >= 2) {
+      e.preventDefault();
+      setBulkSubtaskLines(lines);
+    }
+  };
+
+  const createBulkSubtasks = async (lines: string[]) => {
+    for (const line of lines) {
+      const t = line.replace(/^[\s\-\d.•*·]+/, '').trim();
+      if (!t) continue;
+      await createSubtask({ title: t, parentId: task.id, status: 'inbox' });
+    }
+    setBulkSubtaskLines(null);
+    setSubtaskTitle('');
   };
 
   return (
@@ -807,11 +993,34 @@ function TaskDetailPanel({ task, subtasks, projects, columns, updateTask, delete
                   autoFocus
                   value={subtaskTitle}
                   onChange={e => setSubtaskTitle(e.target.value)}
+                  onPaste={handleSubtaskPaste}
                   onKeyDown={e => { if (e.key === 'Enter') handleAddSubtask(); if (e.key === 'Escape') setAddingSubtask(false); }}
-                  onBlur={() => { if (subtaskTitle.trim()) handleAddSubtask(); else setAddingSubtask(false); }}
                   placeholder="Новая подзадача..."
                   className="flex-1 text-sm border-none outline-none bg-transparent"
                 />
+              </div>
+            )}
+
+            {bulkSubtaskLines && (
+              <div className="mt-2 border border-blue-200 rounded-lg p-3 bg-blue-50">
+                <p className="text-xs font-medium text-blue-700 mb-2">Добавить {bulkSubtaskLines.filter(l => l.replace(/^[\s\-\d.•*·]+/, '').trim()).length} подзадач:</p>
+                <div className="space-y-1 mb-3 max-h-32 overflow-y-auto">
+                  {bulkSubtaskLines.map((line, i) => {
+                    const cleaned = line.replace(/^[\s\-\d.•*·]+/, '').trim();
+                    return cleaned ? (
+                      <div key={i} className="flex items-center gap-1.5 text-xs text-slate-600">
+                        <div className="w-3 h-3 rounded-full border border-slate-300 flex-shrink-0" />
+                        {cleaned}
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => createBulkSubtasks(bulkSubtaskLines)}
+                    className="px-3 py-1 text-xs bg-blue-500 text-white rounded-md hover:bg-blue-600 font-medium">Добавить все</button>
+                  <button onClick={() => setBulkSubtaskLines(null)}
+                    className="px-3 py-1 text-xs text-slate-500 hover:bg-slate-100 rounded-md">Отмена</button>
+                </div>
               </div>
             )}
           </div>
@@ -835,7 +1044,7 @@ function TaskDetailPanel({ task, subtasks, projects, columns, updateTask, delete
   );
 }
 
-function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExpandedTasks, updateTask, deleteTask, toggleComplete, getDueDateLabel, navigate, selectedTaskId, onSelectTask, createTask, sortMode }: any) {
+function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExpandedTasks, updateTask, deleteTask, toggleComplete, getDueDateLabel, navigate, selectedTaskId, selectedTaskIds, onSelectTask, onContextMenu, createTask, sortMode }: any) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [addingSubtask, setAddingSubtask] = useState<string | null>(null);
@@ -923,19 +1132,28 @@ function ListView({ tasks, subtasksMap, projects, columns, expandedTasks, setExp
     const project = projects.find((p: any) => p.id === task.projectId);
     const completedSubs = subs.filter((s: any) => s.status === lastCol).length;
     const isSelected = selectedTaskId === task.id;
+    const isMultiSelected = selectedTaskIds?.has(task.id);
 
     return (
       <div key={task.id}>
         <div
-          onClick={() => onSelectTask(task.id)}
+          onClick={(e) => onSelectTask(task.id, e)}
+          onContextMenu={!isSubtask ? (e: React.MouseEvent) => onContextMenu(e, task.id) : undefined}
           draggable={!isSubtask && sortMode === 'manual'}
           onDragStart={!isSubtask ? (e) => handleListDragStart(e, task.id) : undefined}
           onDragOver={!isSubtask ? (e) => handleListDragOver(e, task.id) : undefined}
           onDrop={!isSubtask ? (e) => handleListDrop(e, task.id) : undefined}
           onDragEnd={!isSubtask ? handleListDragEnd : undefined}
-          className={`group flex items-center gap-2 px-6 py-2.5 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer ${isSubtask ? 'pl-14' : ''} ${isDone ? 'opacity-60' : ''} ${isSelected ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''} ${dragId === task.id ? 'opacity-40' : ''} ${dragOverId === task.id && dragId !== task.id ? 'border-t-2 border-t-blue-400' : ''}`}
+          className={`group flex items-center gap-2 px-6 py-2.5 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer ${isSubtask ? 'pl-14' : ''} ${isDone ? 'opacity-60' : ''} ${isSelected ? 'bg-blue-50 border-l-2 border-l-blue-500' : ''} ${isMultiSelected ? 'bg-blue-50/70' : ''} ${dragId === task.id ? 'opacity-40' : ''} ${dragOverId === task.id && dragId !== task.id ? 'border-t-2 border-t-blue-400' : ''}`}
         >
-          {!isSubtask && sortMode === 'manual' && (
+          {!isSubtask && isMultiSelected && (
+            <CheckSquare className="w-4 h-4 text-blue-500 flex-shrink-0" />
+          )}
+          {!isSubtask && !isMultiSelected && selectedTaskIds?.size > 0 && (
+            <Square className="w-4 h-4 text-slate-300 flex-shrink-0" />
+          )}
+
+          {!isSubtask && sortMode === 'manual' && !(selectedTaskIds?.size > 0) && (
             <GripVertical className="w-3.5 h-3.5 text-slate-300 opacity-0 group-hover:opacity-100 cursor-grab flex-shrink-0" />
           )}
 
