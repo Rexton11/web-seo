@@ -1480,6 +1480,8 @@ async function startServer() {
     ]);
 
     const [queryData, pageData] = await Promise.all([queryRes.json() as any, pageRes.json() as any]);
+    console.log('GSC API queryRes status:', queryRes.status, 'rows:', queryData.rows?.length || 0, queryData.error ? `error: ${JSON.stringify(queryData.error)}` : '');
+    console.log('GSC API pageRes status:', pageRes.status, 'rows:', pageData.rows?.length || 0, pageData.error ? `error: ${JSON.stringify(pageData.error)}` : '');
 
     const queries = (queryData.rows || []).map((r: any) => ({
       query: r.keys?.[0] || '', clicks: r.clicks || 0, impressions: r.impressions || 0,
@@ -1699,15 +1701,19 @@ async function startServer() {
       if (existingData.tasks) data.tasks = existingData.tasks;
 
       const wmConn = await getYandexConnection(req.user.uid, 'yandex_webmaster', report.projectId || undefined);
+      console.log('WM conn:', wmConn ? { id: wmConn.id, hostId: wmConn.hostId, hasToken: !!wmConn.accessToken } : null);
       if (wmConn && wmConn.hostId && wmConn.accessToken) {
         try {
           const [current, prev] = await Promise.all([
             fetchWebmasterData(wmConn.accessToken, wmConn.hostId, from, to),
             fetchWebmasterData(wmConn.accessToken, wmConn.hostId, prevFrom, prevTo),
           ]);
+          console.log('WM data:', { clicks: current.totalClicks, impressions: current.totalImpressions, indexed: current.indexing?.indexed, excluded: current.indexing?.excluded });
           data.webmaster = current;
           data.prevWebmaster = prev;
         } catch (e) { console.error('Webmaster data error:', e); }
+      } else {
+        console.log('WM skipped: conn=', !!wmConn, 'hostId=', wmConn?.hostId, 'token=', !!wmConn?.accessToken);
       }
 
       const mcConn = await getYandexConnection(req.user.uid, 'yandex_metrica', report.projectId || undefined);
@@ -1723,7 +1729,9 @@ async function startServer() {
       }
 
       const gscConn = await getYandexConnection(req.user.uid, 'google_search_console', report.projectId || undefined);
+      console.log('GSC conn:', gscConn ? { id: gscConn.id, siteUrl: gscConn.siteUrl, hasToken: !!gscConn.accessToken, hasRefresh: !!gscConn.refreshToken, expires: gscConn.tokenExpiresAt } : null);
       const gscToken = gscConn ? await getGSCAccessToken(gscConn) : null;
+      console.log('GSC token obtained:', !!gscToken);
       let gscSiteUrl = gscConn?.siteUrl;
       if (gscConn && gscToken && !gscSiteUrl) {
         try {
@@ -1731,19 +1739,24 @@ async function startServer() {
             headers: { Authorization: `Bearer ${gscToken}` },
           });
           const sitesData = await sitesRes.json() as any;
+          console.log('GSC sites response:', JSON.stringify(sitesData).slice(0, 500));
           const sites = sitesData.siteEntry || [];
           if (sites.length > 0) gscSiteUrl = sites[0].siteUrl;
         } catch (e) { console.error('GSC sites fetch error:', e); }
       }
+      console.log('GSC siteUrl:', gscSiteUrl);
       if (gscConn && gscSiteUrl && gscToken) {
         try {
           const [current, prev] = await Promise.all([
             fetchGSCData(gscToken, gscSiteUrl, from, to),
             fetchGSCData(gscToken, gscSiteUrl, prevFrom, prevTo),
           ]);
+          console.log('GSC data fetched:', { clicks: current.totalClicks, impressions: current.totalImpressions, queries: current.queries?.length });
           data.gsc = current;
           data.prevGsc = prev;
         } catch (e) { console.error('GSC data error:', e); }
+      } else {
+        console.log('GSC skipped: conn=', !!gscConn, 'siteUrl=', !!gscSiteUrl, 'token=', !!gscToken);
       }
 
       if (report.projectId && !data.tasks) {
