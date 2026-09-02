@@ -2,9 +2,11 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Briefcase, LayoutDashboard, Users, BookOpen, Settings, LogOut, CheckSquare } from 'lucide-react';
 import { useAuth } from '../AuthContext';
+import { useSettings } from '../SettingsContext';
 
 export default function Sidebar() {
   const { logOut, user } = useAuth();
+  const { settings } = useSettings();
 
   const navItems = [
     { name: 'Воронка продаж', to: '/', icon: LayoutDashboard },
@@ -14,14 +16,20 @@ export default function Sidebar() {
     { name: 'Настройки', to: '/settings', icon: Settings },
   ];
 
+  const crmTitle = settings?.crmTitle || 'B2B CRM';
+
   return (
     <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col h-full">
       <div className="p-6 flex items-center gap-3 border-b border-slate-800">
-        <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white shadow-sm">
-          <Briefcase className="w-5 h-5" />
-        </div>
+        {settings?.crmFavicon ? (
+          <img src={settings.crmFavicon} alt="" className="w-8 h-8 rounded-lg object-contain" />
+        ) : (
+          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white shadow-sm">
+            <Briefcase className="w-5 h-5" />
+          </div>
+        )}
         <div>
-          <h1 className="text-white font-bold text-lg tracking-tight leading-none">B2B CRM</h1>
+          <h1 className="text-white font-bold text-lg tracking-tight leading-none">{crmTitle}</h1>
           <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-1">AI Sales Tool</p>
         </div>
       </div>

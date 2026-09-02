@@ -325,7 +325,8 @@ async function startServer() {
       const allowedKeys = [
         'agencyName', 'inn', 'kpp', 'ogrn', 'directorName', 'address',
         'bankAccount', 'bankName', 'bik', 'contractTemplate', 'actTemplate',
-        'kanbanColumns', 'taskColumns', 'geminiProxy', 'stageScripts', 'services'
+        'kanbanColumns', 'taskColumns', 'geminiProxy', 'stageScripts', 'services',
+        'crmTitle', 'crmFavicon', 'telegramBotToken', 'telegramChatId'
       ];
       for (const key of allowedKeys) {
         if (req.body[key] !== undefined) {
@@ -355,6 +356,10 @@ async function startServer() {
           geminiProxy: req.body.geminiProxy || null,
           stageScripts: req.body.stageScripts || null,
           services: req.body.services || null,
+          crmTitle: req.body.crmTitle || null,
+          crmFavicon: req.body.crmFavicon || null,
+          telegramBotToken: req.body.telegramBotToken || null,
+          telegramChatId: req.body.telegramChatId || null,
         });
       }
       res.json({ success: true });
@@ -399,7 +404,7 @@ async function startServer() {
   apiRouter.put('/projects/:id', requireAuth, requireDb, async (req: any, res: any) => {
     try {
       const safeFields: any = {};
-      const allowedKeys = ['name', 'description', 'color', 'icon', 'archived', 'order'];
+      const allowedKeys = ['name', 'description', 'color', 'icon', 'accessNotes', 'archived', 'order'];
       for (const key of allowedKeys) {
         if (req.body[key] !== undefined) safeFields[key] = req.body[key];
       }
@@ -685,9 +690,11 @@ async function startServer() {
     try {
       const { dealId, clientId, articleId } = req.query;
       let conditions = [eq(schema.attachments.userId, req.user.uid)];
+      const { taskId } = req.query;
       if (dealId) conditions.push(eq(schema.attachments.dealId, dealId as string));
       if (clientId) conditions.push(eq(schema.attachments.clientId, clientId as string));
       if (articleId) conditions.push(eq(schema.attachments.articleId, articleId as string));
+      if (taskId) conditions.push(eq(schema.attachments.taskId, taskId as string));
       const result = await db!.select().from(schema.attachments)
         .where(and(...conditions))
         .orderBy(desc(schema.attachments.createdAt));
@@ -708,6 +715,7 @@ async function startServer() {
         dealId: req.body.dealId || null,
         clientId: req.body.clientId || null,
         articleId: req.body.articleId || null,
+        taskId: req.body.taskId || null,
         filename: req.file.filename,
         originalName: req.file.originalname,
         mimeType: req.file.mimetype || null,
@@ -1085,6 +1093,45 @@ async function startServer() {
     } catch (error: any) {
       console.error('Error generating CP:', error);
       res.status(500).json({ error: 'Failed to generate Commercial Proposal', details: error.message });
+    }
+  });
+
+  // Telegram notification endpoint
+  apiRouter.post('/telegram/test', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const { botToken, chatId } = req.body;
+      if (!botToken || !chatId) return res.status(400).json({ error: 'botToken and chatId required' });
+      const tgRes = await globalThis.fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: 'CRM подключена! Уведомления будут приходить сюда.', parse_mode: 'HTML' }),
+      });
+      const data = await tgRes.json();
+      if (!data.ok) return res.status(400).json({ error: data.description || 'Telegram error' });
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  apiRouter.post('/telegram/notify', requireAuth, requireDb, async (req: any, res: any) => {
+    try {
+      const settingsResult = await db!.select().from(schema.settings).where(eq(schema.settings.userId, req.user.uid));
+      if (settingsResult.length === 0) return res.status(400).json({ error: 'No settings' });
+      const s = settingsResult[0] as any;
+      if (!s.telegramBotToken || !s.telegramChatId) return res.status(400).json({ error: 'Telegram not configured' });
+      const { text } = req.body;
+      if (!text) return res.status(400).json({ error: 'text required' });
+      const tgRes = await globalThis.fetch(`https://api.telegram.org/bot${s.telegramBotToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: s.telegramChatId, text, parse_mode: 'HTML' }),
+      });
+      const data = await tgRes.json();
+      if (!data.ok) return res.status(400).json({ error: data.description || 'Telegram error' });
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
     }
   });
 

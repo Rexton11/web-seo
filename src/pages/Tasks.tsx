@@ -7,7 +7,7 @@ import {
   Plus, Search, Inbox, ListTodo, FolderOpen, LayoutGrid, List, ChevronRight, ChevronDown,
   Flag, Calendar, Trash2, Check, X, MoreHorizontal, GripVertical, Clock,
   AlertCircle, Folder, FolderPlus, Archive, FileText, Copy, ExternalLink, AlignLeft,
-  Sun, Sunrise, CalendarDays, ArrowUpDown, CheckSquare, Square
+  Sun, Sunrise, CalendarDays, ArrowUpDown, CheckSquare, Square, Paperclip, Download, Upload, KeyRound, Send
 } from 'lucide-react';
 
 interface ContextMenuState {
@@ -83,6 +83,20 @@ export default function Tasks() {
   };
 
   useEffect(() => { fetchAll(); }, [user]);
+
+  useEffect(() => {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (tasks.length === 0) return;
+    const lastCol = COLUMNS.length > 0 ? COLUMNS[COLUMNS.length - 1].id : 'done';
+    const dueTodayTasks = tasks.filter(t => !t.parentId && t.dueDate && t.status !== lastCol && isToday(parseISO(t.dueDate)));
+    const overdueTasks = tasks.filter(t => !t.parentId && t.dueDate && t.status !== lastCol && isPast(parseISO(t.dueDate)) && !isToday(parseISO(t.dueDate)));
+    if (dueTodayTasks.length > 0) {
+      new Notification('Задачи на сегодня', { body: `У вас ${dueTodayTasks.length} задач на сегодня`, icon: '/favicon.ico' });
+    }
+    if (overdueTasks.length > 0) {
+      new Notification('Просроченные задачи', { body: `У вас ${overdueTasks.length} просроченных задач`, icon: '/favicon.ico' });
+    }
+  }, [tasks.length > 0]);
 
   const fetchTemplates = async () => {
     const token = await getToken();
@@ -474,6 +488,40 @@ export default function Tasks() {
             </div>
           </div>
 
+          {/* Project access notes */}
+          {(() => {
+            const selectedProject = projects.find((p: Project) => p.id === filter);
+            if (!selectedProject) return null;
+            return (
+              <div className="mt-4 px-4 pb-2">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <KeyRound className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Доступы</span>
+                </div>
+                <textarea
+                  value={selectedProject.accessNotes || ''}
+                  onChange={async (e) => {
+                    const val = e.target.value;
+                    setProjects(prev => prev.map(p => p.id === selectedProject.id ? { ...p, accessNotes: val } : p));
+                  }}
+                  onBlur={async (e) => {
+                    try {
+                      const idToken = await user!.getIdToken();
+                      await fetch(`/api/projects/${selectedProject.id}`, {
+                        method: 'PUT',
+                        headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ accessNotes: e.target.value }),
+                      });
+                    } catch {}
+                  }}
+                  rows={4}
+                  placeholder="SSH, FTP, хостинг, CMS, аналитика..."
+                  className="w-full text-xs text-slate-600 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-400 resize-y bg-slate-50"
+                />
+              </div>
+            );
+          })()}
+
           <div className="mt-4 px-4">
             <button onClick={() => { fetchTemplates(); setShowTemplateModal(true); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
@@ -701,6 +749,7 @@ export default function Tasks() {
               navigate={navigate}
               onClose={() => setSelectedTaskId(null)}
               createSubtask={createSubtask}
+              user={user}
             />
           )}
         </div>
@@ -773,12 +822,15 @@ export default function Tasks() {
   );
 }
 
-function TaskDetailPanel({ task, subtasks, projects, columns, updateTask, deleteTask, toggleComplete, getDueDateLabel, navigate, onClose, createSubtask }: any) {
+function TaskDetailPanel({ task, subtasks, projects, columns, updateTask, deleteTask, toggleComplete, getDueDateLabel, navigate, onClose, createSubtask, user }: any) {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [subtaskTitle, setSubtaskTitle] = useState('');
   const [bulkSubtaskLines, setBulkSubtaskLines] = useState<string[] | null>(null);
+  const [attachments, setAttachments] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
 
   const lastCol = columns.length > 0 ? columns[columns.length - 1].id : 'done';
@@ -790,6 +842,57 @@ function TaskDetailPanel({ task, subtasks, projects, columns, updateTask, delete
     setTitle(task.title);
     setDescription(task.description || '');
   }, [task.id, task.title, task.description]);
+
+  useEffect(() => {
+    const loadAttachments = async () => {
+      if (!user) return;
+      try {
+        const idToken = await user.getIdToken();
+        const res = await fetch(`/api/attachments?taskId=${task.id}`, { headers: { 'Authorization': `Bearer ${idToken}` } });
+        if (res.ok) setAttachments(await res.json());
+      } catch {}
+    };
+    loadAttachments();
+  }, [task.id, user]);
+
+  const uploadFile = async (file: File) => {
+    if (!user) return;
+    setUploading(true);
+    try {
+      const idToken = await user.getIdToken();
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('taskId', task.id);
+      const res = await fetch('/api/attachments', { method: 'POST', headers: { 'Authorization': `Bearer ${idToken}` }, body: fd });
+      if (res.ok) {
+        const att = await res.json();
+        setAttachments(prev => [att, ...prev]);
+      }
+    } catch {}
+    setUploading(false);
+  };
+
+  const deleteAttachment = async (attId: string) => {
+    if (!user) return;
+    try {
+      const idToken = await user.getIdToken();
+      await fetch(`/api/attachments/${attId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${idToken}` } });
+      setAttachments(prev => prev.filter(a => a.id !== attId));
+    } catch {}
+  };
+
+  const downloadAttachment = async (att: any) => {
+    if (!user) return;
+    const idToken = await user.getIdToken();
+    const res = await fetch(`/api/attachments/${att.id}/download`, { headers: { 'Authorization': `Bearer ${idToken}` } });
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = att.originalName;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const saveTitle = () => {
     if (title.trim() && title.trim() !== task.title) {
@@ -847,6 +950,29 @@ function TaskDetailPanel({ task, subtasks, projects, columns, updateTask, delete
               <ExternalLink className="w-4 h-4" />
             </button>
           )}
+          <button
+            onClick={async () => {
+              if (!user) return;
+              try {
+                const idToken = await user.getIdToken();
+                const dueText = task.dueDate ? ` (срок: ${task.dueDate})` : '';
+                const prioText = task.priority > 0 ? ` [${PRIORITY_CONFIG[task.priority]?.label}]` : '';
+                const text = `📋 <b>${task.title}</b>${prioText}${dueText}${task.description ? '\n' + task.description : ''}`;
+                const res = await fetch('/api/telegram/notify', {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ text }),
+                });
+                const data = await res.json();
+                if (data.success) alert('Отправлено в Telegram!');
+                else alert('Ошибка: ' + (data.error || 'Telegram не настроен'));
+              } catch { alert('Ошибка соединения'); }
+            }}
+            className="p-1.5 text-slate-400 hover:text-sky-500 hover:bg-sky-50 rounded-md transition-colors"
+            title="Отправить в Telegram"
+          >
+            <Send className="w-4 h-4" />
+          </button>
           <button onClick={() => deleteTask(task.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors">
             <Trash2 className="w-4 h-4" />
           </button>
@@ -1038,6 +1164,46 @@ function TaskDetailPanel({ task, subtasks, projects, columns, updateTask, delete
               </span>
             </div>
           )}
+        </div>
+
+        {/* Divider */}
+        <div className="mx-5 border-t border-slate-100" />
+
+        {/* Attachments */}
+        <div className="px-5 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-semibold text-slate-700 flex items-center gap-1.5">
+              <Paperclip className="w-3.5 h-3.5" /> Файлы
+              {attachments.length > 0 && <span className="text-xs text-slate-400">({attachments.length})</span>}
+            </span>
+            <button onClick={() => fileInputRef.current?.click()}
+              className="text-xs text-blue-500 hover:text-blue-600 flex items-center gap-1 font-medium">
+              <Upload className="w-3.5 h-3.5" /> Загрузить
+            </button>
+          </div>
+          <input ref={fileInputRef} type="file" className="hidden" onChange={e => { if (e.target.files?.[0]) uploadFile(e.target.files[0]); e.target.value = ''; }} />
+
+          {uploading && <p className="text-xs text-blue-500 py-1">Загрузка...</p>}
+
+          {attachments.length === 0 && !uploading && (
+            <p className="text-xs text-slate-400 py-2">Нет файлов</p>
+          )}
+
+          <div className="space-y-1">
+            {attachments.map((att: any) => (
+              <div key={att.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-slate-50 group">
+                <FileText className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                <span className="flex-1 text-xs text-slate-700 truncate">{att.originalName}</span>
+                <span className="text-[10px] text-slate-400">{(att.size / 1024).toFixed(0)} KB</span>
+                <button onClick={() => downloadAttachment(att)} className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-blue-500" title="Скачать">
+                  <Download className="w-3 h-3" />
+                </button>
+                <button onClick={() => deleteAttachment(att.id)} className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-300 hover:text-red-500" title="Удалить">
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

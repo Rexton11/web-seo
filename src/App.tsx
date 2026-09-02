@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
@@ -12,8 +12,27 @@ import ArticleEditor from './pages/ArticleEditor';
 import PublicArticle from './pages/PublicArticle';
 import Tasks from './pages/Tasks';
 import TaskTemplates from './pages/TaskTemplates';
+import { useSettings } from './SettingsContext';
 
 function AppLayout() {
+  const { settings } = useSettings();
+
+  useEffect(() => {
+    document.title = settings?.crmTitle || 'B2B CRM';
+  }, [settings?.crmTitle]);
+
+  useEffect(() => {
+    if (settings?.crmFavicon) {
+      let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
+      }
+      link.href = settings.crmFavicon;
+    }
+  }, [settings?.crmFavicon]);
+
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
       <Sidebar />

@@ -24,6 +24,10 @@ export const settings = mysqlTable('settings', {
   geminiProxy: varchar('gemini_proxy', { length: 255 }),
   stageScripts: json('stage_scripts'),
   services: json('services'),
+  crmTitle: varchar('crm_title', { length: 255 }),
+  crmFavicon: varchar('crm_favicon', { length: 500 }),
+  telegramBotToken: varchar('telegram_bot_token', { length: 255 }),
+  telegramChatId: varchar('telegram_chat_id', { length: 100 }),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow(),
 });
 
@@ -74,6 +78,7 @@ export const attachments = mysqlTable('attachments', {
   dealId: varchar('deal_id', { length: 255 }),
   clientId: varchar('client_id', { length: 255 }),
   articleId: varchar('article_id', { length: 255 }),
+  taskId: varchar('task_id', { length: 255 }),
   filename: varchar('filename', { length: 255 }).notNull(),
   originalName: varchar('original_name', { length: 500 }).notNull(),
   mimeType: varchar('mime_type', { length: 100 }),
@@ -114,6 +119,7 @@ export const projects = mysqlTable('projects', {
   description: text('description'),
   color: varchar('color', { length: 50 }).default('#3b82f6'),
   icon: varchar('icon', { length: 50 }).default('Folder'),
+  accessNotes: text('access_notes'),
   archived: boolean('archived').default(false),
   order: int('order').default(0),
   createdAt: timestamp('created_at').defaultNow(),

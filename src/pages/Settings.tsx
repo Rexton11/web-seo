@@ -1,19 +1,23 @@
 import React, { useState } from 'react';
 import { useSettings } from '../SettingsContext';
 import { useAuth } from '../AuthContext';
-import { Save, Building2, LayoutTemplate, Columns, Webhook, BookOpen, Briefcase, Trash2, Plus, CheckSquare } from 'lucide-react';
+import { Save, Building2, LayoutTemplate, Columns, Webhook, BookOpen, Briefcase, Trash2, Plus, CheckSquare, Palette, Send, Bell } from 'lucide-react';
 import clsx from 'clsx';
 import { KanbanColumn, StageScript, ServiceType, TaskColumn } from '../types';
 
 export default function Settings() {
   const { settings, updateSettings, loading } = useSettings();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'agency' | 'services' | 'templates' | 'kanban' | 'tasks' | 'scripts' | 'integrations'>('agency');
+  const [activeTab, setActiveTab] = useState<'agency' | 'services' | 'templates' | 'kanban' | 'tasks' | 'scripts' | 'integrations' | 'branding' | 'notifications'>('agency');
   const [saving, setSaving] = useState(false);
 
   const [agencyForm, setAgencyForm] = useState({
     agencyName: '', inn: '', kpp: '', ogrn: '', directorName: '', address: '', bankAccount: '', bankName: '', bik: '', geminiProxy: ''
   });
+  const [brandingForm, setBrandingForm] = useState({ crmTitle: '', crmFavicon: '' });
+  const [telegramForm, setTelegramForm] = useState({ telegramBotToken: '', telegramChatId: '' });
+  const [testingTelegram, setTestingTelegram] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [templatesForm, setTemplatesForm] = useState({
     contractTemplate: '', actTemplate: ''
   });
@@ -42,6 +46,9 @@ export default function Settings() {
       });
       setKanbanForm(settings.kanbanColumns || []);
       setScriptsForm(settings.stageScripts || []);
+      setBrandingForm({ crmTitle: settings.crmTitle || '', crmFavicon: settings.crmFavicon || '' });
+      setTelegramForm({ telegramBotToken: settings.telegramBotToken || '', telegramChatId: settings.telegramChatId || '' });
+      setNotificationsEnabled('Notification' in window && Notification.permission === 'granted');
       setServicesForm(settings.services || []);
       setTaskColumnsForm(settings.taskColumns || [
         { id: 'inbox', label: 'Входящие', color: 'bg-slate-50 border-slate-200 text-slate-700', order: 0 },
@@ -71,6 +78,8 @@ export default function Settings() {
     { id: 'tasks', label: 'Колонки задач', icon: CheckSquare },
     { id: 'scripts', label: 'Скрипты продаж', icon: BookOpen },
     { id: 'integrations', label: 'Интеграции', icon: Webhook },
+    { id: 'branding', label: 'Брендинг', icon: Palette },
+    { id: 'notifications', label: 'Уведомления', icon: Bell },
   ] as const;
 
   return (
@@ -551,6 +560,133 @@ export default function Settings() {
                    <li>Сообщение и все остальные данные формы сохраняются в поле «Текущая ситуация»</li>
                    <li>В ленте активности создается запись «Заявка получена с сайта»</li>
                  </ul>
+               </div>
+            </div>
+          )}
+
+          {activeTab === 'branding' && (
+            <div>
+               <h2 className="text-lg font-bold text-slate-800 mb-2">Брендинг CRM</h2>
+               <p className="text-sm text-slate-500 mb-6">Настройте внешний вид вашей CRM: название, иконку и заголовок вкладки браузера.</p>
+               <div className="space-y-4">
+                 <div>
+                   <label className="block text-sm font-medium text-slate-700 mb-1">Название CRM (отображается в сайдбаре и вкладке)</label>
+                   <input type="text" value={brandingForm.crmTitle} onChange={e => setBrandingForm({...brandingForm, crmTitle: e.target.value})}
+                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none" placeholder="B2B CRM" />
+                 </div>
+                 <div>
+                   <label className="block text-sm font-medium text-slate-700 mb-1">URL иконки (favicon / логотип в сайдбаре)</label>
+                   <p className="text-xs text-slate-500 mb-2">Укажите прямую ссылку на изображение (PNG, SVG, ICO). Рекомендуемый размер: 32x32 или 64x64 пикселей.</p>
+                   <input type="text" value={brandingForm.crmFavicon} onChange={e => setBrandingForm({...brandingForm, crmFavicon: e.target.value})}
+                     className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none" placeholder="https://example.com/favicon.png" />
+                   {brandingForm.crmFavicon && (
+                     <div className="mt-3 flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                       <img src={brandingForm.crmFavicon} alt="Preview" className="w-8 h-8 object-contain" onError={e => (e.currentTarget.style.display = 'none')} />
+                       <span className="text-sm text-slate-500">Предпросмотр иконки</span>
+                     </div>
+                   )}
+                 </div>
+               </div>
+               <div className="mt-8 flex justify-end">
+                 <button onClick={() => handleSave(brandingForm)} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors flex items-center gap-2">
+                   <Save className="w-4 h-4" />
+                   {saving ? 'Сохранение...' : 'Сохранить брендинг'}
+                 </button>
+               </div>
+            </div>
+          )}
+
+          {activeTab === 'notifications' && (
+            <div>
+               <h2 className="text-lg font-bold text-slate-800 mb-2">Уведомления</h2>
+               <p className="text-sm text-slate-500 mb-6">Настройте браузерные уведомления и интеграцию с Telegram для получения напоминаний о задачах.</p>
+
+               {/* Browser notifications */}
+               <div className="mb-8">
+                 <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2"><Bell className="w-4 h-4" /> Браузерные уведомления</h3>
+                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+                   {!('Notification' in window) ? (
+                     <p className="text-sm text-slate-500">Ваш браузер не поддерживает уведомления.</p>
+                   ) : notificationsEnabled ? (
+                     <div className="flex items-center gap-2">
+                       <div className="w-2 h-2 bg-green-500 rounded-full" />
+                       <span className="text-sm text-green-700 font-medium">Уведомления включены</span>
+                     </div>
+                   ) : (
+                     <div>
+                       <p className="text-sm text-slate-600 mb-3">Разрешите уведомления, чтобы получать напоминания о задачах прямо в браузере.</p>
+                       <button
+                         onClick={async () => {
+                           const perm = await Notification.requestPermission();
+                           setNotificationsEnabled(perm === 'granted');
+                           if (perm === 'granted') {
+                             new Notification('CRM Уведомления', { body: 'Уведомления успешно включены!' });
+                           }
+                         }}
+                         className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                       >Включить уведомления</button>
+                     </div>
+                   )}
+                 </div>
+               </div>
+
+               {/* Telegram */}
+               <div>
+                 <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2"><Send className="w-4 h-4" /> Telegram</h3>
+                 <div className="bg-blue-50 border border-blue-100 rounded-lg p-5 mb-4">
+                   <h4 className="font-medium text-blue-900 mb-2">Как настроить:</h4>
+                   <ol className="list-decimal list-inside text-sm text-blue-800 space-y-1.5">
+                     <li>Создайте бота в Telegram через <strong>@BotFather</strong> (команда /newbot)</li>
+                     <li>Скопируйте токен бота (формат: 123456789:ABCdefGhIJKlmNoPQRsTUVwxyz)</li>
+                     <li>Напишите вашему боту любое сообщение</li>
+                     <li>Перейдите по ссылке: <code className="bg-blue-100 px-1 rounded">https://api.telegram.org/botВАШ_ТОКЕН/getUpdates</code></li>
+                     <li>Найдите <code className="bg-blue-100 px-1 rounded">"chat":{"{"}"id":ЧИСЛО{"}"}</code> — это ваш Chat ID</li>
+                     <li>Вставьте токен и Chat ID ниже и нажмите «Тест»</li>
+                   </ol>
+                 </div>
+
+                 <div className="space-y-4">
+                   <div>
+                     <label className="block text-sm font-medium text-slate-700 mb-1">Токен бота</label>
+                     <input type="text" value={telegramForm.telegramBotToken} onChange={e => setTelegramForm({...telegramForm, telegramBotToken: e.target.value})}
+                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyz" />
+                   </div>
+                   <div>
+                     <label className="block text-sm font-medium text-slate-700 mb-1">Chat ID</label>
+                     <input type="text" value={telegramForm.telegramChatId} onChange={e => setTelegramForm({...telegramForm, telegramChatId: e.target.value})}
+                       className="w-full px-3 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm" placeholder="123456789" />
+                   </div>
+                 </div>
+
+                 <div className="mt-6 flex items-center gap-3">
+                   <button
+                     onClick={async () => {
+                       if (!telegramForm.telegramBotToken || !telegramForm.telegramChatId) { alert('Заполните токен и Chat ID'); return; }
+                       setTestingTelegram(true);
+                       try {
+                         const idToken = await user!.getIdToken();
+                         const res = await fetch('/api/telegram/test', {
+                           method: 'POST',
+                           headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+                           body: JSON.stringify({ botToken: telegramForm.telegramBotToken, chatId: telegramForm.telegramChatId }),
+                         });
+                         const data = await res.json();
+                         if (data.success) alert('Тестовое сообщение отправлено в Telegram!');
+                         else alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+                       } catch { alert('Ошибка соединения'); }
+                       setTestingTelegram(false);
+                     }}
+                     disabled={testingTelegram}
+                     className="px-4 py-2 bg-sky-500 text-white rounded-md text-sm font-medium hover:bg-sky-600 transition-colors flex items-center gap-2"
+                   >
+                     <Send className="w-4 h-4" />
+                     {testingTelegram ? 'Отправка...' : 'Тест'}
+                   </button>
+                   <button onClick={() => handleSave(telegramForm)} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-md font-medium transition-colors flex items-center gap-2">
+                     <Save className="w-4 h-4" />
+                     {saving ? 'Сохранение...' : 'Сохранить'}
+                   </button>
+                 </div>
                </div>
             </div>
           )}

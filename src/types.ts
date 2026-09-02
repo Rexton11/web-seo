@@ -45,6 +45,7 @@ export interface Attachment {
   dealId?: string;
   clientId?: string;
   articleId?: string;
+  taskId?: string;
   filename: string;
   originalName: string;
   mimeType?: string;
@@ -85,6 +86,7 @@ export interface Project {
   description?: string;
   color: string;
   icon: string;
+  accessNotes?: string;
   archived: boolean;
   order: number;
   createdAt: string;
@@ -146,6 +148,10 @@ export interface AgencySettings {
   geminiProxy?: string;
   stageScripts?: StageScript[];
   services?: ServiceType[];
+  crmTitle?: string;
+  crmFavicon?: string;
+  telegramBotToken?: string;
+  telegramChatId?: string;
 }
 
 export interface Client {
